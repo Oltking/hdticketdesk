@@ -54,8 +54,9 @@ class ApiClient {
 
   async login(data: { email: string; password: string }) {
   return this.request<{ 
-    user?: any; 
-    accessToken?: string; 
+    user: any; 
+    accessToken: string; 
+    refreshToken: string;
     requiresOtp?: boolean; 
     userId?: string;
   }>('/auth/login', {
