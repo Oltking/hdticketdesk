@@ -46,10 +46,10 @@ class ApiClient {
 
   // ==================== AUTH ====================
   async register(data: { email: string; password: string; firstName: string; lastName: string; role?: string }) {
-    return this.request<{ user: any; accessToken: string }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  return this.request<{ user: any; accessToken: string; userId: string }>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
   }
 
   async login(data: { email: string; password: string }) {
@@ -63,7 +63,7 @@ class ApiClient {
     method: 'POST',
     body: JSON.stringify(data),
   });
-}
+  }
 
   async verifyEmail(token: string) {
     return this.request('/auth/verify-email', {
