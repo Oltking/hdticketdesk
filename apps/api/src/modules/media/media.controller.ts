@@ -2,40 +2,62 @@ import {
   Controller,
   Post,
   Delete,
-  Get,
   Param,
   UseGuards,
-  Request,
   UseInterceptors,
   UploadedFile,
-  Body,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { MediaService } from './media.service';
 
 @Controller('media')
 @UseGuards(JwtAuthGuard)
 export class MediaController {
-  constructor(private mediaService: MediaService) {}
+  constructor(private readonly mediaService: MediaService) {}
 
+  /**
+   * POST /media/upload
+   * Upload an image to Cloudinary
+   */
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
-    @Request() req,
     @UploadedFile() file: Express.Multer.File,
-    @Body('altText') altText?: string,
   ) {
-    return this.mediaService.uploadImage(file, req.user.id, altText);
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    
+    // Upload to Cloudinary with default folder
+    return this.mediaService.uploadImage(file);
   }
 
-  @Delete(':id')
-  async deleteImage(@Request() req, @Param('id') id: string) {
-    return this.mediaService.deleteImage(id, req.user.id);
+  /**
+   * POST /media/upload/:folder
+   * Upload an image to a specific folder
+   */
+  @Post('upload/:folder')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImageToFolder(
+    @UploadedFile() file: Express.Multer.File,
+    @Param('folder') folder: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    
+    return this.mediaService.uploadImage(file, folder);
   }
 
-  @Get()
-  async getMyMedia(@Request() req) {
-    return this.mediaService.getUserMedia(req.user.id);
+  /**
+   * DELETE /media/:publicId
+   * Delete an image from Cloudinary
+   */
+  @Delete(':publicId')
+  async deleteImage(@Param('publicId') publicId: string) {
+    await this.mediaService.deleteImage(publicId);
+    return { message: 'Image deleted successfully' };
   }
 }

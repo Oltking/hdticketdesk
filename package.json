@@ -1,0 +1,31 @@
+{
+  "name": "hdticketdesk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Africa-first ticketing & paid appointments platform",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:api": "cd apps/api && npm run start:dev",
+    "build:web": "cd apps/web && npm run build",
+    "build:api": "cd apps/api && npm run build",
+    "db:migrate": "cd apps/api && npx prisma migrate dev",
+    "db:seed": "cd apps/api && npm run prisma:seed",
+    "db:studio": "cd apps/api && npx prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "npm@10.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

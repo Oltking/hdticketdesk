@@ -1,7 +1,10 @@
-import { IsEnum } from 'class-validator';
-import { OtpType } from '@prisma/client';
+import { IsEmail, IsString, IsIn } from 'class-validator';
 
 export class ResendOtpDto {
-  @IsEnum(OtpType)
-  type: OtpType;
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @IsIn(['LOGIN', 'WITHDRAWAL', 'BANK_CHANGE'])
+  type: 'LOGIN' | 'WITHDRAWAL' | 'BANK_CHANGE';
 }

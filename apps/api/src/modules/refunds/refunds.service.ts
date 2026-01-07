@@ -5,35 +5,27 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { ConfigService } from '@nestjs/config';
+import { PaystackService } from '../payments/paystack.service';
 import { LedgerService } from '../ledger/ledger.service';
-import { TicketsService } from '../tickets/tickets.service';
-import { RefundStatus } from '@prisma/client';
+import { EmailService } from '../emails/email.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class RefundsService {
   constructor(
     private prisma: PrismaService,
+    private paystackService: PaystackService,
     private ledgerService: LedgerService,
-    private ticketsService: TicketsService,
-    private configService: ConfigService,
+    private emailService: EmailService,
   ) {}
 
-  // ============================================
-  // REQUEST REFUND
-  // ============================================
-
-  async requestRefund(userId: string, ticketId: string, reason: string) {
-    // Get ticket
+  async requestRefund(ticketId: string, userId: string, reason?: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
       include: {
+        event: { include: { organizer: true } },
         tier: true,
-        event: {
-          include: {
-            organizer: true,
-          },
-        },
+        refund: true,
       },
     });
 
@@ -41,213 +33,204 @@ export class RefundsService {
       throw new NotFoundException('Ticket not found');
     }
 
-    // Check ownership
     if (ticket.buyerId !== userId) {
-      throw new ForbiddenException('You do not own this ticket');
+      throw new ForbiddenException('You can only request refund for your own tickets');
     }
 
-    // Check if already refunded
-    if (ticket.status === 'REFUNDED') {
-      throw new BadRequestException('Ticket already refunded');
+    if (ticket.refund) {
+      throw new BadRequestException('Refund already requested for this ticket');
     }
 
-    // Check if tier allows refunds
+    if (ticket.status !== 'ACTIVE') {
+      throw new BadRequestException(`Cannot refund ticket with status: ${ticket.status}`);
+    }
+
     if (!ticket.tier.refundEnabled) {
-      throw new BadRequestException('Refunds not allowed for this ticket');
+      throw new BadRequestException('Refunds are not enabled for this ticket tier');
     }
 
-    // Check refund window (24 hours from purchase)
-    const refundWindowHours = Number(
-      this.configService.get('REFUND_WINDOW_HOURS', 24),
-    );
-    const purchaseTime = ticket.createdAt.getTime();
-    const now = Date.now();
-    const hoursSincePurchase = (now - purchaseTime) / (1000 * 60 * 60);
+    // Calculate refund amount (minus platform fee)
+    const ticketAmount = ticket.amountPaid instanceof Decimal 
+      ? ticket.amountPaid.toNumber() 
+      : Number(ticket.amountPaid);
+    const platformFee = ticketAmount * 0.05; // 5% platform fee
+    const refundAmount = ticketAmount - platformFee;
 
-    if (hoursSincePurchase > refundWindowHours) {
-      throw new BadRequestException(
-        `Refund window expired. Must request within ${refundWindowHours} hours of purchase.`,
-      );
-    }
-
-    // Check if already has pending refund request
-    const existingRequest = await this.prisma.refundRequest.findUnique({
-      where: { ticketId },
-    });
-
-    if (existingRequest) {
-      throw new BadRequestException('Refund request already exists');
-    }
-
-    // Calculate refund amount (ticket price - platform fee)
-    const refundAmount = Number(ticket.amountPaid) - Number(ticket.platformFee);
-
-    // Create refund request
-    const refundRequest = await this.prisma.refundRequest.create({
+    const refund = await this.prisma.refund.create({
       data: {
-        ticketId,
-        requesterId: userId,
+        status: 'PENDING',
         reason,
         refundAmount,
-        status: RefundStatus.PENDING,
+        ticketId,
+        requesterId: userId,
       },
+    });
+
+    return {
+      refundId: refund.id,
+      refundAmount,
+      message: 'Refund request submitted. Waiting for organizer approval.',
+    };
+  }
+
+  async approveRefund(refundId: string, organizerId: string) {
+    const refund = await this.prisma.refund.findUnique({
+      where: { id: refundId },
       include: {
         ticket: {
           include: {
-            event: true,
+            event: { include: { organizer: true } },
             tier: true,
           },
         },
       },
     });
 
-    return refundRequest;
-  }
-
-  // ============================================
-  // APPROVE REFUND (ORGANIZER)
-  // ============================================
-
-  async approveRefund(
-    refundId: string,
-    organizerUserId: string,
-    reviewNote?: string,
-  ) {
-    const refundRequest = await this.prisma.refundRequest.findUnique({
-      where: { id: refundId },
-      include: {
-        ticket: {
-          include: {
-            event: {
-              include: {
-                organizer: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!refundRequest) {
+    if (!refund) {
       throw new NotFoundException('Refund request not found');
     }
 
-    // Check ownership
-    if (refundRequest.ticket.event.organizer.userId !== organizerUserId) {
-      throw new ForbiddenException('You do not have permission to approve this refund');
+    if (refund.ticket.event.organizerId !== organizerId) {
+      throw new ForbiddenException('You can only approve refunds for your own events');
     }
 
-    // Check if already processed
-    if (refundRequest.status !== RefundStatus.PENDING) {
-      throw new BadRequestException('Refund request already processed');
+    if (refund.status !== 'PENDING') {
+      throw new BadRequestException(`Cannot approve refund with status: ${refund.status}`);
     }
 
-    // Check organizer has sufficient balance
-    const organizer = refundRequest.ticket.event.organizer;
-    if (Number(organizer.availableBalance) < refundRequest.refundAmount) {
-      throw new BadRequestException('Insufficient balance for refund');
-    }
-
-    // Process refund in transaction
-    await this.prisma.$transaction(async (tx) => {
-      // Update refund request
-      await tx.refundRequest.update({
-        where: { id: refundId },
-        data: {
-          status: RefundStatus.APPROVED,
-          reviewedBy: organizerUserId,
-          reviewedAt: new Date(),
-          reviewNote,
-          completedAt: new Date(),
-        },
-      });
-
-      // Cancel ticket
-      await this.ticketsService.cancel(refundRequest.ticketId);
-
-      // Update ledger
-      await this.ledgerService.recordRefund({
-        organizerId: organizer.id,
-        ticketId: refundRequest.ticketId,
-        refundId,
-        refundAmount: refundRequest.refundAmount,
-      });
-    });
-
-    // TODO: Initiate actual refund via Paystack
-
-    return { message: 'Refund approved and processed' };
-  }
-
-  // ============================================
-  // REJECT REFUND (ORGANIZER)
-  // ============================================
-
-  async rejectRefund(
-    refundId: string,
-    organizerUserId: string,
-    reviewNote: string,
-  ) {
-    const refundRequest = await this.prisma.refundRequest.findUnique({
-      where: { id: refundId },
-      include: {
-        ticket: {
-          include: {
-            event: {
-              include: {
-                organizer: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!refundRequest) {
-      throw new NotFoundException('Refund request not found');
-    }
-
-    // Check ownership
-    if (refundRequest.ticket.event.organizer.userId !== organizerUserId) {
-      throw new ForbiddenException('You do not have permission to reject this refund');
-    }
-
-    // Check if already processed
-    if (refundRequest.status !== RefundStatus.PENDING) {
-      throw new BadRequestException('Refund request already processed');
-    }
-
-    await this.prisma.refundRequest.update({
+    // Update refund status
+    await this.prisma.refund.update({
       where: { id: refundId },
       data: {
-        status: RefundStatus.REJECTED,
-        reviewedBy: organizerUserId,
-        reviewedAt: new Date(),
-        reviewNote,
+        status: 'APPROVED',
+        processedBy: organizerId,
+        processedAt: new Date(),
       },
+    });
+
+    // Process refund via Paystack
+    try {
+      if (refund.ticket.paystackRef) {
+        const refundAmountKobo = refund.refundAmount instanceof Decimal
+          ? refund.refundAmount.toNumber() * 100
+          : Number(refund.refundAmount) * 100;
+          
+        await this.paystackService.refundTransaction(
+          refund.ticket.paystackRef,
+          refundAmountKobo,
+        );
+      }
+
+      // Update ticket status
+      await this.prisma.ticket.update({
+        where: { id: refund.ticketId },
+        data: { status: 'REFUNDED' },
+      });
+
+      // Update refund status to processed
+      await this.prisma.refund.update({
+        where: { id: refundId },
+        data: { status: 'PROCESSED' },
+      });
+
+      // Update organizer balance
+      const refundAmount = refund.refundAmount instanceof Decimal
+        ? refund.refundAmount.toNumber()
+        : Number(refund.refundAmount);
+
+      await this.prisma.organizerProfile.update({
+        where: { id: organizerId },
+        data: {
+          availableBalance: { decrement: refundAmount },
+        },
+      });
+
+      // Record in ledger
+      await this.ledgerService.recordRefund(
+        organizerId,
+        refund.ticketId,
+        refundAmount,
+      );
+
+      // Send email to buyer
+      await this.emailService.sendRefundEmail(refund.ticket.buyerEmail, {
+        ticketNumber: refund.ticket.ticketNumber,
+        eventTitle: refund.ticket.event.title,
+        refundAmount,
+        status: 'processed',
+      });
+
+      return { message: 'Refund approved and processed successfully' };
+    } catch (error: any) {
+      // Mark refund as failed
+      await this.prisma.refund.update({
+        where: { id: refundId },
+        data: {
+          status: 'PENDING', // Revert to pending so it can be retried
+          rejectionNote: error.message,
+        },
+      });
+
+      throw new BadRequestException(`Failed to process refund: ${error.message}`);
+    }
+  }
+
+  async rejectRefund(refundId: string, organizerId: string, reason: string) {
+    const refund = await this.prisma.refund.findUnique({
+      where: { id: refundId },
+      include: {
+        ticket: {
+          include: {
+            event: true,
+          },
+        },
+      },
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund request not found');
+    }
+
+    if (refund.ticket.event.organizerId !== organizerId) {
+      throw new ForbiddenException('You can only reject refunds for your own events');
+    }
+
+    if (refund.status !== 'PENDING') {
+      throw new BadRequestException(`Cannot reject refund with status: ${refund.status}`);
+    }
+
+    await this.prisma.refund.update({
+      where: { id: refundId },
+      data: {
+        status: 'REJECTED',
+        rejectionNote: reason,
+        processedBy: organizerId,
+        processedAt: new Date(),
+      },
+    });
+
+    // Send email to buyer
+    const refundAmount = refund.refundAmount instanceof Decimal
+      ? refund.refundAmount.toNumber()
+      : Number(refund.refundAmount);
+
+    await this.emailService.sendRefundEmail(refund.ticket.buyerEmail, {
+      ticketNumber: refund.ticket.ticketNumber,
+      eventTitle: refund.ticket.event.title,
+      refundAmount,
+      status: 'rejected',
+      reason,
     });
 
     return { message: 'Refund request rejected' };
   }
 
-  // ============================================
-  // GET REFUND REQUESTS (ORGANIZER)
-  // ============================================
-
-  async getOrganizerRefundRequests(organizerUserId: string) {
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { userId: organizerUserId },
-    });
-
-    if (!organizer) {
-      throw new NotFoundException('Organizer profile not found');
-    }
-
-    return this.prisma.refundRequest.findMany({
+  async getRefundsByOrganizer(organizerId: string) {
+    return this.prisma.refund.findMany({
       where: {
         ticket: {
           event: {
-            organizerId: organizer.id,
+            organizerId,
           },
         },
       },
@@ -256,31 +239,24 @@ export class RefundsService {
           include: {
             event: true,
             tier: true,
-            buyer: {
-              select: {
-                email: true,
-                firstName: true,
-                lastName: true,
-              },
-            },
+          },
+        },
+        requester: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
-  // ============================================
-  // GET MY REFUND REQUESTS (BUYER)
-  // ============================================
-
-  async getMyRefundRequests(userId: string) {
-    return this.prisma.refundRequest.findMany({
-      where: {
-        requesterId: userId,
-      },
+  async getRefundsByUser(userId: string) {
+    return this.prisma.refund.findMany({
+      where: { requesterId: userId },
       include: {
         ticket: {
           include: {
@@ -289,9 +265,7 @@ export class RefundsService {
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

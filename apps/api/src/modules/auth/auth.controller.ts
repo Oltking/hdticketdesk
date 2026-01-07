@@ -2,80 +2,121 @@ import {
   Controller,
   Post,
   Body,
+  Get,
   UseGuards,
   Request,
   HttpCode,
   HttpStatus,
+  Ip,
+  Headers,
+  Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResendOtpDto } from './dto/resend-otp.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
-
-  // ============================================
-  // REGISTRATION
-  // ============================================
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.register(registerDto, ip, userAgent);
   }
 
-  // ============================================
-  // LOGIN
-  // ============================================
-
-  @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Request() req, @Body() dto: LoginDto) {
-    return this.authService.login(req.user);
+  @UseGuards(LocalAuthGuard)
+  async login(
+    @Body() loginDto: LoginDto,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.login(loginDto, ip, userAgent);
   }
 
-  // ============================================
-  // OTP VERIFICATION
-  // ============================================
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    return this.authService.verifyEmail(verifyEmailDto.token);
+  }
 
-  @UseGuards(JwtAuthGuard)
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body('email') email: string) {
+    return this.authService.resendVerificationEmail(email);
+  }
+
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  async verifyOtp(@Request() req, @Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(req.user.id, dto.code, dto.type);
+  async verifyOtp(
+    @Body() verifyOtpDto: VerifyOtpDto,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.verifyLoginOtp(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
+      ip,
+      userAgent,
+    );
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post('resend-otp')
-  @HttpCode(HttpStatus.OK)
-  async resendOtp(@Request() req, @Body() dto: ResendOtpDto) {
-    return this.authService.resendOtp(req.user.id, dto.type);
-  }
-
-  // ============================================
-  // TOKEN REFRESH
-  // ============================================
-
-  @UseGuards(JwtAuthGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Request() req) {
-    return this.authService.refreshTokens(req.user.id);
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshAccessToken(refreshTokenDto.refreshToken);
   }
 
-  // ============================================
-  // CURRENT USER
-  // ============================================
-
-  @UseGuards(JwtAuthGuard)
-  @Post('me')
+  @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async getCurrentUser(@Request() req) {
-    return { user: req.user };
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logout(@Request() req: any, @Body('refreshToken') refreshToken: string) {
+    return this.authService.logout(req.user.id, refreshToken);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Request() req: any) {
+    const user = await this.authService.getUserById(req.user.id);
+
+    if (!user) {
+      return null;
+    }
+
+    // Safely exclude password
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  @Get('check-email')
+  async checkEmail(@Query('email') email: string) {
+    return this.authService.checkEmailExists(email);
   }
 }

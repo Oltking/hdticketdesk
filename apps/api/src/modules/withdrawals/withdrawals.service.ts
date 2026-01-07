@@ -3,297 +3,269 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { LedgerService } from '../ledger/ledger.service';
+import { PrismaService } from '../../database/prisma.service';
 import { PaystackService } from '../payments/paystack.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { EmailService } from '../emails/email.service';
-import { WithdrawalStatus } from '@prisma/client';
-import { nanoid } from 'nanoid';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class WithdrawalsService {
   constructor(
     private prisma: PrismaService,
-    private ledgerService: LedgerService,
-    private paystackService: PaystackService,
-    private emailService: EmailService,
     private configService: ConfigService,
+    private paystackService: PaystackService,
+    private ledgerService: LedgerService,
+    private emailService: EmailService,
   ) {}
 
-  // ============================================
-  // REQUEST WITHDRAWAL
-  // ============================================
-
-  async requestWithdrawal(userId: string, amount: number) {
-    // Get organizer profile
+  async getWithdrawableAmount(organizerId: string) {
     const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { userId },
-      include: {
-        user: true,
-      },
+      where: { id: organizerId },
     });
 
     if (!organizer) {
-      throw new NotFoundException('Organizer profile not found');
+      throw new NotFoundException('Organizer not found');
     }
 
-    // Check bank verification
-    if (!organizer.bankVerified) {
-      throw new BadRequestException('Please verify your bank account first');
+    const pendingBalance = organizer.pendingBalance instanceof Decimal 
+      ? organizer.pendingBalance.toNumber() 
+      : Number(organizer.pendingBalance);
+      
+    const availableBalance = organizer.availableBalance instanceof Decimal 
+      ? organizer.availableBalance.toNumber() 
+      : Number(organizer.availableBalance);
+      
+    const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal 
+      ? organizer.withdrawnBalance.toNumber() 
+      : Number(organizer.withdrawnBalance);
+
+    return {
+      pending: pendingBalance,
+      available: availableBalance,
+      withdrawn: withdrawnBalance,
+      withdrawable: availableBalance,
+    };
+  }
+
+  async requestWithdrawal(organizerId: string, amount: number) {
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+      include: { user: true },
+    });
+
+    if (!organizer) {
+      throw new NotFoundException('Organizer not found');
     }
 
-    // Check minimum withdrawal
-    if (amount < 1000) {
-      throw new BadRequestException('Minimum withdrawal is ₦1,000');
+    // Check if bank details are set
+    if (!organizer.bankCode || !organizer.accountNumber || !organizer.accountName) {
+      throw new BadRequestException('Please set up your bank details first');
     }
+
+    const availableBalance = organizer.availableBalance instanceof Decimal 
+      ? organizer.availableBalance.toNumber() 
+      : Number(organizer.availableBalance);
 
     // Check available balance
-    if (Number(organizer.availableBalance) < amount) {
+    if (amount > availableBalance) {
       throw new BadRequestException('Insufficient available balance');
     }
 
-    // Check 24h cooldown from first ticket sale
-    const firstTicket = await this.prisma.ticket.findFirst({
-      where: {
-        event: {
-          organizerId: organizer.id,
-        },
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    if (firstTicket) {
-      const cooldownHours = Number(
-        this.configService.get('WITHDRAWAL_COOLDOWN_HOURS', 24),
-      );
-      const hoursSinceFirstSale =
-        (Date.now() - firstTicket.createdAt.getTime()) / (1000 * 60 * 60);
-
-      if (hoursSinceFirstSale < cooldownHours) {
-        throw new BadRequestException(
-          `Withdrawals available ${cooldownHours} hours after first ticket sale`,
-        );
-      }
-    }
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(
+      Date.now() +
+        (this.configService.get<number>('OTP_EXPIRY_MINUTES') || 10) * 60 * 1000,
+    );
 
     // Create withdrawal request
     const withdrawal = await this.prisma.withdrawal.create({
       data: {
-        organizerId: organizer.id,
         amount,
-        status: WithdrawalStatus.PENDING,
+        status: 'PENDING',
+        organizerId,
+        bankName: organizer.bankName || '',
+        bankCode: organizer.bankCode || '',
+        accountNumber: organizer.accountNumber || '',
+        accountName: organizer.accountName || '',
+        otpCode: otp,
+        otpExpiresAt: otpExpiry,
       },
     });
 
-    // Send OTP for verification
-    const otp = await this.generateWithdrawalOtp(userId, withdrawal.id);
-    await this.emailService.sendOtpEmail(
+    // Send OTP email
+    await this.emailService.sendWithdrawalOtpEmail(
       organizer.user.email,
       otp,
-      'Withdrawal Verification',
+      amount,
     );
 
     return {
       withdrawalId: withdrawal.id,
-      message: 'OTP sent to your email. Please verify to complete withdrawal.',
+      message: 'OTP sent to your email',
     };
   }
 
-  // ============================================
-  // VERIFY OTP AND PROCESS WITHDRAWAL
-  // ============================================
-
-  async verifyAndProcess(userId: string, withdrawalId: string, otp: string) {
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { userId },
-    });
-
-    if (!organizer) {
-      throw new NotFoundException('Organizer profile not found');
-    }
-
-    const withdrawal = await this.prisma.withdrawal.findUnique({
-      where: { id: withdrawalId },
-    });
-
-    if (!withdrawal || withdrawal.organizerId !== organizer.id) {
-      throw new NotFoundException('Withdrawal request not found');
-    }
-
-    if (withdrawal.status !== WithdrawalStatus.PENDING) {
-      throw new BadRequestException('Withdrawal already processed');
-    }
-
-    // Verify OTP
-    const isValidOtp = await this.verifyWithdrawalOtp(userId, withdrawalId, otp);
-    if (!isValidOtp) {
-      throw new BadRequestException('Invalid or expired OTP');
-    }
-
-    // Update withdrawal status
-    await this.prisma.withdrawal.update({
-      where: { id: withdrawalId },
-      data: {
-        status: WithdrawalStatus.OTP_VERIFIED,
-        otpVerified: true,
-        otpVerifiedAt: new Date(),
+  async verifyWithdrawalOtp(
+    organizerId: string,
+    withdrawalId: string,
+    otp: string,
+  ) {
+    const withdrawal = await this.prisma.withdrawal.findFirst({
+      where: {
+        id: withdrawalId,
+        organizerId,
+        status: 'PENDING',
       },
     });
 
-    // Process withdrawal
-    await this.processWithdrawal(withdrawalId);
+    if (!withdrawal) {
+      throw new NotFoundException('Withdrawal request not found');
+    }
 
-    return { message: 'Withdrawal processed successfully' };
+    if (withdrawal.otpCode !== otp) {
+      throw new BadRequestException('Invalid OTP');
+    }
+
+    if (withdrawal.otpExpiresAt && withdrawal.otpExpiresAt < new Date()) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Update status to processing
+    await this.prisma.withdrawal.update({
+      where: { id: withdrawalId },
+      data: {
+        status: 'PROCESSING',
+        otpCode: null,
+        otpExpiresAt: null,
+      },
+    });
+
+    // Process withdrawal in background
+    this.processWithdrawal(withdrawalId).catch(console.error);
+
+    return { message: 'Withdrawal is being processed' };
   }
-
-  // ============================================
-  // PROCESS WITHDRAWAL (INTERNAL)
-  // ============================================
 
   private async processWithdrawal(withdrawalId: string) {
     const withdrawal = await this.prisma.withdrawal.findUnique({
       where: { id: withdrawalId },
       include: {
-        organizer: true,
+        organizer: {
+          include: { user: true },
+        },
       },
     });
 
     if (!withdrawal) {
-      throw new NotFoundException('Withdrawal not found');
+      console.error(`Withdrawal not found: ${withdrawalId}`);
+      return;
     }
 
     try {
-      // Update status to processing
-      await this.prisma.withdrawal.update({
-        where: { id: withdrawalId },
-        data: {
-          status: WithdrawalStatus.PROCESSING,
-        },
-      });
+      // Get or create Paystack recipient
+      let recipientCode = withdrawal.organizer.paystackRecipientCode;
 
-      // Create transfer recipient if not exists
-      // In production, you'd store recipient code in organizer profile
-      const recipientData = await this.paystackService.createTransferRecipient({
-        type: 'nuban',
-        name: withdrawal.organizer.accountName,
-        account_number: withdrawal.organizer.accountNumber,
-        bank_code: withdrawal.organizer.bankName, // Should be bank code, not name
-        currency: 'NGN',
-      });
+      if (!recipientCode) {
+        const recipient = await this.paystackService.createTransferRecipient(
+          withdrawal.accountName,
+          withdrawal.accountNumber,
+          withdrawal.bankCode,
+        );
+        recipientCode = recipient.recipient_code;
+
+        // Save recipient code
+        await this.prisma.organizerProfile.update({
+          where: { id: withdrawal.organizerId },
+          data: { paystackRecipientCode: recipientCode },
+        });
+      }
+
+      // Ensure recipientCode is not null before transfer
+      if (!recipientCode) {
+        throw new Error('Failed to create transfer recipient');
+      }
 
       // Initiate transfer
-      const transferReference = `WTH-${nanoid(12)}`;
-      const transferData = await this.paystackService.initiateTransfer({
-        amount: Number(withdrawal.amount) * 100, // Convert to kobo
-        recipient: recipientData.data.recipient_code,
-        reference: transferReference,
-        reason: 'Ticket sales withdrawal',
-      });
+      const withdrawalAmount = withdrawal.amount instanceof Decimal 
+        ? withdrawal.amount.toNumber() 
+        : Number(withdrawal.amount);
 
-      // Update withdrawal
+      await this.paystackService.initiateTransfer(
+        withdrawalAmount,
+        recipientCode,
+        `Withdrawal for ${withdrawal.organizer.title}`,
+      );
+
+      // Update withdrawal status
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
-        data: {
-          status: WithdrawalStatus.COMPLETED,
-          paystackTransferId: transferData.data.id,
-          paystackReference: transferReference,
-          completedAt: new Date(),
+        data: { status: 'COMPLETED', processedAt: new Date() },
+      });
+
+      // Update organizer balance
+      await this.prisma.organizerProfile.update({
+        where: { id: withdrawal.organizerId },
+        data: { 
+          availableBalance: { decrement: withdrawal.amount },
+          withdrawnBalance: { increment: withdrawal.amount },
         },
       });
 
-      // Update ledger
-      await this.ledgerService.recordWithdrawal({
-        organizerId: withdrawal.organizerId,
-        withdrawalId,
-        amount: Number(withdrawal.amount),
+      // Record in ledger
+      await this.ledgerService.recordWithdrawal(
+        withdrawal.organizerId, 
+        withdrawalId, 
+        withdrawalAmount
+      );
+
+      // Send success email
+      await this.emailService.sendWithdrawalEmail(withdrawal.organizer.user.email, {
+        amount: withdrawalAmount,
+        bankName: withdrawal.bankName,
+        accountNumber: withdrawal.accountNumber,
+        status: 'success',
       });
-    } catch (error) {
-      // Mark as failed
+    } catch (error: any) {
+      // Update withdrawal status to failed
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
         data: {
-          status: WithdrawalStatus.FAILED,
+          status: 'FAILED',
           failureReason: error.message,
         },
       });
 
-      throw error;
+      const withdrawalAmount = withdrawal.amount instanceof Decimal 
+        ? withdrawal.amount.toNumber() 
+        : Number(withdrawal.amount);
+
+      // Send failure email
+      await this.emailService.sendWithdrawalEmail(withdrawal.organizer.user.email, {
+        amount: withdrawalAmount,
+        bankName: withdrawal.bankName,
+        accountNumber: withdrawal.accountNumber,
+        status: 'failed',
+        reason: error.message,
+      });
     }
   }
 
-  // ============================================
-  // OTP HELPERS
-  // ============================================
-
-  private async generateWithdrawalOtp(
-    userId: string,
-    withdrawalId: string,
-  ): Promise<string> {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-
-    await this.prisma.otpVerification.create({
-      data: {
-        userId,
-        code: otp,
-        type: 'WITHDRAWAL',
-        expiresAt,
-      },
-    });
-
-    return otp;
-  }
-
-  private async verifyWithdrawalOtp(
-    userId: string,
-    withdrawalId: string,
-    code: string,
-  ): Promise<boolean> {
-    const otpRecord = await this.prisma.otpVerification.findFirst({
-      where: {
-        userId,
-        code,
-        type: 'WITHDRAWAL',
-        verified: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (!otpRecord) {
-      return false;
-    }
-
-    await this.prisma.otpVerification.update({
-      where: { id: otpRecord.id },
-      data: { verified: true },
-    });
-
-    return true;
-  }
-
-  // ============================================
-  // GET WITHDRAWAL HISTORY
-  // ============================================
-
-  async getHistory(userId: string) {
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { userId },
-    });
-
-    if (!organizer) {
-      throw new NotFoundException('Organizer profile not found');
-    }
-
+  async getWithdrawalHistory(organizerId: string) {
     return this.prisma.withdrawal.findMany({
-      where: { organizerId: organizer.id },
-      orderBy: {
-        createdAt: 'desc',
+      where: { organizerId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        bankName: true,
+        accountNumber: true,
+        createdAt: true,
+        processedAt: true,
+        failureReason: true,
       },
     });
   }

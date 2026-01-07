@@ -1,141 +1,111 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../database/prisma.service';
-import { v2 as cloudinary } from 'cloudinary';
-import * as sharp from 'sharp';
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
+
+// Since we don't have a MediaUpload model in the schema,
+// we'll handle media uploads directly with Cloudinary
+// and return the URLs for storage in other models (like Event.coverImage)
+
+export interface UploadedMedia {
+  url: string;
+  publicId: string;
+  format: string;
+  width: number;
+  height: number;
+  bytes: number;
+}
 
 @Injectable()
 export class MediaService {
-  constructor(
-    private prisma: PrismaService,
-    private configService: ConfigService,
-  ) {
+  constructor(private configService: ConfigService) {
     // Configure Cloudinary
     cloudinary.config({
-      cloud_name: this.configService.get('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get('CLOUDINARY_API_SECRET'),
+      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
     });
   }
-
-  // ============================================
-  // UPLOAD IMAGE
-  // ============================================
 
   async uploadImage(
     file: Express.Multer.File,
-    userId: string,
-    altText?: string,
-  ) {
+    folder: string = 'hdticketdesk',
+  ): Promise<UploadedMedia> {
     // Validate file
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedMimes.includes(file.mimetype)) {
-      throw new BadRequestException(
-        'Invalid file type. Allowed: JPG, PNG, WebP',
-      );
+    if (!file) {
+      throw new BadRequestException('No file provided');
     }
 
-    // Check file size (max 2MB)
-    const maxSize = 2 * 1024 * 1024; // 2MB
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimes.includes(file.mimetype)) {
+      throw new BadRequestException('Invalid file type. Allowed: JPG, PNG, WebP, GIF');
+    }
+
+    // Max 5MB
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      throw new BadRequestException('File size exceeds 2MB limit');
+      throw new BadRequestException('File too large. Max size: 5MB');
     }
 
     try {
-      // Optimize image with Sharp
-      const optimized = await sharp(file.buffer)
-        .resize(1200, 1200, {
-          fit: 'inside',
-          withoutEnlargement: true,
-        })
-        .webp({ quality: 85 })
-        .toBuffer();
-
       // Upload to Cloudinary
-      const uploadResult = await new Promise<any>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: this.configService.get('CLOUDINARY_FOLDER', 'hdticketdesk'),
-            resource_type: 'image',
-            format: 'webp',
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          },
-        );
-
-        uploadStream.end(optimized);
-      });
-
-      // Save to database
-      const media = await this.prisma.mediaUpload.create({
-        data: {
-          userId,
-          filename: file.originalname,
-          url: uploadResult.secure_url,
-          cdnUrl: uploadResult.secure_url,
-          mimeType: 'image/webp',
-          sizeBytes: optimized.length,
-          altText,
-        },
+      const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            {
+              folder,
+              resource_type: 'image',
+              transformation: [
+                { width: 1200, height: 1200, crop: 'limit' },
+                { quality: 'auto' },
+                { fetch_format: 'auto' },
+              ],
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result!);
+            },
+          )
+          .end(file.buffer);
       });
 
       return {
-        id: media.id,
-        url: media.url,
-        cdnUrl: media.cdnUrl,
+        url: result.secure_url,
+        publicId: result.public_id,
+        format: result.format,
+        width: result.width,
+        height: result.height,
+        bytes: result.bytes,
       };
-    } catch (error) {
-      console.error('Upload error:', error);
-      throw new BadRequestException('Image upload failed');
+    } catch (error: any) {
+      throw new BadRequestException(`Upload failed: ${error.message}`);
     }
   }
 
-  // ============================================
-  // DELETE IMAGE
-  // ============================================
-
-  async deleteImage(mediaId: string, userId: string) {
-    const media = await this.prisma.mediaUpload.findUnique({
-      where: { id: mediaId },
-    });
-
-    if (!media) {
-      throw new BadRequestException('Media not found');
+  async deleteImage(publicId: string): Promise<void> {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error: any) {
+      console.error(`Failed to delete image ${publicId}:`, error.message);
+      // Don't throw - deletion failure shouldn't break the flow
     }
-
-    if (media.userId !== userId) {
-      throw new BadRequestException('Unauthorized');
-    }
-
-    // Extract public ID from Cloudinary URL
-    const urlParts = media.url.split('/');
-    const publicId = urlParts[urlParts.length - 1].split('.')[0];
-    const folder = this.configService.get('CLOUDINARY_FOLDER', 'hdticketdesk');
-    const fullPublicId = `${folder}/${publicId}`;
-
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(fullPublicId);
-
-    // Delete from database
-    await this.prisma.mediaUpload.delete({
-      where: { id: mediaId },
-    });
-
-    return { message: 'Media deleted successfully' };
   }
 
-  // ============================================
-  // GET USER MEDIA
-  // ============================================
+  async uploadMultipleImages(
+    files: Express.Multer.File[],
+    folder: string = 'hdticketdesk',
+  ): Promise<UploadedMedia[]> {
+    const uploads = files.map((file) => this.uploadImage(file, folder));
+    return Promise.all(uploads);
+  }
 
-  async getUserMedia(userId: string) {
-    return this.prisma.mediaUpload.findMany({
-      where: { userId },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+  // Extract public ID from Cloudinary URL
+  getPublicIdFromUrl(url: string): string | null {
+    try {
+      const regex = /\/v\d+\/(.+)\.\w+$/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
   }
 }

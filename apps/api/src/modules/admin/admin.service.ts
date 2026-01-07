@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
-
-  // ============================================
-  // DASHBOARD STATS
-  // ============================================
 
   async getDashboardStats() {
     const [
@@ -15,130 +12,101 @@ export class AdminService {
       totalOrganizers,
       totalEvents,
       totalTickets,
-      totalRevenue,
-      platformBalance,
-      recentEvents,
-      recentTickets,
+      recentPayments,
     ] = await Promise.all([
       this.prisma.user.count(),
-      this.prisma.user.count({ where: { role: 'ORGANIZER' } }),
-      this.prisma.event.count({ where: { status: 'PUBLISHED' } }),
+      this.prisma.organizerProfile.count(),
+      this.prisma.event.count(),
       this.prisma.ticket.count(),
-      this.prisma.ticket.aggregate({
-        _sum: {
-          amountPaid: true,
-        },
-      }),
-      this.prisma.platformBalance.findUnique({
-        where: { id: 'platform-balance' },
-      }),
-      this.prisma.event.findMany({
-        where: { status: 'PUBLISHED' },
-        include: {
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              },
-            },
-          },
-          _count: {
-            select: {
-              tickets: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
+      this.prisma.payment.findMany({
+        where: { status: 'SUCCESS' },
         take: 10,
-      }),
-      this.prisma.ticket.findMany({
-        include: {
-          event: true,
-          buyer: {
-            select: {
-              email: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: 10,
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
-    return {
-      stats: {
-        totalUsers,
-        totalOrganizers,
-        totalEvents,
-        totalTickets,
-        totalRevenue: totalRevenue._sum.amountPaid || 0,
-        platformFees: platformBalance?.totalFees || 0,
-        totalPayouts: platformBalance?.totalPayouts || 0,
+    // Calculate platform stats from ledger entries
+    const ledgerStats = await this.prisma.ledgerEntry.aggregate({
+      _sum: {
+        amount: true,
       },
-      recentEvents,
-      recentTickets,
+      where: {
+        type: 'TICKET_SALE',
+      },
+    });
+
+    const totalRevenue = ledgerStats._sum.amount 
+      ? (ledgerStats._sum.amount instanceof Decimal 
+          ? ledgerStats._sum.amount.toNumber() 
+          : Number(ledgerStats._sum.amount))
+      : 0;
+
+    // Calculate platform fee (5% of total revenue collected)
+    const platformFees = totalRevenue * 0.05 / 0.95; // Reverse calculate from net amount
+
+    return {
+      totalUsers,
+      totalOrganizers,
+      totalEvents,
+      totalTickets,
+      totalRevenue,
+      platformFees,
+      recentPayments,
     };
   }
 
-  // ============================================
-  // GET ALL USERS
-  // ============================================
-
-  async getAllUsers(page = 1, limit = 50) {
+  async getAllUsers(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        include: {
-          organizerProfile: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
         skip,
         take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          emailVerified: true,
+          createdAt: true,
+          organizerProfile: {
+            select: {
+              id: true,
+              title: true,
+              availableBalance: true,
+            },
+          },
+        },
       }),
       this.prisma.user.count(),
     ]);
 
     return {
       users,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  // ============================================
-  // GET ALL EVENTS
-  // ============================================
-
-  async getAllEvents(page = 1, limit = 50) {
+  async getAllEvents(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
     const [events, total] = await Promise.all([
       this.prisma.event.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
         include: {
           organizer: {
-            include: {
+            select: {
+              id: true,
+              title: true,
               user: {
                 select: {
                   email: true,
-                  firstName: true,
-                  lastName: true,
                 },
               },
             },
@@ -149,150 +117,116 @@ export class AdminService {
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
       }),
       this.prisma.event.count(),
     ]);
 
     return {
       events,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 
-  // ============================================
-  // GET LEDGER
-  // ============================================
-
-  async getLedger(page = 1, limit = 100) {
-    const skip = (page - 1) * limit;
-
-    const [entries, total] = await Promise.all([
-      this.prisma.ledgerEntry.findMany({
-        include: {
-          organizer: {
-            include: {
-              user: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.ledgerEntry.count(),
-    ]);
-
-    return {
-      entries,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  // ============================================
-  // GET REFUND REQUESTS
-  // ============================================
-
-  async getAllRefundRequests(page = 1, limit = 50) {
-    const skip = (page - 1) * limit;
-
-    const [refunds, total] = await Promise.all([
-      this.prisma.refundRequest.findMany({
-        include: {
-          ticket: {
-            include: {
-              event: true,
-              buyer: {
-                select: {
-                  email: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.refundRequest.count(),
-    ]);
-
-    return {
-      refunds,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  // ============================================
-  // GET WITHDRAWALS
-  // ============================================
-
-  async getAllWithdrawals(page = 1, limit = 50) {
+  async getAllWithdrawals(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
     const [withdrawals, total] = await Promise.all([
       this.prisma.withdrawal.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
         include: {
           organizer: {
-            include: {
+            select: {
+              id: true,
+              title: true,
               user: {
                 select: {
                   email: true,
-                  firstName: true,
-                  lastName: true,
                 },
               },
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
       }),
       this.prisma.withdrawal.count(),
     ]);
 
     return {
       withdrawals,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Alias for getLedger - used by controller
+  async getLedgerAudit(page = 1, limit = 50) {
+    return this.getLedger(page, limit);
+  }
+
+  async getLedger(page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+
+    const [entries, total] = await Promise.all([
+      this.prisma.ledgerEntry.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      }),
+      this.prisma.ledgerEntry.count(),
+    ]);
+
+    return {
+      entries,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getRefunds(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [refunds, total] = await Promise.all([
+      this.prisma.refund.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          ticket: {
+            include: {
+              event: true,
+            },
+          },
+          requester: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.refund.count(),
+    ]);
+
+    return {
+      refunds,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
     };
   }
 }

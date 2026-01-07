@@ -1,11 +1,10 @@
-import { IsString, Length, IsEnum } from 'class-validator';
-import { OtpType } from '@prisma/client';
+import { IsEmail, IsString, Length } from 'class-validator';
 
 export class VerifyOtpDto {
+  @IsEmail()
+  email: string;
+
   @IsString()
   @Length(6, 6)
-  code: string;
-
-  @IsEnum(OtpType)
-  type: OtpType;
+  otp: string;
 }

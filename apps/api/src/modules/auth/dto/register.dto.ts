@@ -1,5 +1,10 @@
+// ==================== register.dto.ts ====================
 import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
-import { UserRole } from '@prisma/client';
+
+export enum UserRole {
+  BUYER = 'BUYER',
+  ORGANIZER = 'ORGANIZER',
+}
 
 export class RegisterDto {
   @IsEmail()
@@ -10,13 +15,12 @@ export class RegisterDto {
   password: string;
 
   @IsString()
-  @IsOptional()
-  firstName?: string;
+  firstName: string;
 
   @IsString()
-  @IsOptional()
-  lastName?: string;
+  lastName: string;
 
+  @IsOptional()
   @IsEnum(UserRole)
-  role: UserRole;
+  role?: UserRole;
 }

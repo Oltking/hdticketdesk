@@ -7,50 +7,83 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { RefundsService } from './refunds.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RequestRefundDto } from './dto/request-refund.dto';
-import { ReviewRefundDto } from './dto/review-refund.dto';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RefundsService } from './refunds.service';
+
+interface AuthenticatedRequest {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    organizerProfileId?: string;
+  };
+}
 
 @Controller('refunds')
 @UseGuards(JwtAuthGuard)
 export class RefundsController {
-  constructor(private refundsService: RefundsService) {}
+  constructor(private readonly refundsService: RefundsService) {}
 
+  /**
+   * POST /refunds/request
+   * Buyer requests a refund for a ticket
+   */
   @Post('request')
-  async requestRefund(@Request() req, @Body() dto: RequestRefundDto) {
-    return this.refundsService.requestRefund(
-      req.user.id,
-      dto.ticketId,
-      dto.reason,
-    );
+  async requestRefund(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: { ticketId: string; reason?: string },
+  ) {
+    return this.refundsService.requestRefund(body.ticketId, req.user.id, body.reason);
   }
 
+  /**
+   * POST /refunds/:id/approve
+   * Organizer approves a refund request
+   */
   @Post(':id/approve')
+  @UseGuards(RolesGuard)
+  @Roles('ORGANIZER')
   async approveRefund(
-    @Request() req,
     @Param('id') id: string,
-    @Body() dto: ReviewRefundDto,
+    @Request() req: AuthenticatedRequest,
   ) {
-    return this.refundsService.approveRefund(id, req.user.id, dto.reviewNote);
+    return this.refundsService.approveRefund(id, req.user.organizerProfileId || '');
   }
 
+  /**
+   * POST /refunds/:id/reject
+   * Organizer rejects a refund request
+   */
   @Post(':id/reject')
+  @UseGuards(RolesGuard)
+  @Roles('ORGANIZER')
   async rejectRefund(
-    @Request() req,
     @Param('id') id: string,
-    @Body() dto: ReviewRefundDto,
+    @Request() req: AuthenticatedRequest,
+    @Body('reason') reason: string,
   ) {
-    return this.refundsService.rejectRefund(id, req.user.id, dto.reviewNote);
+    return this.refundsService.rejectRefund(id, req.user.organizerProfileId || '', reason);
   }
 
+  /**
+   * GET /refunds/my
+   * Get refunds for the current user (buyer)
+   */
+  @Get('my')
+  async getMyRefunds(@Request() req: AuthenticatedRequest) {
+    return this.refundsService.getRefundsByUser(req.user.id);
+  }
+
+  /**
+   * GET /refunds/organizer
+   * Get refunds for the organizer's events
+   */
   @Get('organizer')
-  async getOrganizerRefunds(@Request() req) {
-    return this.refundsService.getOrganizerRefundRequests(req.user.id);
-  }
-
-  @Get('my-requests')
-  async getMyRefunds(@Request() req) {
-    return this.refundsService.getMyRefundRequests(req.user.id);
+  @UseGuards(RolesGuard)
+  @Roles('ORGANIZER')
+  async getOrganizerRefunds(@Request() req: AuthenticatedRequest) {
+    return this.refundsService.getRefundsByOrganizer(req.user.organizerProfileId || '');
   }
 }

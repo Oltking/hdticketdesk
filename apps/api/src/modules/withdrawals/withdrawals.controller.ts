@@ -1,41 +1,45 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { WithdrawalsService } from './withdrawals.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
-import { VerifyWithdrawalDto } from './dto/verify-withdrawal.dto';
 
-@Controller('withdrawals')
+@ApiTags('Withdrawals')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ORGANIZER)
+@ApiBearerAuth('JWT-auth')
+@Controller('withdrawals')
 export class WithdrawalsController {
-  constructor(private withdrawalsService: WithdrawalsService) {}
+  constructor(private readonly withdrawalsService: WithdrawalsService) {}
 
-  @Post('request')
-  async request(@Request() req, @Body() dto: RequestWithdrawalDto) {
-    return this.withdrawalsService.requestWithdrawal(req.user.id, dto.amount);
+  @Get('balance')
+  @ApiOperation({ summary: 'Get withdrawable amount' })
+  async getWithdrawableAmount(@CurrentUser('id') userId: string) {
+    return this.withdrawalsService.getWithdrawableAmount(userId);
   }
 
-  @Post('verify')
-  async verify(@Request() req, @Body() dto: VerifyWithdrawalDto) {
-    return this.withdrawalsService.verifyAndProcess(
-      req.user.id,
-      dto.withdrawalId,
-      dto.otp,
-    );
+  @Post('request')
+  @ApiOperation({ summary: 'Request withdrawal' })
+  async requestWithdrawal(@CurrentUser('id') userId: string, @Body('amount') amount: number) {
+    return this.withdrawalsService.requestWithdrawal(userId, amount);
+  }
+
+  @Post(':id/verify')
+  @ApiOperation({ summary: 'Verify withdrawal OTP' })
+  async verifyOtp(
+    @CurrentUser('id') userId: string,
+    @Param('id') withdrawalId: string,
+    @Body('otp') otp: string,
+  ) {
+    return this.withdrawalsService.verifyWithdrawalOtp(userId, withdrawalId, otp);
   }
 
   @Get('history')
-  async getHistory(@Request() req) {
-    return this.withdrawalsService.getHistory(req.user.id);
+  @ApiOperation({ summary: 'Get withdrawal history' })
+  async getHistory(@CurrentUser('id') userId: string) {
+    return this.withdrawalsService.getWithdrawalHistory(userId);
   }
 }

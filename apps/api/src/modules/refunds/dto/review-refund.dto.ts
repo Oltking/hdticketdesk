@@ -1,7 +1,13 @@
-import { IsString, IsOptional } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsString, IsOptional } from 'class-validator';
 
 export class ReviewRefundDto {
-  @IsString()
+  @ApiProperty()
+  @IsBoolean()
+  approved: boolean;
+
+  @ApiPropertyOptional()
   @IsOptional()
-  reviewNote?: string;
+  @IsString()
+  note?: string;
 }

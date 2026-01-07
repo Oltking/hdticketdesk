@@ -1,112 +1,39 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  RawBodyRequest,
-  Req,
-  BadRequestException,
-} from '@nestjs/common';
-import { Request } from 'express';
+import { Controller, Post, Req, Res, HttpStatus, Logger } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
-import { TicketsService } from '../tickets/tickets.service';
 
-@Controller('webhooks/paystack')
+@ApiTags('Webhooks')
+@Controller('webhooks')
 export class WebhooksController {
+  private readonly logger = new Logger(WebhooksController.name);
+
   constructor(
-    private paystackService: PaystackService,
-    private ticketsService: TicketsService,
+    private readonly paymentsService: PaymentsService,
+    private readonly paystackService: PaystackService,
   ) {}
 
-  @Post()
-  @HttpCode(HttpStatus.OK)
-  async handleWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('x-paystack-signature') signature: string,
-    @Body() payload: any,
-  ) {
-    // Verify webhook signature
-    const rawBody = req.rawBody?.toString() || JSON.stringify(payload);
-    const isValid = this.paystackService.verifyWebhookSignature(
-      rawBody,
-      signature,
-    );
+  @Post('paystack')
+  @ApiExcludeEndpoint()
+  async handlePaystackWebhook(@Req() req: Request, @Res() res: Response) {
+    const signature = req.headers['x-paystack-signature'] as string;
+    const payload = JSON.stringify(req.body);
 
-    if (!isValid) {
-      throw new BadRequestException('Invalid webhook signature');
+    if (!this.paystackService.verifyWebhookSignature(payload, signature)) {
+      this.logger.warn('Invalid Paystack webhook signature');
+      return res.status(HttpStatus.UNAUTHORIZED).send('Invalid signature');
     }
 
-    // Handle different event types
-    const event = payload.event;
-    const data = payload.data;
+    const { event, data } = req.body;
+    this.logger.log(`Paystack webhook: ${event}`);
 
-    console.log(`📥 Paystack webhook: ${event}`);
-
-    switch (event) {
-      case 'charge.success':
-        await this.handleChargeSuccess(data);
-        break;
-
-      case 'transfer.success':
-        await this.handleTransferSuccess(data);
-        break;
-
-      case 'transfer.failed':
-        await this.handleTransferFailed(data);
-        break;
-
-      default:
-        console.log(`Unhandled webhook event: ${event}`);
+    try {
+      await this.paymentsService.handleWebhook(event, data);
+      return res.status(HttpStatus.OK).send('OK');
+    } catch (error) {
+      this.logger.error('Webhook error:', error);
+      return res.status(HttpStatus.OK).send('OK'); // Always return 200 to Paystack
     }
-
-    return { status: 'success' };
-  }
-
-  // ============================================
-  // HANDLE CHARGE SUCCESS (TICKET PURCHASE)
-  // ============================================
-
-  private async handleChargeSuccess(data: any) {
-    const reference = data.reference;
-    const metadata = data.metadata;
-
-    // Check if already processed
-    const existingTicket = await this.ticketsService.findByPaymentId(reference);
-    if (existingTicket) {
-      console.log(`⚠️ Payment already processed: ${reference}`);
-      return;
-    }
-
-    // Create ticket
-    await this.ticketsService.createTicketFromPayment({
-      paymentId: reference,
-      eventId: metadata.eventId,
-      tierId: metadata.tierId,
-      buyerEmail: data.customer.email,
-      amountPaid: data.amount / 100, // Convert from kobo
-      platformFee: metadata.platformFee,
-    });
-
-    console.log(`✅ Ticket created for payment: ${reference}`);
-  }
-
-  // ============================================
-  // HANDLE TRANSFER SUCCESS (WITHDRAWAL)
-  // ============================================
-
-  private async handleTransferSuccess(data: any) {
-    // Update withdrawal status
-    // This will be handled in withdrawals module
-    console.log(`✅ Transfer successful: ${data.reference}`);
-  }
-
-  // ============================================
-  // HANDLE TRANSFER FAILED
-  // ============================================
-
-  private async handleTransferFailed(data: any) {
-    console.log(`❌ Transfer failed: ${data.reference}`);
   }
 }

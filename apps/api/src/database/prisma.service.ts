@@ -6,38 +6,44 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       log: process.env.NODE_ENV === 'development' 
-        ? ['query', 'info', 'warn', 'error'] 
+        ? ['query', 'info', 'warn', 'error']
         : ['error'],
     });
   }
 
   async onModuleInit() {
     await this.$connect();
-    console.log('✅ Database connected');
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
-    console.log('👋 Database disconnected');
   }
 
-  // Helper for clean transactions
-  async cleanDb() {
+  // Helper method for transactions
+  async executeTransaction<T>(
+    fn: (prisma: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(fn);
+  }
+
+  // Clean database (for testing)
+  async cleanDatabase() {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Cannot clean database in production');
     }
 
-    const models = Reflect.ownKeys(this).filter(
-      (key) => key[0] !== '_' && key !== 'constructor',
-    );
+    const tablenames = await this.$queryRaw<Array<{ tablename: string }>>`
+      SELECT tablename FROM pg_tables WHERE schemaname='public'
+    `;
 
-    return Promise.all(
-      models.map((modelKey) => {
-        const model = this[modelKey as string];
-        if (model && typeof model.deleteMany === 'function') {
-          return model.deleteMany();
-        }
-      }),
-    );
+    const tables = tablenames
+      .map(({ tablename }) => tablename)
+      .filter((name) => name !== '_prisma_migrations')
+      .map((name) => `"public"."${name}"`)
+      .join(', ');
+
+    if (tables.length > 0) {
+      await this.$executeRawUnsafe(`TRUNCATE TABLE ${tables} CASCADE;`);
+    }
   }
 }
