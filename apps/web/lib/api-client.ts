@@ -46,36 +46,82 @@ class ApiClient {
 
   // ==================== AUTH ====================
   async register(data: { email: string; password: string; firstName: string; lastName: string; role?: string }) {
-  return this.request<{ user: any; accessToken: string; userId: string }>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+    return this.request<{ 
+      user: any; 
+      accessToken: string; 
+      refreshToken: string;
+      userId: string;
+      message?: string;
+    }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async login(data: { email: string; password: string }) {
-  return this.request<{ 
-    user: any; 
-    accessToken: string; 
-    refreshToken: string;
-    requiresOtp?: boolean; 
-    userId?: string;
-  }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+    return this.request<{ 
+      user: any; 
+      accessToken: string; 
+      refreshToken: string;
+      requiresOtp?: boolean; 
+      userId?: string;
+    }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async verifyEmail(token: string) {
-    return this.request('/auth/verify-email', {
+    return this.request<{ message: string; user?: any }>('/auth/verify-email', {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
   }
 
+  async verifyOtp(data: { userId: string; code: string; type: string }) {
+    return this.request<{ 
+      user: any; 
+      accessToken: string; 
+      refreshToken: string;
+      message?: string;
+    }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resendOtp(data: { userId: string; type: string }) {
+    return this.request<{ message: string }>('/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async resendVerification(email: string) {
-    return this.request('/auth/resend-verification', {
+    return this.request<{ message: string }>('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
+    });
+  }
+
+  async forgotPassword(email: string) {
+    return this.request<{ message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(data: { token: string; password: string }) {
+    return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async refreshToken(refreshToken: string) {
+    return this.request<{ accessToken: string; refreshToken: string }>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
     });
   }
 
@@ -85,31 +131,27 @@ class ApiClient {
 
   async logout() {
     this.setToken(null);
+    localStorage.removeItem('refreshToken');
   }
 
   // ==================== HOMEPAGE SECTIONS ====================
   
-  // Carousel: Up to 6 nearest upcoming events, fallback to whatever available
   async getCarouselEvents() {
     return this.request<any[]>('/events/carousel');
   }
 
-  // Live Now: Events currently happening
   async getLiveEvents() {
     return this.request<any[]>('/events/live');
   }
 
-  // Trending: Most ticket sales in last 7 days
   async getTrendingEvents() {
     return this.request<any[]>('/events/trending');
   }
 
-  // Upcoming: Events starting soon
   async getUpcomingEvents() {
     return this.request<any[]>('/events/upcoming');
   }
 
-  // Featured: Organizer-promoted events
   async getFeaturedEvents() {
     return this.request<any[]>('/events/featured');
   }
@@ -122,6 +164,10 @@ class ApiClient {
 
   async getEventBySlug(slug: string) {
     return this.request<any>(`/events/${slug}`);
+  }
+
+  async getEventById(id: string) {
+    return this.request<any>(`/events/id/${id}`);
   }
 
   async getMyEvents() {
@@ -142,14 +188,30 @@ class ApiClient {
     });
   }
 
+  async deleteEvent(id: string) {
+    return this.request<{ message: string }>(`/events/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   async publishEvent(id: string) {
     return this.request<any>(`/events/${id}/publish`, {
       method: 'POST',
     });
   }
 
+  async unpublishEvent(id: string) {
+    return this.request<any>(`/events/${id}/unpublish`, {
+      method: 'POST',
+    });
+  }
+
   async getEventAnalytics(id: string) {
     return this.request<any>(`/events/${id}/analytics`);
+  }
+
+  async getEventTickets(id: string) {
+    return this.request<any[]>(`/events/${id}/tickets`);
   }
 
   // ==================== TICKETS ====================
@@ -160,14 +222,48 @@ class ApiClient {
     });
   }
 
+  async verifyPayment(reference: string) {
+    return this.request<{ ticket: any; message: string }>(`/payments/verify/${reference}`);
+  }
+
   async getMyTickets() {
     return this.request<any[]>('/tickets/my');
   }
 
+  async getTicketById(id: string) {
+    return this.request<any>(`/tickets/${id}`);
+  }
+
+  async getTicketByNumber(ticketNumber: string) {
+    return this.request<any>(`/tickets/number/${ticketNumber}`);
+  }
+
+  // ==================== QR / CHECK-IN ====================
   async validateQr(code: string, eventId: string) {
-    return this.request<any>('/qr/validate', {
+    return this.request<{ 
+      valid: boolean; 
+      ticket?: any; 
+      message: string;
+    }>('/qr/validate', {
       method: 'POST',
       body: JSON.stringify({ code, eventId }),
+    });
+  }
+
+  async checkInTicket(ticketId: string) {
+    return this.request<{ message: string; ticket: any }>(`/tickets/${ticketId}/checkin`, {
+      method: 'POST',
+    });
+  }
+
+  async scanQr(data: { qrCode: string; eventId: string }) {
+    return this.request<{ 
+      success: boolean; 
+      ticket?: any; 
+      message: string;
+    }>('/tickets/scan', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 
@@ -186,12 +282,16 @@ class ApiClient {
     });
   }
 
+  async getProfile() {
+    return this.request<any>('/users/profile');
+  }
+
   async getBanks() {
     return this.request<any[]>('/payments/banks');
   }
 
   async resolveAccount(accountNumber: string, bankCode: string) {
-    return this.request<{ accountName: string }>('/payments/resolve-account', {
+    return this.request<{ accountName: string; accountNumber: string }>('/payments/resolve-account', {
       method: 'POST',
       body: JSON.stringify({ accountNumber, bankCode }),
     });
@@ -199,22 +299,32 @@ class ApiClient {
 
   // ==================== BALANCE & WITHDRAWALS ====================
   async getBalance() {
-    return this.request<{ pending: number; available: number; withdrawn: number }>('/users/balance');
+    return this.request<{ 
+      pending: number; 
+      available: number; 
+      withdrawn: number;
+      withdrawable: number;
+    }>('/users/balance');
   }
 
   async getWithdrawableAmount() {
-    return this.request<{ pending: number; available: number; withdrawn: number; withdrawable: number }>('/withdrawals/available');
+    return this.request<{ 
+      pending: number; 
+      available: number; 
+      withdrawn: number; 
+      withdrawable: number;
+    }>('/withdrawals/available');
   }
 
   async requestWithdrawal(amount: number) {
-    return this.request<{ withdrawalId: string }>('/withdrawals/request', {
+    return this.request<{ withdrawalId: string; message: string }>('/withdrawals/request', {
       method: 'POST',
       body: JSON.stringify({ amount }),
     });
   }
 
   async verifyWithdrawalOtp(withdrawalId: string, otp: string) {
-    return this.request('/withdrawals/verify', {
+    return this.request<{ message: string }>('/withdrawals/verify', {
       method: 'POST',
       body: JSON.stringify({ withdrawalId, otp }),
     });
@@ -226,27 +336,106 @@ class ApiClient {
 
   // ==================== REFUNDS ====================
   async requestRefund(ticketId: string, reason?: string) {
-    return this.request('/refunds/request', {
+    return this.request<{ refundId: string; message: string }>('/refunds/request', {
       method: 'POST',
       body: JSON.stringify({ ticketId, reason }),
     });
   }
 
+  async getMyRefunds() {
+    return this.request<any[]>('/refunds/my');
+  }
+
+  async getOrganizerRefunds() {
+    return this.request<any[]>('/refunds/organizer');
+  }
+
+  async approveRefund(refundId: string) {
+    return this.request<{ message: string }>(`/refunds/${refundId}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectRefund(refundId: string, reason: string) {
+    return this.request<{ message: string }>(`/refunds/${refundId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ==================== MEDIA ====================
+  async uploadImage(file: File, folder?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) formData.append('folder', folder);
+
+    const token = this.getToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/media/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Upload failed');
+    }
+
+    return response.json() as Promise<{ url: string; publicId: string }>;
+  }
+
+  async deleteImage(publicId: string) {
+    return this.request<{ message: string }>(`/media/${publicId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ==================== ADMIN ====================
   async getAdminDashboard() {
-    return this.request<any>('/admin/dashboard');
+    return this.request<{
+      totalUsers: number;
+      totalOrganizers: number;
+      totalEvents: number;
+      totalTickets: number;
+      totalRevenue: number;
+      platformFees: number;
+      recentPayments: any[];
+    }>('/admin/dashboard');
   }
 
-  async getAdminUsers() {
-    return this.request<any>('/admin/users');
+  async getAdminUsers(page = 1, limit = 20) {
+    return this.request<{ users: any[]; total: number; page: number; totalPages: number }>(
+      `/admin/users?page=${page}&limit=${limit}`
+    );
   }
 
-  async getAdminEvents() {
-    return this.request<any>('/admin/events');
+  async getAdminEvents(page = 1, limit = 20) {
+    return this.request<{ events: any[]; total: number; page: number; totalPages: number }>(
+      `/admin/events?page=${page}&limit=${limit}`
+    );
   }
 
-  async getAdminLedger() {
-    return this.request<any>('/admin/ledger');
+  async getAdminLedger(page = 1, limit = 50) {
+    return this.request<{ entries: any[]; total: number; page: number; totalPages: number }>(
+      `/admin/ledger?page=${page}&limit=${limit}`
+    );
+  }
+
+  async getAdminRefunds(page = 1, limit = 20) {
+    return this.request<{ refunds: any[]; total: number; page: number; totalPages: number }>(
+      `/admin/refunds?page=${page}&limit=${limit}`
+    );
+  }
+
+  async getAdminWithdrawals(page = 1, limit = 20) {
+    return this.request<{ withdrawals: any[]; total: number; page: number; totalPages: number }>(
+      `/admin/withdrawals?page=${page}&limit=${limit}`
+    );
   }
 }
 
