@@ -53,11 +53,16 @@ class ApiClient {
   }
 
   async login(data: { email: string; password: string }) {
-    return this.request<{ user: any; accessToken: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
+  return this.request<{ 
+    user?: any; 
+    accessToken?: string; 
+    requiresOtp?: boolean; 
+    userId?: string;
+  }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
 
   async verifyEmail(token: string) {
     return this.request('/auth/verify-email', {
