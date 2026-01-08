@@ -56,16 +56,16 @@ export default function MyTicketsPage() {
                     <div className="flex-1 p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="font-semibold text-lg">{ticket.event.title}</h3>
-                          <p className="text-text-muted">{ticket.tier.name}</p>
+                          <h3 className="font-semibold text-lg">{ticket.event?.title}</h3>
+                          <p className="text-text-muted">{ticket.tier?.name}</p>
                         </div>
                         <Badge variant={ticket.status === 'ACTIVE' ? 'success' : ticket.status === 'CHECKED_IN' ? 'default' : 'secondary'}>
                           {ticket.status}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-4 text-sm text-text-muted">
-                        <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{formatDate(ticket.event.startDate)}</span>
-                        <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{ticket.event.isOnline ? 'Online' : ticket.event.location}</span>
+                        <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{formatDate(ticket.event?.startDate || new Date())}</span>
+                        <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{ticket.event?.isOnline ? 'Online' : ticket.event?.location}</span>
                       </div>
                       <p className="mt-4 text-sm text-text-muted">Ticket #{ticket.ticketNumber}</p>
                     </div>
