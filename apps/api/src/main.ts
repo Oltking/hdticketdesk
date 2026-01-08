@@ -34,9 +34,7 @@ async function bootstrap() {
     // From environment variable (if different)
     frontendUrl,
     // Development
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
+    'http://localhost:3000'
   ].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
 
   app.enableCors({
