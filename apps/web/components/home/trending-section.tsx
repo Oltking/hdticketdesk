@@ -80,9 +80,9 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
     tier.price < min ? tier.price : min, event.tiers[0]?.price || 0
   );
   
-  const soldPercentage = event.tiers?.reduce((acc, tier) => {
+  const soldPercentage = (event.tiers?.reduce((acc, tier) => {
     return acc + (tier.sold / tier.capacity) * 100;
-  }, 0) / (event.tiers?.length || 1);
+  }, 0) || 0) / (event.tiers?.length || 1);
 
   return (
     <Link 
@@ -166,7 +166,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
             <div>
               <p className="text-xs text-muted-foreground">From</p>
               <p className="font-display font-bold text-lg">
-                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
             <Button size="sm" className="rounded-full">

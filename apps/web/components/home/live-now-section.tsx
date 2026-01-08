@@ -119,7 +119,7 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
         </div>
         
         {/* Attendees count */}
-        {event.totalTicketsSold > 0 && (
+        {(event.totalTicketsSold || 0) > 0 && (
           <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur text-white text-sm">
             <Users className="w-4 h-4" />
             {event.totalTicketsSold} attending
@@ -141,7 +141,7 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
             <div className="text-right">
               <p className="text-xs text-white/60">From</p>
               <p className="font-display font-bold text-white">
-                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
           </div>

@@ -176,7 +176,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                         <span>{event.location || 'TBA'}</span>
                       </div>
                     )}
-                    {event.totalTicketsSold > 0 && (
+                    {(event.totalTicketsSold || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
                         <span>{event.totalTicketsSold} attending</span>

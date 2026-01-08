@@ -145,7 +145,7 @@ function MainFeaturedCard({ event }: { event: Event }) {
             <div className="text-right">
               <p className="text-xs text-white/60">From</p>
               <p className="font-display font-bold text-white text-xl">
-                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
           </div>
@@ -206,7 +206,7 @@ function SecondaryFeaturedCard({ event, index }: { event: Event; index: number }
                 </div>
               </div>
               <p className="font-display font-bold">
-                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+                {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
           </div>

@@ -4,8 +4,9 @@ import { api } from '@/lib/api-client';
 interface User {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
   role: 'BUYER' | 'ORGANIZER' | 'ADMIN';
   emailVerified: boolean;
   organizerProfile?: any;

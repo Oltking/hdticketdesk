@@ -147,7 +147,7 @@ function UpcomingEventCard({ event, index }: { event: Event; index: number }) {
           {/* Price */}
           <div className="flex items-center justify-between pt-2 border-t">
             <p className="font-display font-bold">
-              {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice)}
+              {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
             </p>
             <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
           </div>
