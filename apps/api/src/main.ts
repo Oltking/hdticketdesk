@@ -19,7 +19,7 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3001);
-  const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
+  const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
 
   // Security
@@ -37,10 +37,10 @@ async function bootstrap() {
   app.setGlobalPrefix(apiPrefix);
 
   // API Versioning
-  app.enableVersioning({
+  /*app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
-  });
+  });*/
 
   // Global Pipes
   app.useGlobalPipes(
