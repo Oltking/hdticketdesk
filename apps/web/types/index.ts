@@ -52,6 +52,11 @@ export interface Event {
   _count?: {
     tickets: number;
   };
+  // Computed/aggregated fields from API
+  totalTicketsSold?: number;
+  totalRevenue?: number;
+  ticketsSold?: number;
+  revenue?: number;
   createdAt: string;
   updatedAt: string;
 }
