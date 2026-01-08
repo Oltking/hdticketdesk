@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, X } from 'lucide-react';
 
 const schema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -39,9 +39,22 @@ function SignupContent() {
     }
   };
 
+  const handleClose = () => {
+    router.back();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg py-12 px-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors border border-gray-200 z-10"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4 text-gray-600" />
+        </button>
+        
         <CardHeader className="text-center">
           <Link href="/" className="text-2xl font-bold text-primary mb-2 block">hdticketdesk</Link>
           <CardTitle>{isOrganizer ? 'Create Organizer Account' : 'Create Account'}</CardTitle>

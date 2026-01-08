@@ -10,19 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
-import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff } from 'lucide-react';
+import { useAuthStore } from '@/store/auth-store';
+import { Eye, EyeOff, X } from 'lucide-react';
 
 const schema = z.object({
   email: z.string().email('Invalid email'),
-  password: z.string().min(1, 'Required'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
   const { success, error } = useToast();
+  const { setUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema) });
 
@@ -37,19 +37,32 @@ export default function LoginPage() {
       localStorage.setItem('refreshToken', result.refreshToken);
       setUser(result.user);
       success('Welcome back!');
-      router.push(result.user.role === 'ORGANIZER' ? '/dashboard' : result.user.role === 'ADMIN' ? '/admin/overview' : '/events');
+      router.push('/dashboard');
     } catch (err: any) {
       error(err.message || 'Login failed');
     }
   };
 
+  const handleClose = () => {
+    router.back();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg py-12 px-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-100 transition-colors border border-gray-200 z-10"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4 text-gray-600" />
+        </button>
+
         <CardHeader className="text-center">
           <Link href="/" className="text-2xl font-bold text-primary mb-2 block">hdticketdesk</Link>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>Enter your credentials to continue</CardDescription>
+          <CardTitle>Welcome Back</CardTitle>
+          <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -69,7 +82,7 @@ export default function LoginPage() {
             <Button type="submit" className="w-full bg-primary text-white" loading={isSubmitting}>Sign In</Button>
           </form>
           <p className="mt-6 text-center text-sm text-text-muted">
-            Don't have an account? <Link href="/signup" className="text-primary hover:underline">Sign up</Link>
+            Don&apos;t have an account? <Link href="/signup" className="text-primary hover:underline">Sign up</Link>
           </p>
         </CardContent>
       </Card>
