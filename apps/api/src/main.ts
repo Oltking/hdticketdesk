@@ -25,12 +25,35 @@ async function bootstrap() {
   // Security
   app.use(helmet());
 
-  // CORS
+  // CORS - Allow all production domains
+  const allowedOrigins = [
+    // Production domains
+    'https://hdticketdesk.com',
+    'https://www.hdticketdesk.com',
+    'https://hdticketdesk.vercel.app',
+    // From environment variable (if different)
+    frontendUrl,
+    // Development
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+  ].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
+
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3000'],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+    ],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
     credentials: true,
+    maxAge: 3600,
   });
 
   // API Prefix
@@ -110,6 +133,7 @@ async function bootstrap() {
   console.log(`🚀 Server running on: http://localhost:${port}`);
   console.log(`📚 API Docs: http://localhost:${port}/docs`);
   console.log(`🔧 Environment: ${configService.get('NODE_ENV', 'development')}`);
+  console.log(`🌐 Allowed Origins: ${allowedOrigins.join(', ')}`);
   console.log('================================');
   console.log('');
 }
