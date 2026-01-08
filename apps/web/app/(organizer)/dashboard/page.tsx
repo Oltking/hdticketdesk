@@ -35,8 +35,8 @@ export default function DashboardPage() {
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Skeleton className="h-8 w-32" /></div>;
 
-  const totalSold = events.reduce((sum, e) => sum + e.totalTicketsSold, 0);
-  const totalRevenue = events.reduce((sum, e) => sum + e.totalRevenue, 0);
+  const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
+const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
 
   return (
     <div className="flex min-h-screen">
