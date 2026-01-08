@@ -6,9 +6,13 @@ class ApiClient {
   setToken(token: string | null) {
     this.accessToken = token;
     if (token) {
-      localStorage.setItem('accessToken', token);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', token);
+      }
     } else {
-      localStorage.removeItem('accessToken');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+      }
     }
   }
 
@@ -38,7 +42,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Request failed');
+      throw new Error(error.message || `Request failed with status ${response.status}`);
     }
 
     return response.json();
@@ -131,29 +135,63 @@ class ApiClient {
 
   async logout() {
     this.setToken(null);
-    localStorage.removeItem('refreshToken');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('refreshToken');
+    }
   }
 
   // ==================== HOMEPAGE SECTIONS ====================
+  // These methods return empty arrays on error to prevent frontend crashes
   
-  async getCarouselEvents() {
-    return this.request<any[]>('/events/carousel');
+  async getCarouselEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/carousel');
+      // Handle both array response and { data: [] } response
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch carousel events:', err);
+      return [];
+    }
   }
 
-  async getLiveEvents() {
-    return this.request<any[]>('/events/live');
+  async getLiveEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/live');
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch live events:', err);
+      return [];
+    }
   }
 
-  async getTrendingEvents() {
-    return this.request<any[]>('/events/trending');
+  async getTrendingEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/trending');
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch trending events:', err);
+      return [];
+    }
   }
 
-  async getUpcomingEvents() {
-    return this.request<any[]>('/events/upcoming');
+  async getUpcomingEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/upcoming');
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch upcoming events:', err);
+      return [];
+    }
   }
 
-  async getFeaturedEvents() {
-    return this.request<any[]>('/events/featured');
+  async getFeaturedEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/featured');
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch featured events:', err);
+      return [];
+    }
   }
 
   // ==================== EVENTS ====================
@@ -170,8 +208,14 @@ class ApiClient {
     return this.request<any>(`/events/id/${id}`);
   }
 
-  async getMyEvents() {
-    return this.request<any[]>('/events/my');
+  async getMyEvents(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/events/my');
+      return Array.isArray(response) ? response : (response?.data || response?.events || []);
+    } catch (err) {
+      console.error('Failed to fetch my events:', err);
+      return [];
+    }
   }
 
   async createEvent(data: any) {
@@ -226,8 +270,14 @@ class ApiClient {
     return this.request<{ ticket: any; message: string }>(`/payments/verify/${reference}`);
   }
 
-  async getMyTickets() {
-    return this.request<any[]>('/tickets/my');
+  async getMyTickets(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/tickets/my');
+      return Array.isArray(response) ? response : (response?.data || response?.tickets || []);
+    } catch (err) {
+      console.error('Failed to fetch my tickets:', err);
+      return [];
+    }
   }
 
   async getTicketById(id: string) {
@@ -286,8 +336,14 @@ class ApiClient {
     return this.request<any>('/users/profile');
   }
 
-  async getBanks() {
-    return this.request<any[]>('/payments/banks');
+  async getBanks(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/payments/banks');
+      return Array.isArray(response) ? response : (response?.data || response?.banks || []);
+    } catch (err) {
+      console.error('Failed to fetch banks:', err);
+      return [];
+    }
   }
 
   async resolveAccount(accountNumber: string, bankCode: string) {
@@ -330,8 +386,14 @@ class ApiClient {
     });
   }
 
-  async getWithdrawalHistory() {
-    return this.request<any[]>('/withdrawals/history');
+  async getWithdrawalHistory(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/withdrawals/history');
+      return Array.isArray(response) ? response : (response?.data || response?.withdrawals || []);
+    } catch (err) {
+      console.error('Failed to fetch withdrawal history:', err);
+      return [];
+    }
   }
 
   // ==================== REFUNDS ====================
@@ -342,12 +404,24 @@ class ApiClient {
     });
   }
 
-  async getMyRefunds() {
-    return this.request<any[]>('/refunds/my');
+  async getMyRefunds(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/refunds/my');
+      return Array.isArray(response) ? response : (response?.data || response?.refunds || []);
+    } catch (err) {
+      console.error('Failed to fetch my refunds:', err);
+      return [];
+    }
   }
 
-  async getOrganizerRefunds() {
-    return this.request<any[]>('/refunds/organizer');
+  async getOrganizerRefunds(): Promise<any[]> {
+    try {
+      const response = await this.request<any>('/refunds/organizer');
+      return Array.isArray(response) ? response : (response?.data || response?.refunds || []);
+    } catch (err) {
+      console.error('Failed to fetch organizer refunds:', err);
+      return [];
+    }
   }
 
   async approveRefund(refundId: string) {
