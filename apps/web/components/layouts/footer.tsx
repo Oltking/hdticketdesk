@@ -18,7 +18,7 @@ export function Footer() {
               Africa's premier event ticketing platform. Discover, book, and host unforgettable experiences.
             </p>
             <div className="flex gap-4">
-              <a href="x.com/hdticketdesk" className="text-muted-foreground hover:text-primary transition-colors"><Twitter className="w-5 h-5" /></a>
+              <a href="https://x.com/hdticketdesk" className="text-muted-foreground hover:text-primary transition-colors"><Twitter className="w-5 h-5" /></a>
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="w-5 h-5" /></a>
               <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="w-5 h-5" /></a>
             </div>
