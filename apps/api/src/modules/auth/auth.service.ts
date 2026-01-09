@@ -19,6 +19,7 @@ export class EmailNotVerifiedException extends ForbiddenException {
   constructor(userId: string, email: string) {
     super({
       statusCode: 403,
+      code: 'EMAIL_NOT_VERIFIED',
       error: 'Email Not Verified',
       message: 'Please verify your email before logging in',
       userId,

@@ -208,6 +208,14 @@ export default function LoginPage() {
         // Ignore parsing errors
       }
       
+      //checks for email not verified 
+      const backendCode = err?.response?.data?.code;
+
+      if (backendCode === 'EMAIL_NOT_VERIFIED'){
+        success('Code sent! Please check your email for veerification code');
+        router.push(`/verify-email?userId=${userId}&email=${encodeURIComponent(data.email)}&type=EMAIL_VERIFICATION`);
+        return;
+      }
       // Check if this is an unverified email error
       const errorMessage = err.message || '';
       const isUnverifiedError = 
