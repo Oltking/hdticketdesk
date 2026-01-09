@@ -24,7 +24,7 @@ export class EmailService {
     });
 
     this.domain = this.configService.get<string>('MAILGUN_DOMAIN') || '';
-    this.fromEmail = this.configService.get<string>('MAILGUN_FROM_EMAIL') || 'noreply@hdticketdesk.com';
+    this.fromEmail = this.configService.get<string>('MAILGUN_FROM_EMAIL') || 'noreply@mg.hdticketdesk.com';
     this.fromName = this.configService.get<string>('MAILGUN_FROM_NAME') || 'HD Ticket Desk';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
