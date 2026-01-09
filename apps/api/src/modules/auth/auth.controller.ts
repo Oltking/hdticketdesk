@@ -3,120 +3,164 @@ import {
   Post,
   Body,
   Get,
+  Req,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
-  Ip,
-  Headers,
-  Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Request } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // ==================== REGISTER ====================
   @Post('register')
-  async register(
-    @Body() registerDto: RegisterDto,
-    @Ip() ip: string,
-    @Headers('user-agent') userAgent: string,
-  ) {
-    return this.authService.register(registerDto, ip, userAgent);
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ status: 201, description: 'User registered successfully' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
+    const ip = req.ip || req.connection.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.register(dto, ip, userAgent);
   }
 
+  // ==================== LOGIN ====================
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LocalAuthGuard)
-  async login(
-    @Body() loginDto: LoginDto,
-    @Ip() ip: string,
-    @Headers('user-agent') userAgent: string,
-  ) {
-    return this.authService.login(loginDto, ip, userAgent);
+  @ApiOperation({ summary: 'Login user' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Email not verified' })
+  async login(@Body() dto: LoginDto, @Req() req: Request) {
+    const ip = req.ip || req.connection.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.login(dto, ip, userAgent);
   }
 
-  @Post('verify-email')
-  @HttpCode(HttpStatus.OK)
-  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
-    return this.authService.verifyEmail(verifyEmailDto.token);
-  }
-
-  @Post('resend-verification')
-  @HttpCode(HttpStatus.OK)
-  async resendVerification(@Body('email') email: string) {
-    return this.authService.resendVerificationEmail(email);
-  }
-
+  // ==================== VERIFY OTP (Generic) ====================
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP (email verification or login)' })
+  @ApiResponse({ status: 200, description: 'OTP verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyOtp(
-    @Body() verifyOtpDto: VerifyOtpDto,
-    @Ip() ip: string,
-    @Headers('user-agent') userAgent: string,
+    @Body() body: { userId: string; code: string; type: string },
+    @Req() req: Request,
   ) {
-    return this.authService.verifyLoginOtp(
-      verifyOtpDto.email,
-      verifyOtpDto.otp,
-      ip,
-      userAgent,
-    );
+    const ip = req.ip || req.connection.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.verifyOtp(body.userId, body.code, body.type, ip, userAgent);
   }
 
+  // ==================== RESEND OTP ====================
+  @Post('resend-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend OTP for email verification' })
+  @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  async resendOtp(@Body() body: { userId: string; type: string }) {
+    if (body.type === 'EMAIL_VERIFICATION') {
+      return this.authService.resendVerificationOtp(body.userId);
+    } else if (body.type === 'NEW_DEVICE_LOGIN') {
+      const user = await this.authService.getUserById(body.userId);
+      if (user) {
+        await this.authService.sendLoginOtp(user.id, user.email);
+        return { message: 'OTP sent to your email' };
+      }
+    }
+    return { message: 'OTP sent if user exists' };
+  }
+
+  // ==================== VERIFY EMAIL (Token Link) ====================
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email with token link' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async verifyEmail(@Body() body: { token: string }) {
+    return this.authService.verifyEmail(body.token);
+  }
+
+  // ==================== RESEND VERIFICATION EMAIL ====================
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend verification email' })
+  @ApiResponse({ status: 200, description: 'Verification email sent' })
+  async resendVerification(@Body() body: { email: string }) {
+    return this.authService.resendVerificationEmail(body.email);
+  }
+
+  // ==================== REFRESH TOKEN ====================
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refreshAccessToken(refreshTokenDto.refreshToken);
+  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
+  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
+  async refreshToken(@Body() body: { refreshToken: string }) {
+    return this.authService.refreshAccessToken(body.refreshToken);
   }
 
+  // ==================== FORGOT PASSWORD ====================
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(forgotPasswordDto.email);
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiResponse({ status: 200, description: 'Reset email sent if user exists' })
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
   }
 
+  // ==================== RESET PASSWORD ====================
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(
-      resetPasswordDto.token,
-      resetPasswordDto.newPassword,
-    );
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  async resetPassword(@Body() body: { token: string; password: string }) {
+    return this.authService.resetPassword(body.token, body.password);
   }
 
-  @Post('logout')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  async logout(@Request() req: any, @Body('refreshToken') refreshToken: string) {
-    return this.authService.logout(req.user.id, refreshToken);
-  }
-
+  // ==================== GET CURRENT USER ====================
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getMe(@Request() req: any) {
-    const user = await this.authService.getUserById(req.user.id);
-
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current user' })
+  @ApiResponse({ status: 200, description: 'Current user data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMe(@Req() req: Request) {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    const user = await this.authService.getUserById(userId);
     if (!user) {
       return null;
     }
-
-    // Safely exclude password
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+    return userWithoutSensitive;
   }
 
-  @Get('check-email')
-  async checkEmail(@Query('email') email: string) {
-    return this.authService.checkEmailExists(email);
+  // ==================== LOGOUT ====================
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Logout user' })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+  async logout(@Req() req: Request, @Body() body: { refreshToken: string }) {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    return this.authService.logout(userId, body.refreshToken);
+  }
+
+  // ==================== CHECK EMAIL EXISTS ====================
+  @Post('check-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check if email is already registered' })
+  @ApiResponse({ status: 200, description: 'Returns whether email exists' })
+  async checkEmail(@Body() body: { email: string }) {
+    return this.authService.checkEmailExists(body.email);
   }
 }

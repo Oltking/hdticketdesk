@@ -23,4 +23,5 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
+  organizerTitle?: string;
 }

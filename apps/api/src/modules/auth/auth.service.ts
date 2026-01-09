@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,6 +13,19 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+
+// Custom exception for unverified email that includes userId
+export class EmailNotVerifiedException extends ForbiddenException {
+  constructor(userId: string, email: string) {
+    super({
+      statusCode: 403,
+      error: 'Email Not Verified',
+      message: 'Please verify your email before logging in',
+      userId,
+      email,
+    });
+  }
+}
 
 @Injectable()
 export class AuthService {
@@ -36,9 +50,9 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate OTP for email verification (6 digits)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create user
     const user = await this.prisma.user.create({
@@ -48,13 +62,13 @@ export class AuthService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         role: dto.role || 'BUYER',
-        verificationToken,
-        verificationTokenExpiry: verificationExpiry,
+        verificationToken: otp,
+        verificationTokenExpiry: otpExpiry,
         organizerProfile:
           dto.role === 'ORGANIZER'
             ? {
                 create: {
-                  title: `${dto.firstName} ${dto.lastName}`,
+                  title: dto.organizerTitle || `${dto.firstName} ${dto.lastName}`,
                 },
               }
             : undefined,
@@ -64,39 +78,67 @@ export class AuthService {
       },
     });
 
-    // Send verification email
-    await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    // Send verification OTP email
+    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
-    await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
-
-    // Return user without sensitive data
-    const { password, verificationToken: vt, ...userWithoutSensitive } = user;
-
+    // Return userId so frontend can redirect to verify page
+    // Don't generate tokens yet - user must verify first
     return {
-      user: userWithoutSensitive,
-      ...tokens,
+      message: 'Account created! Please check your email for verification code.',
+      userId: user.id,
+      email: user.email,
     };
   }
 
   // ==================== LOGIN ====================
   async login(dto: LoginDto, ip: string, userAgent: string) {
-    const user = await this.validateUser(dto.email, dto.password);
+    // First, find the user
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+      include: { organizerProfile: true },
+    });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Validate password
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // ⚠️ CHECK IF EMAIL IS VERIFIED - This is the key check!
+    if (!user.emailVerified) {
+      // Resend verification OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          verificationToken: otp,
+          verificationTokenExpiry: otpExpiry,
+        },
+      });
+
+      // Send new verification OTP
+      await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+
+      // Throw custom exception with userId so frontend can redirect to verify page
+      throw new EmailNotVerifiedException(user.id, user.email);
     }
 
     // Check if this is a new device
     const isNewDevice = await this.isNewDevice(user.id, ip, userAgent);
 
-    if (isNewDevice && user.emailVerified) {
+    if (isNewDevice) {
       // Send OTP for new device
       await this.sendLoginOtp(user.id, user.email);
       return {
         requiresOtp: true,
-        message: 'OTP sent to your email for new device verification',
+        userId: user.id,
+        message: 'New device detected. Please enter the OTP sent to your email.',
       };
     }
 
@@ -104,12 +146,93 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
 
-    const { password, ...userWithoutPassword } = user;
+    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
 
     return {
-      user: userWithoutPassword,
+      user: userWithoutSensitive,
       ...tokens,
     };
+  }
+
+  // ==================== VERIFY EMAIL OTP ====================
+  async verifyEmailOtp(userId: string, otp: string, ip: string, userAgent: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organizerProfile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    if (!user.verificationToken || !user.verificationTokenExpiry) {
+      throw new BadRequestException('No verification code found. Please request a new one.');
+    }
+
+    if (user.verificationTokenExpiry < new Date()) {
+      throw new BadRequestException('Verification code has expired. Please request a new one.');
+    }
+
+    if (user.verificationToken !== otp) {
+      throw new UnauthorizedException('Invalid verification code');
+    }
+
+    // Mark email as verified
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        verificationToken: null,
+        verificationTokenExpiry: null,
+      },
+    });
+
+    // Generate tokens and log user in
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
+
+    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+
+    return {
+      message: 'Email verified successfully',
+      user: { ...userWithoutSensitive, emailVerified: true },
+      ...tokens,
+    };
+  }
+
+  // ==================== RESEND VERIFICATION OTP ====================
+  async resendVerificationOtp(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.emailVerified) {
+      throw new BadRequestException('Email is already verified');
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        verificationToken: otp,
+        verificationTokenExpiry: otpExpiry,
+      },
+    });
+
+    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+
+    return { message: 'Verification code sent to your email' };
   }
 
   // ==================== VALIDATE USER ====================
@@ -132,7 +255,7 @@ export class AuthService {
     return user;
   }
 
-  // ==================== VERIFY EMAIL ====================
+  // ==================== VERIFY EMAIL (Token Link Version) ====================
   async verifyEmail(token: string) {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -158,7 +281,7 @@ export class AuthService {
     return { message: 'Email verified successfully' };
   }
 
-  // ==================== RESEND VERIFICATION ====================
+  // ==================== RESEND VERIFICATION EMAIL ====================
   async resendVerificationEmail(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },
@@ -166,27 +289,30 @@ export class AuthService {
 
     if (!user) {
       // Don't reveal if email exists
-      return { message: 'If your email exists, a verification link will be sent' };
+      return { message: 'If your email exists, a verification code will be sent' };
     }
 
     if (user.emailVerified) {
       return { message: 'Email is already verified' };
     }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        verificationToken,
-        verificationTokenExpiry: verificationExpiry,
+        verificationToken: otp,
+        verificationTokenExpiry: otpExpiry,
       },
     });
 
-    await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
 
-    return { message: 'Verification email sent' };
+    return { 
+      message: 'Verification code sent',
+      userId: user.id, // Return userId so frontend can redirect to verify page
+    };
   }
 
   // ==================== LOGIN OTP ====================
@@ -208,14 +334,14 @@ export class AuthService {
     await this.emailService.sendOtpEmail(email, otp);
   }
 
-  async verifyLoginOtp(email: string, otp: string, ip: string, userAgent: string) {
+  async verifyLoginOtp(userId: string, otp: string, ip: string, userAgent: string) {
     const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { id: userId },
       include: { organizerProfile: true },
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('User not found');
     }
 
     if (!user.loginOtp || !user.loginOtpExpiry) {
@@ -243,12 +369,23 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
 
-    const { password, loginOtp, loginOtpExpiry, ...userWithoutSensitive } = user;
+    const { password, loginOtp: lo, loginOtpExpiry: loe, verificationToken, verificationTokenExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
 
     return {
       user: userWithoutSensitive,
       ...tokens,
     };
+  }
+
+  // ==================== VERIFY OTP (Generic - handles both email and login) ====================
+  async verifyOtp(userId: string, code: string, type: string, ip: string, userAgent: string) {
+    if (type === 'EMAIL_VERIFICATION') {
+      return this.verifyEmailOtp(userId, code, ip, userAgent);
+    } else if (type === 'NEW_DEVICE_LOGIN') {
+      return this.verifyLoginOtp(userId, code, ip, userAgent);
+    } else {
+      throw new BadRequestException('Invalid verification type');
+    }
   }
 
   // ==================== NEW DEVICE CHECK ====================
@@ -278,11 +415,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: '15m',
+        expiresIn: this.configService.get<string>('JWT_EXPIRY') || '15m',
       }),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d',
       }),
     ]);
 

@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
-import { Eye, EyeOff, X, AlertCircle, Mail, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, X, AlertCircle, Mail, Loader2, Info } from 'lucide-react';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -21,15 +21,31 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+// Error type detection
+interface ErrorInfo {
+  message: string;
+  action?: string;
+  actionType?: 'resend' | 'signup' | 'reset' | 'verify';
+  userId?: string;
+}
+
 // Error message mapping for user-friendly messages
-const getErrorMessage = (error: string): { message: string; action?: string; actionType?: 'resend' | 'signup' | 'reset' } => {
+const getErrorInfo = (error: string, responseData?: any): ErrorInfo => {
   const errorLower = error.toLowerCase();
   
-  if (errorLower.includes('not verified') || errorLower.includes('verify your email') || errorLower.includes('email not verified')) {
+  // Check if user needs to verify email - this is the key case
+  if (
+    errorLower.includes('not verified') || 
+    errorLower.includes('verify your email') || 
+    errorLower.includes('email not verified') ||
+    errorLower.includes('verification required') ||
+    errorLower.includes('please verify')
+  ) {
     return {
-      message: 'Your email is not verified yet.',
-      action: 'Resend verification email',
-      actionType: 'resend'
+      message: 'Your email is not verified yet. Please verify to continue.',
+      action: 'Verify Email Now',
+      actionType: 'verify',
+      userId: responseData?.userId
     };
   }
   
@@ -75,9 +91,10 @@ export default function LoginPage() {
   const { success, error: showError } = useToast();
   const { setUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
-  const [errorState, setErrorState] = useState<{ message: string; action?: string; actionType?: string } | null>(null);
+  const [errorState, setErrorState] = useState<ErrorInfo | null>(null);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [unverifiedUserId, setUnverifiedUserId] = useState<string | null>(null);
   
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({ 
     resolver: zodResolver(schema) 
@@ -95,7 +112,11 @@ export default function LoginPage() {
     try {
       await api.resendVerification(userEmail || watchedEmail);
       success('Verification email sent! Please check your inbox.');
-      setErrorState(null);
+      
+      // If we have userId, redirect to verify page
+      if (unverifiedUserId) {
+        router.push(`/verify-email?userId=${unverifiedUserId}&email=${encodeURIComponent(userEmail || watchedEmail)}`);
+      }
     } catch (err: any) {
       showError(err.message || 'Failed to resend verification email');
     } finally {
@@ -107,6 +128,15 @@ export default function LoginPage() {
     if (!errorState?.actionType) return;
     
     switch (errorState.actionType) {
+      case 'verify':
+        // Redirect to verify email page
+        if (unverifiedUserId || errorState.userId) {
+          router.push(`/verify-email?userId=${unverifiedUserId || errorState.userId}&email=${encodeURIComponent(userEmail || watchedEmail)}&type=EMAIL_VERIFICATION`);
+        } else {
+          // If no userId, resend verification first
+          handleResendVerification();
+        }
+        break;
       case 'resend':
         handleResendVerification();
         break;
@@ -122,13 +152,27 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setErrorState(null);
     setUserEmail(data.email);
+    setUnverifiedUserId(null);
     
     try {
       const result = await api.login(data);
       
+      // Check if email verification is required
       if (result.requiresOtp) {
         success('Verification code sent to your email');
-        router.push(`/verify-email?userId=${result.userId}&type=NEW_DEVICE_LOGIN`);
+        router.push(`/verify-email?userId=${result.userId}&email=${encodeURIComponent(data.email)}&type=NEW_DEVICE_LOGIN`);
+        return;
+      }
+      
+      // Check if email is not verified (some APIs return this in the success response)
+      if (result.user?.emailVerified === false) {
+        setUnverifiedUserId(result.userId || result.user?.id);
+        setErrorState({
+          message: 'Your email is not verified yet. Please verify to continue.',
+          action: 'Verify Email Now',
+          actionType: 'verify',
+          userId: result.userId || result.user?.id
+        });
         return;
       }
       
@@ -147,7 +191,38 @@ export default function LoginPage() {
         router.push('/tickets');
       }
     } catch (err: any) {
-      const errorInfo = getErrorMessage(err.message);
+      // Try to extract userId from error response for unverified users
+      let userId = null;
+      let responseData = null;
+      
+      try {
+        // Some APIs include userId in error response for unverified users
+        if (err.response?.data) {
+          responseData = err.response.data;
+          userId = err.response.data.userId;
+        } else if (err.userId) {
+          userId = err.userId;
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+      
+      // Check if this is an unverified email error
+      const errorMessage = err.message || '';
+      const isUnverifiedError = 
+        errorMessage.toLowerCase().includes('not verified') ||
+        errorMessage.toLowerCase().includes('verify your email') ||
+        errorMessage.toLowerCase().includes('email not verified') ||
+        errorMessage.toLowerCase().includes('verification required');
+      
+      if (isUnverifiedError) {
+        setUnverifiedUserId(userId);
+      }
+      
+      const errorInfo = getErrorInfo(err.message, { userId });
+      if (userId) {
+        errorInfo.userId = userId;
+      }
       setErrorState(errorInfo);
     }
   };
@@ -179,20 +254,37 @@ export default function LoginPage() {
         <CardContent>
           {/* Error Alert */}
           {errorState && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className={`mb-4 p-4 rounded-lg border ${
+              errorState.actionType === 'verify' 
+                ? 'bg-amber-50 border-amber-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                {errorState.actionType === 'verify' ? (
+                  <Info className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                )}
                 <div className="flex-1">
-                  <p className="text-sm text-red-700 font-medium">{errorState.message}</p>
+                  <p className={`text-sm font-medium ${
+                    errorState.actionType === 'verify' ? 'text-amber-700' : 'text-red-700'
+                  }`}>
+                    {errorState.message}
+                  </p>
                   {errorState.action && (
                     <button
                       type="button"
                       onClick={handleErrorAction}
                       disabled={resendingEmail}
-                      className="mt-2 text-sm text-red-600 hover:text-red-800 underline font-medium flex items-center gap-1"
+                      className={`mt-2 text-sm underline font-medium flex items-center gap-1 ${
+                        errorState.actionType === 'verify' 
+                          ? 'text-amber-600 hover:text-amber-800' 
+                          : 'text-red-600 hover:text-red-800'
+                      }`}
                     >
                       {resendingEmail && <Loader2 className="h-3 w-3 animate-spin" />}
-                      {errorState.actionType === 'resend' && resendingEmail ? 'Sending...' : errorState.action}
+                      {errorState.actionType === 'verify' && !resendingEmail && <Mail className="h-3 w-3" />}
+                      {resendingEmail ? 'Sending...' : errorState.action}
                     </button>
                   )}
                 </div>
