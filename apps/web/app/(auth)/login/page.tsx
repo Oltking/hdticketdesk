@@ -218,11 +218,8 @@ export default function LoginPage() {
       
       if (isUnverifiedError) {
         setUnverifiedUserId(userId);
-
         success('Code Sent! Please check your email for verification code');
-        router.push(
-          `/verify-email?userId=${userId}&email=${encodeURIComponent(data.email)}&type=EMAIL_VERIFICATION`
-        );
+        router.push(`/verify-email?userId=${userId}&email=${encodeURIComponent(data.email)}&type=EMAIL_VERIFICATION`);
         return;
       }
       
