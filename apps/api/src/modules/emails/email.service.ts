@@ -18,12 +18,12 @@ export class EmailService {
     
     this.mg = mailgun.client({
       username: 'api',
-      key: apiKey || 'dummy-key-for-dev',
+      key: apiKey,
     });
 
     this.domain = this.configService.get<string>('MAILGUN_DOMAIN') || '';
     this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@hdticketdesk.com';
-    this.fromName = this.configService.get<string>('EMAIL_FROM_NAME') || 'hdticketdesk';
+    this.fromName = this.configService.get<string>('EMAIL_FROM_NAME') || 'HDTicketDesk';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
@@ -540,12 +540,16 @@ export class EmailService {
   private async send(to: string, subject: string, html: string) {
     try {
       if (!this.domain) {
-        console.log(`[EMAIL] Would send to ${to}: ${subject}`);
-        console.log(`[EMAIL] Domain not configured - email not sent`);
-        return { success: true, message: 'Email logged (no domain configured)' };
+        console.warn(`[EMAIL] Domain not configured - email to ${to} was not sent`);
+        return { success: false, error: 'MAILGUN_DOMAIN not configured' };
       }
 
-      await this.mg.messages.create(this.domain, {
+      if (!this.mg) {
+        console.error('[EMAIL] Mailgun client not initialized');
+        return { success: false, error: 'Mailgun client not initialized' };
+      }
+
+      const response = await this.mg.messages.create(this.domain, {
         from: this.from,
         to: [to],
         subject,
@@ -553,10 +557,10 @@ export class EmailService {
       });
 
       console.log(`[EMAIL] Sent to ${to}: ${subject}`);
-      return { success: true };
+      return { success: true, messageId: response.id };
     } catch (error) {
       console.error('[EMAIL] Send error:', error);
-      return { success: false, error };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
