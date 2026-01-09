@@ -212,6 +212,7 @@ export default function LoginPage() {
       const backendCode = err?.response?.data?.code;
 
       if (backendCode === 'EMAIL_NOT_VERIFIED'){
+        setUnverifiedUserId(userId);
         success('Code sent! Please check your email for veerification code');
         router.push(`/verify-email?userId=${userId}&email=${encodeURIComponent(data.email)}&type=EMAIL_VERIFICATION`);
         return;
