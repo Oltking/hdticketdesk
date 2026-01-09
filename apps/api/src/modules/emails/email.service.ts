@@ -15,15 +15,17 @@ export class EmailService {
     const mailgun = new Mailgun(FormData);
     
     const apiKey = this.configService.get<string>('MAILGUN_API_KEY') || '';
+    const mailgunHost = this.configService.get<string>('MAILGUN_HOST') || 'api.eu.mailgun.net';
     
     this.mg = mailgun.client({
       username: 'api',
       key: apiKey,
+      url: `https://${mailgunHost}`,
     });
 
     this.domain = this.configService.get<string>('MAILGUN_DOMAIN') || '';
-    this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@hdticketdesk.com';
-    this.fromName = this.configService.get<string>('EMAIL_FROM_NAME') || 'HDTicketDesk';
+    this.fromEmail = this.configService.get<string>('MAILGUN_FROM_EMAIL') || 'noreply@hdticketdesk.com';
+    this.fromName = this.configService.get<string>('MAILGUN_FROM_NAME') || 'HD Ticket Desk';
     this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
   }
 
@@ -540,7 +542,7 @@ export class EmailService {
   private async send(to: string, subject: string, html: string) {
     try {
       if (!this.domain) {
-        console.warn(`[EMAIL] Domain not configured - email to ${to} was not sent`);
+        console.error('[EMAIL] MAILGUN_DOMAIN not configured:', this.domain);
         return { success: false, error: 'MAILGUN_DOMAIN not configured' };
       }
 
@@ -549,6 +551,10 @@ export class EmailService {
         return { success: false, error: 'Mailgun client not initialized' };
       }
 
+      console.log(`[EMAIL] Attempting to send email to: ${to}`);
+      console.log(`[EMAIL] From: ${this.from}`);
+      console.log(`[EMAIL] Domain: ${this.domain}`);
+
       const response = await this.mg.messages.create(this.domain, {
         from: this.from,
         to: [to],
@@ -556,10 +562,15 @@ export class EmailService {
         html,
       });
 
-      console.log(`[EMAIL] Sent to ${to}: ${subject}`);
+      console.log(`[EMAIL] Successfully sent to ${to}: ${subject}`, response.id);
       return { success: true, messageId: response.id };
     } catch (error) {
-      console.error('[EMAIL] Send error:', error);
+      console.error('[EMAIL] Send failed:', {
+        error: error instanceof Error ? error.message : String(error),
+        domain: this.domain,
+        from: this.from,
+        to: to,
+      });
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
