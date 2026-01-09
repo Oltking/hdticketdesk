@@ -47,6 +47,7 @@ const getErrorInfo = (error: string, responseData?: any): ErrorInfo => {
       actionType: 'verify',
       userId: responseData?.userId
     };
+    
   }
   
   if (errorLower.includes('not found') || errorLower.includes('no user') || errorLower.includes('user not found') || errorLower.includes('does not exist')) {
@@ -217,6 +218,12 @@ export default function LoginPage() {
       
       if (isUnverifiedError) {
         setUnverifiedUserId(userId);
+
+        success('Code Sent! Please check your email for verification code');
+        router.push(
+          `/verify-email?userId=${userId}&email=${encodeURIComponent(data.email)}&type=EMAIL_VERIFICATION`
+        );
+        return;
       }
       
       const errorInfo = getErrorInfo(err.message, { userId });
