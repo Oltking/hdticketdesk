@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as FormData from 'form-data';
 import Mailgun from 'mailgun.js';
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   private mg: any;
   private domain: string;
   private fromEmail: string;
@@ -12,25 +14,58 @@ export class EmailService {
   private frontendUrl: string;
 
   constructor(private configService: ConfigService) {
+    /* ==================== READ CONFIG FIRST ==================== */
+    const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
+    const domain = this.configService.get<string>('MAILGUN_DOMAIN');
+    const mailgunHost =
+      this.configService.get<string>('MAILGUN_HOST') ?? 'api.eu.mailgun.net';
+
+    /* ==================== HARD FAIL (NO SILENT MISCONFIG) ==================== */
+    if (!apiKey) throw new Error('MAILGUN_API_KEY is missing');
+    if (!domain) throw new Error('MAILGUN_DOMAIN is missing');
+
+    this.domain = domain;
+
+    this.fromEmail =
+      this.configService.get<string>('MAILGUN_FROM_EMAIL') ??
+      `noreply@${domain}`;
+
+    this.fromName =
+      this.configService.get<string>('MAILGUN_FROM_NAME') ??
+      'HD Ticket Desk';
+
+    this.frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ??
+      'http://localhost:3000';
+
+    /* ==================== DOMAIN ↔ FROM SAFETY CHECK ==================== */
+    // Mailgun WILL reject mismatched domains
+    if (!this.fromEmail.endsWith(`@${this.domain}`)) {
+      throw new Error(
+        `MAILGUN_FROM_EMAIL (${this.fromEmail}) must match MAILGUN_DOMAIN (${this.domain})`,
+      );
+    }
+
+    /* ==================== INIT MAILGUN AFTER VALIDATION ==================== */
     const mailgun = new Mailgun(FormData);
-    
-    const apiKey = this.configService.get<string>('MAILGUN_API_KEY') || '';
-    const mailgunHost = this.configService.get<string>('MAILGUN_HOST') || 'api.eu.mailgun.net';
-    
+
     this.mg = mailgun.client({
       username: 'api',
       key: apiKey,
       url: `https://${mailgunHost}`,
     });
 
-    this.domain = this.configService.get<string>('MAILGUN_DOMAIN') || '';
-    this.fromEmail = this.configService.get<string>('MAILGUN_FROM_EMAIL') || 'noreply@mg.hdticketdesk.com';
-    this.fromName = this.configService.get<string>('MAILGUN_FROM_NAME') || 'HD Ticket Desk';
-    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    /* ==================== BOOT LOGS ==================== */
+    this.logger.log('Mailgun initialized');
+    this.logger.log(`Domain: ${this.domain}`);
+    this.logger.log(`Host: ${mailgunHost}`);
+    this.logger.log(`From: ${this.from}`);
   }
 
+  /* ==================== RFC-SAFE FROM HEADER ==================== */
   private get from(): string {
-    return `${this.fromName} <${this.fromEmail}>`;
+    // QUOTED name prevents header parsing issues
+    return `"${this.fromName}" <${this.fromEmail}>`;
   }
 
   // ==================== VERIFICATION OTP EMAIL (NEW) ====================
