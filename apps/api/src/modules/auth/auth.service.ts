@@ -80,7 +80,10 @@ export class AuthService {
     });
 
     // Send verification OTP email
-    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    if (!emailResult.success) {
+      console.error('[AUTH] Failed to send verification OTP during registration:', emailResult.error);
+    }
 
     // Return userId so frontend can redirect to verify page
     // Don't generate tokens yet - user must verify first
@@ -124,7 +127,10 @@ export class AuthService {
       });
 
       // Send new verification OTP
-      await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+      const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+      if (!emailResult.success) {
+        console.error('[AUTH] Failed to send verification OTP during login:', emailResult.error);
+      }
 
       // Throw custom exception with userId so frontend can redirect to verify page
       throw new EmailNotVerifiedException(user.id, user.email);
@@ -231,7 +237,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    if (!emailResult.success) {
+      console.error('[AUTH] Failed to send verification OTP (resend):', emailResult.error);
+      throw new BadRequestException('Failed to send verification code. Please try again.');
+    }
 
     return { message: 'Verification code sent to your email' };
   }
@@ -308,7 +318,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined );
+    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    if (!emailResult.success) {
+      console.error('[AUTH] Failed to send verification OTP (resend email):', emailResult.error);
+      throw new BadRequestException('Failed to send verification code. Please try again.');
+    }
 
     return { 
       message: 'Verification code sent',
@@ -332,7 +346,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendOtpEmail(email, otp);
+    const emailResult = await this.emailService.sendOtpEmail(email, otp);
+    if (!emailResult.success) {
+      console.error('[AUTH] Failed to send login OTP:', emailResult.error);
+      throw new BadRequestException('Failed to send OTP. Please try again.');
+    }
   }
 
   async verifyLoginOtp(userId: string, otp: string, ip: string, userAgent: string) {
@@ -520,7 +538,10 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    const emailResult = await this.emailService.sendPasswordResetEmail(user.email, resetToken);
+    if (!emailResult.success) {
+      console.error('[AUTH] Failed to send password reset email:', emailResult.error);
+    }
 
     return { message: 'Password reset email sent' };
   }
