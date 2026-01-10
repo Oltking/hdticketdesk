@@ -617,6 +617,17 @@ export class AuthService {
     });
   }
 
+  // Find user by active verification token (not expired)
+  async getUserByVerificationToken(token: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        verificationToken: token,
+        verificationTokenExpiry: { gt: new Date() },
+      },
+      include: { organizerProfile: true },
+    });
+  }
+
   async checkEmailExists(email: string) {
     const user = await this.prisma.user.findUnique({
       where: { email: email.toLowerCase() },

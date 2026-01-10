@@ -12,12 +12,12 @@ export function useAuth(requireAuth = false, allowedRoles?: string[]) {
     if (isLoading) return;
 
     if (requireAuth && !isAuthenticated) {
-      router.push('/login');
+      router.replace('/login');
       return;
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-      router.push('/');
+      router.replace('/');
     }
   }, [isAuthenticated, isLoading, user, requireAuth, allowedRoles, router]);
 

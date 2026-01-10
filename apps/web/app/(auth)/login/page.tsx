@@ -229,11 +229,11 @@ export default function LoginPage() {
       success(`Welcome back, ${result.user?.firstName || 'User'}!`);
 
       if (result.user?.role === 'ADMIN') {
-        router.push('/admin/overview');
+        router.replace('/admin/overview');
       } else if (result.user?.role === 'ORGANIZER') {
-        router.push('/dashboard');
+        router.replace('/dashboard');
       } else {
-        router.push('/tickets');
+        router.replace('/tickets');
       }
     } catch (err: any) {
       const backendCode = err?.response?.data?.code;

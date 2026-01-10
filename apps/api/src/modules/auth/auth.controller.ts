@@ -61,10 +61,31 @@ export class AuthController {
     let userId = body.userId;
     let triedEmail: string | undefined;
 
-    if (!userId && body.email) {
+    // If a userId is provided, verify it resolves. If it doesn't and an email is provided, try email lookup as a fallback.
+    if (userId) {
+      const userById = await this.authService.getUserById(userId);
+      if (!userById && body.email) {
+        triedEmail = body.email.trim().toLowerCase();
+        const userByEmail = await this.authService.getUserByEmail(triedEmail);
+        if (userByEmail) {
+          userId = userByEmail.id;
+        }
+      }
+    } else if (body.email) {
       triedEmail = body.email.trim().toLowerCase();
       const user = await this.authService.getUserByEmail(triedEmail);
       if (user) userId = user.id;
+    }
+
+    // Extra fallback: if we still don't have a userId but this is an email verification,
+    // try to resolve the user by the verification token (code). This helps cases where
+    // the frontend lost the query params or localStorage state.
+    if (!userId && body.type === 'EMAIL_VERIFICATION' && body.code) {
+      const byToken = await this.authService.getUserByVerificationToken(body.code);
+      if (byToken) {
+        userId = byToken.id;
+        console.debug('[Auth] verify-otp resolved userId by token', { userId });
+      }
     }
 
     if (!userId) {
@@ -75,6 +96,7 @@ export class AuthController {
       });
     }
 
+    console.debug('[Auth] verify-otp resolved userId', { userId });
     return this.authService.verifyOtp(userId, body.code, body.type, ip, userAgent);
   }
 

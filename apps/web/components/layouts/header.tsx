@@ -102,9 +102,20 @@ export function Header() {
             <hr />
             {isAuthenticated ? (
               <>
+                <div className="flex items-center gap-3">
+                  <User className="w-5 h-5" />
+                  <span className="font-medium">{user?.firstName || 'Account'}</span>
+                </div>
+
                 <Link href={user?.role === 'ORGANIZER' ? '/dashboard' : '/tickets'} onClick={() => setMobileMenuOpen(false)}>
                   {user?.role === 'ORGANIZER' ? 'Dashboard' : 'My Tickets'}
                 </Link>
+
+                <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </Link>
+
                 <button onClick={() => { logout(); setMobileMenuOpen(false); }} className="text-left text-destructive">
                   Logout
                 </button>
