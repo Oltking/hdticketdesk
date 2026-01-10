@@ -52,29 +52,61 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'OTP verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyOtp(
-    @Body() body: { userId: string; code: string; type: string },
+    @Body() body: { userId?: string; email?: string; code: string; type: string },
     @Req() req: Request,
   ) {
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
-    return this.authService.verifyOtp(body.userId, body.code, body.type, ip, userAgent);
+
+    let userId = body.userId;
+    let triedEmail: string | undefined;
+
+    if (!userId && body.email) {
+      triedEmail = body.email.trim().toLowerCase();
+      const user = await this.authService.getUserByEmail(triedEmail);
+      if (user) userId = user.id;
+    }
+
+    if (!userId) {
+      const mask = (e?: string) => (e ? `${e.slice(0, 3)}***${e.slice(-3)}` : undefined);
+      throw new (await import('@nestjs/common')).BadRequestException({
+        message: 'User not found',
+        attempted: { userId: userId ?? null, email: mask(triedEmail ?? body.email) },
+      });
+    }
+
+    return this.authService.verifyOtp(userId, body.code, body.type, ip, userAgent);
   }
 
   // ==================== RESEND OTP ====================
   @Post('resend-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resend OTP for email verification' })
+  @ApiOperation({ summary: 'Resend OTP for email verification or new device login' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
-  async resendOtp(@Body() body: { userId: string; type: string }) {
+  async resendOtp(@Body() body: { userId?: string; email?: string; type: string }) {
+    // EMAIL_VERIFICATION can accept either userId or email
     if (body.type === 'EMAIL_VERIFICATION') {
-      return this.authService.resendVerificationOtp(body.userId);
-    } else if (body.type === 'NEW_DEVICE_LOGIN') {
-      const user = await this.authService.getUserById(body.userId);
+      if (body.userId) {
+        return this.authService.resendVerificationOtp(body.userId);
+      }
+      if (body.email) {
+        return this.authService.resendVerificationEmail(body.email);
+      }
+      return { message: 'OTP sent if user exists' };
+    }
+
+    // NEW_DEVICE_LOGIN supports userId or email to locate the user
+    if (body.type === 'NEW_DEVICE_LOGIN') {
+      let user = null;
+      if (body.userId) user = await this.authService.getUserById(body.userId);
+      else if (body.email) user = await this.authService.getUserByEmail(body.email);
+
       if (user) {
         await this.authService.sendLoginOtp(user.id, user.email);
         return { message: 'OTP sent to your email' };
       }
     }
+
     return { message: 'OTP sent if user exists' };
   }
 

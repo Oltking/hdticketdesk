@@ -42,7 +42,9 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Request failed with status ${response.status}`);
+      const err = new Error(error.message || `Request failed with status ${response.status}`);
+      (err as any).response = { data: error, status: response.status };
+      throw err;
     }
 
     return response.json();
@@ -82,7 +84,7 @@ class ApiClient {
     });
   }
 
-  async verifyOtp(data: { userId: string; code: string; type: string }) {
+  async verifyOtp(data: { userId?: string; email?: string; code: string; type: string }) {
     return this.request<{ 
       user: any; 
       accessToken: string; 
@@ -94,7 +96,7 @@ class ApiClient {
     });
   }
 
-  async resendOtp(data: { userId: string; type: string }) {
+  async resendOtp(data: { userId?: string; email?: string; type: string }) {
     return this.request<{ message: string }>('/auth/resend-otp', {
       method: 'POST',
       body: JSON.stringify(data),

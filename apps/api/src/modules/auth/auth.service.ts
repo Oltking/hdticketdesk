@@ -199,6 +199,18 @@ export class AuthService {
       },
     });
 
+    // Send welcome email (best-effort)
+    try {
+      const welcomeResult = await this.emailService.sendWelcomeEmail(user.email, user.firstName ?? '', user.role as any);
+      if (!welcomeResult.success) {
+        console.error('[AUTH] Failed to send welcome email:', welcomeResult.error);
+      } else {
+        console.log('[AUTH] Welcome email queued:', welcomeResult.id);
+      }
+    } catch (e) {
+      console.error('[AUTH] Error sending welcome email', e);
+    }
+
     // Generate tokens and log user in
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
@@ -243,7 +255,7 @@ export class AuthService {
       throw new BadRequestException('Failed to send verification code. Please try again.');
     }
 
-    return { message: 'Verification code sent to your email' };
+    return { message: 'Verification code sent to your email', userId: user.id };
   }
 
   // ==================== VALIDATE USER ====================
@@ -593,6 +605,14 @@ export class AuthService {
   async getUserById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
+      include: { organizerProfile: true },
+    });
+  }
+
+  // Helper: find user by email (returns full user with organizerProfile)
+  async getUserByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
       include: { organizerProfile: true },
     });
   }

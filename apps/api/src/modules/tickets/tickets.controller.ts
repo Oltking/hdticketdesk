@@ -20,6 +20,15 @@ export class TicketsController {
     return this.ticketsService.getBuyerTickets(userId);
   }
 
+  // Backwards-compatible alias: GET /tickets/my
+  @UseGuards(JwtAuthGuard)
+  @Get('my')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get buyer tickets (alias)' })
+  async getMyTicketsAlias(@CurrentUser('id') userId: string) {
+    return this.ticketsService.getBuyerTickets(userId);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER)
   @Post(':ticketId/check-in')

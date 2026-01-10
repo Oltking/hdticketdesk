@@ -116,6 +116,13 @@ function SignupContent() {
       });
       
       success('Account created! Please check your email for verification code.');
+      try {
+        localStorage.setItem('pendingVerificationUserId', result.userId);
+        localStorage.setItem('pendingVerificationEmail', data.email);
+        console.debug('[Signup] stored pending verification', { userId: result.userId, email: data.email });
+      } catch (e) {
+        // ignore localStorage errors
+      }
       router.push(`/verify-email?userId=${result.userId}&email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
       const errorInfo = getErrorMessage(err.message);

@@ -106,7 +106,7 @@ const getErrorInfo = (error: string, responseData?: any): ErrorInfo => {
 export default function LoginPage() {
   const router = useRouter();
   const { success, error: showError } = useToast();
-  const { setUser } = useAuthStore();
+  const { setUser, setAuthenticated } = useAuthStore();
 
   const [showPassword, setShowPassword] = useState(false);
   const [errorState, setErrorState] = useState<ErrorInfo | null>(null);
@@ -138,7 +138,9 @@ export default function LoginPage() {
 
     setResendingEmail(true);
     try {
-      await api.resendVerification(email);
+      console.debug('[ResendVerification] payload', { email });
+      const res = await api.resendVerification(email);
+      console.debug('[ResendVerification] response', res);
       success('Verification email sent! Please check your inbox.');
     } catch (err: any) {
       showError(err.message || 'Failed to resend verification email');
@@ -155,11 +157,19 @@ export default function LoginPage() {
 
     switch (errorState.actionType) {
       case 'verify':
-        router.push(
-          `/verify-email?userId=${unverifiedUserId || errorState.userId}&email=${encodeURIComponent(
-            userEmail || watchedEmail
-          )}&type=EMAIL_VERIFICATION`
-        );
+        const params = new URLSearchParams();
+        const uid = unverifiedUserId || errorState.userId;
+        if (uid) params.set('userId', uid);
+        const e = userEmail || watchedEmail;
+        if (e) params.set('email', e);
+        params.set('type', 'EMAIL_VERIFICATION');
+        try {
+          if (uid) localStorage.setItem('pendingVerificationUserId', uid);
+          if (e) localStorage.setItem('pendingVerificationEmail', e);
+        } catch (err) {
+          /* ignore */
+        }
+        router.push(`/verify-email?${params.toString()}`);
         break;
 
       case 'signup':
@@ -190,6 +200,7 @@ export default function LoginPage() {
 
     try {
       const result = await api.login(data);
+      console.debug('[Login] response', result);
 
       // Email exists but not verified (success response case)
       if (result.user?.emailVerified === false) {
@@ -212,6 +223,7 @@ export default function LoginPage() {
       localStorage.setItem('refreshToken', result.refreshToken);
       api.setToken(result.accessToken);
       setUser(result.user);
+      setAuthenticated(true);
 
       success(`Welcome back, ${result.user?.firstName || 'User'}!`);
 

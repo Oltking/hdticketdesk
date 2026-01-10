@@ -7,13 +7,13 @@ import Mailgun from 'mailgun.js';
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
-  private mg: any;
-  private domain: string;
-  private fromEmail: string;
-  private fromName: string;
-  private frontendUrl: string;
+  private readonly mg: any;
+  private readonly domain: string;
+  private readonly fromEmail: string;
+  private readonly fromName: string;
+  private readonly frontendUrl: string;
 
-  constructor(private configService: ConfigService) {
+  constructor(private readonly configService: ConfigService) {
     /* ==================== READ CONFIG FIRST ==================== */
     const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
     const domain = this.configService.get<string>('MAILGUN_DOMAIN');
@@ -573,40 +573,60 @@ export class EmailService {
     return this.send(to, 'Welcome to hdticketdesk! 🎉', html);
   }
 
-  // ==================== HELPERS ====================
+  // ==================== CORE SEND METHOD ====================
   private async send(to: string, subject: string, html: string) {
     try {
       if (!this.domain) {
-        console.error('[EMAIL] MAILGUN_DOMAIN not configured:', this.domain);
+        this.logger.error('[EMAIL] MAILGUN_DOMAIN not configured', { domain: this.domain });
         return { success: false, error: 'MAILGUN_DOMAIN not configured' };
       }
 
       if (!this.mg) {
-        console.error('[EMAIL] Mailgun client not initialized');
+        this.logger.error('[EMAIL] Mailgun client not initialized');
         return { success: false, error: 'Mailgun client not initialized' };
       }
 
-      console.log(`[EMAIL] Attempting to send email to: ${to}`);
-      console.log(`[EMAIL] From: ${this.from}`);
-      console.log(`[EMAIL] Domain: ${this.domain}`);
+      this.logger.log(`Sending email → ${to}`);
+      this.logger.debug(`From: ${this.from}`);
+      this.logger.debug(`Domain: ${this.domain}`);
 
-      const response = await this.mg.messages.create(this.domain, {
+      const params: any = {
         from: this.from,
         to: [to],
         subject,
         html,
-      });
+        text: this.generateTextVersion(html),
+        'h:Reply-To': this.fromEmail,
+      };
 
-      console.log(`[EMAIL] Successfully sent to ${to}: ${subject}`, response.id);
-      return { success: true, messageId: response.id };
-    } catch (error) {
-      console.error('[EMAIL] Send failed:', {
-        error: error instanceof Error ? error.message : String(error),
-        domain: this.domain,
-        from: this.from,
-        to: to,
-      });
-      return { success: false, error: error instanceof Error ? error.message : String(error) };
+      this.logger.debug(`Mailgun params (preview): ${JSON.stringify({ to, subject, from: this.from })}`);
+
+      const response = await this.mg.messages.create(this.domain, params);
+
+      this.logger.log(`Email queued successfully`);
+      this.logger.log(`Mailgun ID: ${response.id}`);
+      this.logger.debug(`Mailgun message: ${response.message}`);
+
+      return {
+        success: true,
+        id: response.id,
+        message: response.message,
+      };
+    } catch (err: any) {
+      const mailgunError = {
+        message: err?.message,
+        status: err?.status,
+        details: err?.details,
+        type: err?.type,
+        stack: err?.stack,
+      };
+
+      this.logger.error('Mailgun send failed', mailgunError);
+
+      return {
+        success: false,
+        error: mailgunError,
+      };
     }
   }
 
@@ -665,5 +685,15 @@ export class EmailService {
 </body>
 </html>
     `.trim();
+  }
+
+  // Generate a simple plain-text version of the HTML to improve deliverability
+  private generateTextVersion(html: string) {
+    try {
+      // Remove tags and collapse whitespace
+      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    } catch (e) {
+      return '';
+    }
   }
 }

@@ -12,10 +12,36 @@ import { X, Loader2, Mail, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-r
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const userId = searchParams.get('userId') || '';
-  const email = searchParams.get('email') || '';
+  const rawUserId = searchParams.get('userId');
+  const initialUserId = rawUserId && rawUserId !== 'null' ? rawUserId : undefined;
+  const initialEmail = searchParams.get('email') || undefined;
   const type = searchParams.get('type') || 'EMAIL_VERIFICATION';
   
+  // Keep userId/email in state so we can update them (e.g., after resend) and persist to localStorage
+  const [userId, setUserId] = useState<string | undefined>(initialUserId);
+  const [emailState, setEmailState] = useState<string | undefined>(initialEmail);
+
+  // Load persisted pending verification info if query params are missing
+  useEffect(() => {
+    if ((!userId || userId === 'null') && !emailState) {
+      try {
+        const storedUid = localStorage.getItem('pendingVerificationUserId');
+        const storedEmail = localStorage.getItem('pendingVerificationEmail');
+        if (storedUid && storedUid !== 'null') setUserId(storedUid);
+        if (storedEmail) setEmailState(storedEmail);
+      } catch (e) {
+        // ignore localStorage errors
+      }
+    } else {
+      try {
+        if (userId) localStorage.setItem('pendingVerificationUserId', userId);
+        if (emailState) localStorage.setItem('pendingVerificationEmail', emailState);
+      } catch (e) {
+        // ignore localStorage errors
+      }
+    }
+  }, [userId, emailState]);
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -24,7 +50,7 @@ function VerifyEmailContent() {
   const [verified, setVerified] = useState(false);
   
   const { success, error: showError } = useToast();
-  const { setUser } = useAuthStore();
+  const { setUser, setAuthenticated } = useAuthStore();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Cooldown timer for resend
@@ -100,15 +126,23 @@ function VerifyEmailContent() {
     setError(null);
     
     try {
-      const result = await api.verifyOtp({ userId, code: otpCode, type });
-      
+      if (!userId && !emailState) {
+        setError('Missing verification context. Please re-open the verification link or request a new code.');
+        setLoading(false);
+        return;
+      }
+
+      console.debug('[Verify] payload', { userId, email: emailState });
+      const result = await api.verifyOtp({ userId, email: emailState, code: otpCode, type });
+
       setVerified(true);
-      
+
       if (result.accessToken) {
         localStorage.setItem('accessToken', result.accessToken);
         localStorage.setItem('refreshToken', result.refreshToken);
         api.setToken(result.accessToken);
         setUser(result.user);
+        setAuthenticated(true);
         success('Email verified successfully!');
         
         // Delay redirect to show success state
@@ -144,7 +178,19 @@ function VerifyEmailContent() {
     setError(null);
     
     try {
-      await api.resendOtp({ userId, type });
+      console.debug('[Resend] payload', { userId, email: emailState, type });
+      const res: any = await api.resendOtp({ userId, email: emailState, type });
+      console.debug('[Resend] response', res);
+
+      // Persist userId/email returned by server if present
+      if (res?.userId) {
+        setUserId(res.userId);
+        try { localStorage.setItem('pendingVerificationUserId', res.userId); } catch (e) {}
+      }
+      if (emailState) {
+        try { localStorage.setItem('pendingVerificationEmail', emailState); } catch (e) {}
+      }
+
       success('Verification code sent! Please check your email.');
       setResendCooldown(60); // 60 second cooldown
       setOtp(['', '', '', '', '', '']);
@@ -161,7 +207,7 @@ function VerifyEmailContent() {
   };
 
   // Mask email for privacy
-  const maskedEmail = email ? email.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'your email';
+  const maskedEmail = emailState ? emailState.replace(/(.{2})(.*)(@.*)/, '$1***$3') : 'your email';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">

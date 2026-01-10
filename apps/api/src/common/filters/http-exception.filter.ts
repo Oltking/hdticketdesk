@@ -19,6 +19,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
+    const isObjectResponse = typeof exceptionResponse === 'object' && exceptionResponse !== null;
+
     const errorResponse = {
       success: false,
       statusCode: status,
@@ -30,9 +32,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? exceptionResponse
           : (exceptionResponse as any).message || 'An error occurred',
       errors:
-        typeof exceptionResponse === 'object' && (exceptionResponse as any).errors
+        isObjectResponse && (exceptionResponse as any).errors
           ? (exceptionResponse as any).errors
           : undefined,
+      // Include additional payload (e.g., userId, code) so clients can act on it
+      data: isObjectResponse ? { ...(exceptionResponse as any) } : undefined,
     };
 
     // Log error details
