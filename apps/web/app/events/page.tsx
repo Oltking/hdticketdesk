@@ -1,7 +1,8 @@
 export const revalidate = 60;
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type SearchParams = {
@@ -31,13 +32,20 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
   try {
     const res = await fetch(`${API_BASE}/events?${params.toString()}`, { next: { revalidate: 60 } });
     if (res.ok) {
-      const json = await res.json();
-      if (Array.isArray(json)) events = json;
-      else if (Array.isArray(json.events)) events = json.events;
-      else if (Array.isArray(json.data)) events = json.data;
-      else if (Array.isArray(json.items)) events = json.items;
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        console.warn('[Events] failed to parse JSON response', parseErr);
+        json = null;
+      }
 
-      total = typeof json.total === 'number' ? json.total : events.length;
+      if (Array.isArray(json)) events = json;
+      else if (json && Array.isArray(json.events)) events = json.events;
+      else if (json && Array.isArray(json.data)) events = json.data;
+      else if (json && Array.isArray(json.items)) events = json.items;
+
+      total = typeof json?.total === 'number' ? json.total : events.length;
     } else {
       console.error('[Events] fetch failed status', res.status);
     }
@@ -50,9 +58,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Events</h1>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
-            <Link href="/">Home</Link>
-          </Button>
+          <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }))}>Home</Link>
         </div>
       </div>
 
