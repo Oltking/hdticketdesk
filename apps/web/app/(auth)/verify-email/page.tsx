@@ -160,7 +160,7 @@ function VerifyEmailContent() {
         setTimeout(() => router.push('/login'), 1500);
       }
     } catch (err: any) {
-      const errorMessage = getErrorMessage(err.message);
+      var errorMessage = getErrorMessage(err.message);
       setError(errorMessage);
       
       // Clear OTP on error
@@ -185,10 +185,10 @@ function VerifyEmailContent() {
       // Persist userId/email returned by server if present
       if (res?.userId) {
         setUserId(res.userId);
-        try { localStorage.setItem('pendingVerificationUserId', res.userId); } catch (e) {}
+        try { localStorage.setItem('pendingVerificationUserId', res.userId); } catch (e) { console.debug('[Verify] failed to persist pendingVerificationUserId', e); }
       }
       if (emailState) {
-        try { localStorage.setItem('pendingVerificationEmail', emailState); } catch (e) {}
+        try { localStorage.setItem('pendingVerificationEmail', emailState); } catch (e) { console.debug('[Verify] failed to persist pendingVerificationEmail', e); }
       }
 
       success('Verification code sent! Please check your email.');
