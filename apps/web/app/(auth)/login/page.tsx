@@ -223,14 +223,17 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
       api.setToken(result.accessToken);
-      setUser(result.user);
+      // Fetch latest user profile to ensure correct role
+      console.log('Access token being sent:', api.getToken());
+      const freshUser = await api.getMe();
+      setUser(freshUser);
       setAuthenticated(true);
 
-      success(`Welcome back, ${result.user?.firstName || 'User'}!`);
+      success(`Welcome back, ${freshUser?.firstName || 'User'}!`);
 
-      if (result.user?.role === 'ADMIN') {
+      if (freshUser?.role === 'ADMIN') {
         router.replace('/admin/overview');
-      } else if (result.user?.role === 'ORGANIZER') {
+      } else if (freshUser?.role === 'ORGANIZER') {
         router.replace('/dashboard');
       } else {
         router.replace('/tickets');

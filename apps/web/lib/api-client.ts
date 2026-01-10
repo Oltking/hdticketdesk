@@ -1,7 +1,17 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 class ApiClient {
   private accessToken: string | null = null;
+
+    async updateOrganizerBank(data: { bankCode: string; accountNumber: string; accountName: string; bankName?: string }) {
+      return this.request<{ message: string; organizerProfile: any }>(
+        '/organizer/bank', {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }
+      );
+    }
 
   setToken(token: string | null) {
     this.accessToken = token;
@@ -58,6 +68,8 @@ class ApiClient {
       refreshToken: string;
       userId: string;
       message?: string;
+      role?: string;
+      organizerProfile?: { id: string };
     }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),

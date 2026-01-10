@@ -31,16 +31,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user, isLoading: false }),
   setAuthenticated: (value) => set({ isAuthenticated: value, isLoading: false }),
 
+
   login: async (email, password) => {
     const { user, accessToken } = await api.login({ email, password });
     api.setToken(accessToken);
-    set({ user, isAuthenticated: true, isLoading: false });
+    // Always fetch fresh user data after login to ensure correct role
+    const freshUser = await api.getMe?.() || user;
+    set({ user: freshUser, isAuthenticated: true, isLoading: false });
   },
 
   register: async (data) => {
     const { user, accessToken } = await api.register(data);
     api.setToken(accessToken);
-    set({ user, isAuthenticated: true, isLoading: false });
+    // Always fetch fresh user data after registration to ensure correct role
+    const freshUser = await api.getMe?.() || user;
+    set({ user: freshUser, isAuthenticated: true, isLoading: false });
   },
 
   logout: () => {

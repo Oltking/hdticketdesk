@@ -14,7 +14,7 @@ import { Calendar, MapPin, QrCode, Ticket } from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
 
 export default function MyTicketsPage() {
-  const { isLoading: authLoading } = useAuth(true);
+  const { isLoading: authLoading } = useAuth(true, ['BUYER']);
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
 

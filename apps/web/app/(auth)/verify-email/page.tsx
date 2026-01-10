@@ -141,23 +141,38 @@ function VerifyEmailContent() {
         localStorage.setItem('accessToken', result.accessToken);
         localStorage.setItem('refreshToken', result.refreshToken);
         api.setToken(result.accessToken);
-        setUser(result.user);
+        // Fetch latest user profile to ensure correct role
+        console.log('Access token being sent:', api.getToken());
+        const freshUser = await api.getMe();
+        setUser(freshUser);
         setAuthenticated(true);
         success('Email verified successfully!');
-        
-        // Delay redirect to show success state
-        setTimeout(() => {
-          if (result.user?.role === 'ADMIN') {
-            router.push('/admin/overview');
-          } else if (result.user?.role === 'ORGANIZER') {
-            router.push('/dashboard');
-          } else {
-            router.push('/tickets');
-          }
-        }, 1500);
+
+        // Clear pending verification info
+        try {
+          localStorage.removeItem('pendingVerificationUserId');
+          localStorage.removeItem('pendingVerificationEmail');
+          localStorage.removeItem('pendingVerificationRole');
+        } catch (e) {
+          // ignore localStorage errors
+        }
+
+        // Use server-provided role if available, otherwise fall back to the pending role stored during signup
+        const roleToUse = freshUser?.role || (result.user && result.user.role) || (() => {
+          try { return localStorage.getItem('pendingVerificationRole') || undefined; } catch (e) { return undefined; }
+        })();
+
+        // Immediate redirect for admins and organizers; keep short delay for other roles to show success
+        if (roleToUse === 'ADMIN') {
+          router.replace('/admin/overview');
+        } else if (roleToUse === 'ORGANIZER') {
+          router.replace('/dashboard');
+        } else {
+          setTimeout(() => router.replace('/tickets'), 1500);
+        }
       } else {
         success('Email verified! You can now sign in.');
-        setTimeout(() => router.push('/login'), 1500);
+        setTimeout(() => router.replace('/login'), 1500);
       }
     } catch (err: any) {
       var errorMessage = getErrorMessage(err.message);

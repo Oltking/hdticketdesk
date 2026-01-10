@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default function RefundsPage() {
-  const { isLoading: authLoading } = useAuth(true);
+  const { isLoading: authLoading } = useAuth(true, ['BUYER']);
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -119,13 +119,15 @@ function SignupContent() {
       try {
         localStorage.setItem('pendingVerificationUserId', result.userId);
         localStorage.setItem('pendingVerificationEmail', data.email);
-        console.debug('[Signup] stored pending verification', { userId: result.userId, email: data.email });
+        localStorage.setItem('pendingVerificationRole', result.role || (isOrganizer ? 'ORGANIZER' : 'BUYER'));
+        console.debug('[Signup] stored pending verification', { userId: result.userId, email: data.email, role: result.role || (isOrganizer ? 'ORGANIZER' : 'BUYER') });
       } catch (e) {
         // ignore localStorage errors
       }
       router.push(`/verify-email?userId=${result.userId}&email=${encodeURIComponent(data.email)}`);
     } catch (err: any) {
-      const errorInfo = getErrorMessage(err.message);
+      const errorMessage = err?.response?.data?.message || err?.message || 'Registration failed. Please try again.';
+      const errorInfo = getErrorMessage(errorMessage);
       setErrorState(errorInfo);
     }
   };

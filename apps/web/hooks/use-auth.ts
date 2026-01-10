@@ -17,7 +17,14 @@ export function useAuth(requireAuth = false, allowedRoles?: string[]) {
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-      router.replace('/');
+      // Redirect buyers to their tickets page; admins to admin overview; others to home
+      if (user.role === 'BUYER') {
+        router.replace('/tickets');
+      } else if (user.role === 'ADMIN') {
+        router.replace('/admin/overview');
+      } else {
+        router.replace('/');
+      }
     }
   }, [isAuthenticated, isLoading, user, requireAuth, allowedRoles, router]);
 

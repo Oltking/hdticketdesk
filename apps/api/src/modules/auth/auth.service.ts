@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +31,8 @@ export class EmailNotVerifiedException extends ForbiddenException {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -85,12 +88,17 @@ export class AuthService {
       console.error('[AUTH] Failed to send verification OTP during registration:', emailResult.error);
     }
 
-    // Return userId so frontend can redirect to verify page
+    // Log created user and return some info so frontend can verify role
+    this.logger?.log?.(`[AUTH] Registered user: ${user.email} (role=${user.role})`);
+
+    // Return userId and role so frontend can redirect to verify page and confirm role
     // Don't generate tokens yet - user must verify first
     return {
       message: 'Account created! Please check your email for verification code.',
       userId: user.id,
       email: user.email,
+      role: user.role,
+      organizerProfile: user.organizerProfile ? { id: user.organizerProfile.id } : undefined,
     };
   }
 

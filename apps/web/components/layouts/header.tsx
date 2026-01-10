@@ -61,7 +61,7 @@ export function Header() {
                   {user?.firstName || 'Account'}
                 </Button>
                 <div className="absolute right-0 top-full mt-2 w-48 py-2 bg-card rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                  <Link href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted">
+                  <Link href={user?.role === 'ORGANIZER' ? '/settings' : '/account'} className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted">
                     <Settings className="w-4 h-4" />
                     Settings
                   </Link>
@@ -111,7 +111,7 @@ export function Header() {
                   {user?.role === 'ORGANIZER' ? 'Dashboard' : 'My Tickets'}
                 </Link>
 
-                <Link href="/settings" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2">
+                <Link href={user?.role === 'ORGANIZER' ? '/settings' : '/account'} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2">
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>
