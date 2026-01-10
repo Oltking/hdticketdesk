@@ -156,7 +156,7 @@ export default function LoginPage() {
     if (!errorState?.actionType) return;
 
     switch (errorState.actionType) {
-      case 'verify':
+      case 'verify': {
         const params = new URLSearchParams();
         const uid = unverifiedUserId || errorState.userId;
         if (uid) params.set('userId', uid);
@@ -167,10 +167,11 @@ export default function LoginPage() {
           if (uid) localStorage.setItem('pendingVerificationUserId', uid);
           if (e) localStorage.setItem('pendingVerificationEmail', e);
         } catch (err) {
-          /* ignore */
+          console.debug('[Login] failed to persist pending verification info', err);
         }
         router.push(`/verify-email?${params.toString()}`);
         break;
+      }
 
       case 'signup':
         router.push('/signup');
