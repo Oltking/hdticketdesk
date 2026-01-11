@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, X, AlertCircle, CheckCircle2, Loader2, User, Building2 } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 const schema = z.object({
   firstName: z.string().min(1, 'First name is required').min(2, 'First name must be at least 2 characters'),
@@ -157,9 +158,9 @@ function SignupContent() {
         </button>
         
         <CardHeader className="text-center pb-2">
-          <Link href="/" className="text-2xl font-bold text-primary mb-2 block hover:opacity-80 transition-opacity">
-            hdticketdesk
-          </Link>
+          <div className="flex justify-center mb-2">
+            <Logo href="/" size="lg" showText={false} />
+          </div>
           
           {/* Role Toggle */}
           <div className="flex items-center justify-center gap-2 mb-2">

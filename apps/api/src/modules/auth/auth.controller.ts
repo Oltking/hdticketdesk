@@ -42,7 +42,16 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
-    return this.authService.login(dto, ip, userAgent);
+    try {
+      console.log('[Auth Controller] Login attempt for:', dto.email);
+      const result = await this.authService.login(dto, ip, userAgent);
+      console.log('[Auth Controller] Login successful, result keys:', Object.keys(result));
+      return result;
+    } catch (error) {
+      console.error('[Auth Controller] Login error:', error);
+      console.error('[Auth Controller] Error stack:', error.stack);
+      throw error;
+    }
   }
 
   // ==================== VERIFY OTP (Generic) ====================

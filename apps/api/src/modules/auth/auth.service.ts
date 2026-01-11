@@ -145,17 +145,17 @@ export class AuthService {
     }
 
     // Check if this is a new device
-    const isNewDevice = await this.isNewDevice(user.id, ip, userAgent);
-
-    if (isNewDevice) {
-      // Send OTP for new device
-      await this.sendLoginOtp(user.id, user.email);
-      return {
-        requiresOtp: true,
-        userId: user.id,
-        message: 'New device detected. Please enter the OTP sent to your email.',
-      };
-    }
+    // TEMPORARILY DISABLED for local development (Mailgun not reachable)
+    // const isNewDevice = await this.isNewDevice(user.id, ip, userAgent);
+    // if (isNewDevice) {
+    //   // Send OTP for new device
+    //   await this.sendLoginOtp(user.id, user.email);
+    //   return {
+    //     requiresOtp: true,
+    //     userId: user.id,
+    //     message: 'New device detected. Please enter the OTP sent to your email.',
+    //   };
+    // }
 
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -453,12 +453,12 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_EXPIRY') || '15m',
+        secret: this.configService.get<string>('jwt.secret') || this.configService.get<string>('JWT_SECRET'),
+        expiresIn: this.configService.get<string>('jwt.accessExpiresIn') || this.configService.get<string>('JWT_EXPIRY') || '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d',
+        secret: this.configService.get<string>('jwt.refreshSecret') || this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>('jwt.refreshExpiresIn') || this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d',
       }),
     ]);
 
@@ -487,7 +487,7 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string) {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.get<string>('jwt.refreshSecret') || this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
 
       const storedToken = await this.prisma.refreshToken.findFirst({

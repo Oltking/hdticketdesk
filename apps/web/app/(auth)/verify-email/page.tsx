@@ -8,6 +8,7 @@ import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/store/auth-store';
 import { X, Loader2, Mail, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -237,9 +238,9 @@ function VerifyEmailContent() {
         </button>
 
         <CardHeader className="text-center pb-2">
-          <Link href="/" className="text-2xl font-bold text-primary mb-4 block hover:opacity-80 transition-opacity">
-            hdticketdesk
-          </Link>
+          <div className="flex justify-center mb-4">
+            <Logo href="/" size="lg" showText={false} />
+          </div>
           
           {/* Email Icon */}
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-colors ${

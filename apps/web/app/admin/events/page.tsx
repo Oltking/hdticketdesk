@@ -31,7 +31,7 @@ export default function AdminEventsPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar type="admin" />
-      <main className="flex-1 p-8 bg-bg">
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <h1 className="text-2xl font-bold mb-6">Events</h1>
         <Card>
           <CardContent className="p-0">

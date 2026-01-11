@@ -37,9 +37,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     `;
 
     const tables = tablenames
-      .map(({ tablename }) => tablename)
-      .filter((name) => name !== '_prisma_migrations')
-      .map((name) => `"public"."${name}"`)
+      .map(({ tablename }: { tablename: string }) => tablename)
+      .filter((name: string) => name !== '_prisma_migrations')
+      .map((name: string) => `"public"."${name}"`)
       .join(', ');
 
     if (tables.length > 0) {

@@ -81,7 +81,7 @@ export default function SettingsPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
-      <main className="flex-1 p-8 bg-bg">
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
         <div className="max-w-2xl space-y-6">

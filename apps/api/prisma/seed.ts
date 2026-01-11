@@ -276,7 +276,7 @@ async function main() {
   // ==================== CREATE TICKETS ====================
   console.log('🎟️ Creating tickets...');
 
-  const generalTier = techConference.tiers.find(t => t.name === 'General Admission')!;
+  const generalTier = techConference.tiers.find((t: { name: string }) => t.name === 'General Admission')!;
 
   // Create a payment first
   const payment1 = await prisma.payment.create({

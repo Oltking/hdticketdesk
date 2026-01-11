@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Ticket, Twitter, Instagram, Facebook } from 'lucide-react';
+import { Twitter, Instagram, Facebook } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 export function Footer() {
   return (
@@ -8,12 +9,9 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 font-display font-bold text-xl mb-4">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <Ticket className="w-5 h-5 text-primary-foreground" />
-              </div>
-              hdticketdesk
-            </Link>
+            <div className="mb-4">
+              <Logo href="/" size="md" />
+            </div>
             <p className="text-sm text-muted-foreground mb-4">
               Africa's premier event ticketing platform. Discover, book, and host unforgettable experiences.
             </p>

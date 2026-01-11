@@ -26,6 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           api.setToken(null);
           setAuthenticated(false);
         });
+    } else {
+      // No token - mark as not authenticated and stop loading
+      setAuthenticated(false);
     }
   }, [setUser, setAuthenticated]);
 

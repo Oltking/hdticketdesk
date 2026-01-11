@@ -80,7 +80,7 @@ export default function ScanPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
-      <main className="flex-1 p-8 bg-bg">
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <h1 className="text-2xl font-bold mb-6">QR Scanner</h1>
 
         <div className="grid gap-6 lg:grid-cols-2">

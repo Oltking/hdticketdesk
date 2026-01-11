@@ -31,6 +31,7 @@ import {
   Loader2,
   Info,
 } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 /* =======================
    Validation
@@ -200,8 +201,21 @@ export default function LoginPage() {
     setUnverifiedUserId(null);
 
     try {
-      const result = await api.login(data);
-      console.debug('[Login] response', result);
+      const response = await api.login(data);
+      
+      // Handle wrapped response { success, data, timestamp } or direct response
+      const result = response.data || response;
+
+      // Handle new device OTP required
+      if (result.requiresOtp) {
+        // Redirect to OTP verification page
+        const params = new URLSearchParams();
+        params.set('userId', result.userId);
+        params.set('email', data.email);
+        params.set('type', 'NEW_DEVICE_LOGIN');
+        router.push(`/verify-email?${params.toString()}`);
+        return;
+      }
 
       // Email exists but not verified (success response case)
       if (result.user?.emailVerified === false) {
@@ -219,13 +233,26 @@ export default function LoginPage() {
         return;
       }
 
-      // Normal login success
+      // Normal login success - check if tokens exist
+      if (!result.accessToken || !result.refreshToken) {
+        setErrorState({
+          message: 'Login failed. Please try again.',
+        });
+        return;
+      }
+
       localStorage.setItem('accessToken', result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
       api.setToken(result.accessToken);
+      
+      // Small delay to ensure token is set before making the next request
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Fetch latest user profile to ensure correct role
-      console.log('Access token being sent:', api.getToken());
-      const freshUser = await api.getMe();
+      const meResponse = await api.getMe();
+      // Handle wrapped response
+      const freshUser = meResponse.data || meResponse;
+      
       setUser(freshUser);
       setAuthenticated(true);
 
@@ -278,9 +305,9 @@ export default function LoginPage() {
         </button>
 
         <CardHeader className="text-center">
-          <Link href="/" className="text-2xl font-bold text-primary">
-            hdticketdesk
-          </Link>
+          <div className="flex justify-center mb-2">
+            <Logo href="/" size="lg" showText={false} />
+          </div>
           <CardTitle>Welcome Back</CardTitle>
           <CardDescription>Sign in to continue</CardDescription>
         </CardHeader>

@@ -41,7 +41,7 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
-      <main className="flex-1 p-8 bg-bg">
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>

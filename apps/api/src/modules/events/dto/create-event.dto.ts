@@ -61,6 +61,10 @@ export class CreateEventDto {
 
   @IsBoolean()
   @IsOptional()
+  isLocationPublic?: boolean; // If false, location is only sent via email after ticket purchase
+
+  @IsBoolean()
+  @IsOptional()
   isOnline?: boolean;
 
   @IsString()

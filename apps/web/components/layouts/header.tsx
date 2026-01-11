@@ -4,9 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/ui/logo';
 import { useAuthStore } from '@/store/auth-store';
 import { cn } from '@/lib/utils';
-import { Menu, X, Ticket, User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
 
 export function Header() {
   const pathname = usePathname();
@@ -22,12 +23,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-display font-bold text-xl">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Ticket className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="hidden sm:inline">hdticketdesk</span>
-        </Link>
+        <Logo href="/" size="md" showText className="hidden sm:flex" />
+        <Logo href="/" size="md" showText={false} className="sm:hidden" />
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-6">

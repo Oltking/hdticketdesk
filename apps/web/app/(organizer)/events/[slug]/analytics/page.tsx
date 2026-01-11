@@ -33,7 +33,7 @@ export default function AnalyticsPage() {
     return (
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
-        <main className="flex-1 p-8 bg-bg">
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
           <Skeleton className="h-8 w-48 mb-6" />
           <div className="grid gap-6 md:grid-cols-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}</div>
         </main>
@@ -44,7 +44,7 @@ export default function AnalyticsPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
-      <main className="flex-1 p-8 bg-bg">
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <h1 className="text-2xl font-bold mb-6">Event Analytics</h1>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard icon={<Ticket />} label="Tickets Sold" value={analytics?.totalSold || 0} />

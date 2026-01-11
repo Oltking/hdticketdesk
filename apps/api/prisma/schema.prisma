@@ -2,7 +2,8 @@
 // Run: npx prisma generate && npx prisma migrate dev --name update_schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "windows"]
 }
 
 datasource db {
@@ -160,9 +161,10 @@ model Event {
   endDate   DateTime?
   
   // Location
-  location   String?
-  isOnline   Boolean @default(false)
-  onlineLink String?
+  location         String?
+  isLocationPublic Boolean @default(true) // If false, location is only sent via email after ticket purchase
+  isOnline         Boolean @default(false)
+  onlineLink       String?
   
   // Media
   coverImage String?

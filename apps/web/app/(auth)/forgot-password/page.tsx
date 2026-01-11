@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { X, Loader2, Mail, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Logo } from '@/components/ui/logo';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -71,9 +72,9 @@ function ForgotPasswordContent() {
           </button>
 
           <CardHeader className="text-center pb-2">
-            <Link href="/" className="text-2xl font-bold text-primary mb-4 block hover:opacity-80 transition-opacity">
-              hdticketdesk
-            </Link>
+            <div className="flex justify-center mb-4">
+              <Logo href="/" size="lg" showText={false} />
+            </div>
             
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
               <CheckCircle2 className="h-8 w-8 text-green-500" />
@@ -127,9 +128,9 @@ function ForgotPasswordContent() {
         </button>
 
         <CardHeader className="text-center pb-2">
-          <Link href="/" className="text-2xl font-bold text-primary mb-4 block hover:opacity-80 transition-opacity">
-            hdticketdesk
-          </Link>
+          <div className="flex justify-center mb-4">
+            <Logo href="/" size="lg" showText={false} />
+          </div>
           
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
             <Mail className="h-8 w-8 text-primary" />

@@ -519,26 +519,26 @@ export class EventsService {
       );
     }
 
-    const activeTickets = event.tickets.filter((t) =>
+    const activeTickets = event.tickets.filter((t: { status: string }) =>
       ['ACTIVE', 'CHECKED_IN'].includes(t.status),
     );
 
     const totalSold = activeTickets.length;
     const checkedIn = event.tickets.filter(
-      (t) => t.status === 'CHECKED_IN',
+      (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
     // Handle Decimal type from Prisma
-    const totalRevenue = activeTickets.reduce((sum, t) => {
+    const totalRevenue = activeTickets.reduce((sum: number, t: { amountPaid: Decimal | number }) => {
       const amount = t.amountPaid instanceof Decimal 
         ? t.amountPaid.toNumber() 
         : Number(t.amountPaid);
       return sum + amount;
     }, 0);
 
-    const tierBreakdown = event.tiers.map((tier) => {
-      const tierTickets = activeTickets.filter((t) => t.tierId === tier.id);
-      const tierRevenue = tierTickets.reduce((sum, t) => {
+    const tierBreakdown = event.tiers.map((tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
+      const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
+      const tierRevenue = tierTickets.reduce((sum: number, t: { amountPaid: Decimal | number }) => {
         const amount = t.amountPaid instanceof Decimal 
           ? t.amountPaid.toNumber() 
           : Number(t.amountPaid);

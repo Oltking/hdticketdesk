@@ -40,7 +40,7 @@ export class PaymentsService {
       throw new BadRequestException('Event is not published');
     }
 
-    const tier = event.tiers.find((t) => t.id === tierId);
+    const tier = event.tiers.find((t: { id: string }) => t.id === tierId);
     if (!tier) {
       throw new NotFoundException('Ticket tier not found');
     }
