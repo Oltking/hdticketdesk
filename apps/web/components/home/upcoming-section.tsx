@@ -140,7 +140,7 @@ function UpcomingEventCard({ event, index }: { event: Event; index: number }) {
             </div>
             <div className="flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" />
-              <span className="line-clamp-1">{event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA'}</span>
+              <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
             </div>
           </div>
           

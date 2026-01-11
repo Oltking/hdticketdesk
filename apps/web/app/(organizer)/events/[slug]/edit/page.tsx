@@ -88,10 +88,8 @@ export default function EditEventPage() {
 
     try {
       setUploadingImage(true);
-      const response = await api.uploadImage(file, 'events');
-      // Handle wrapped response { data: { url } } or direct { url }
-      const result = response.data || response;
-      const imageUrl = result.url || result.secure_url;
+      const result = await api.uploadImage(file, 'events');
+      const imageUrl = result.url;
       setCoverImage(imageUrl);
       setUploadStatus({ type: 'success', message: 'Banner image uploaded successfully!' });
       success('Banner image uploaded successfully!');

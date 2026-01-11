@@ -141,10 +141,10 @@ function EventCard({ event }: { event: Event }) {
             </span>
           </div>
           
-          {event.location && (
+          {(event.location || event.isLocationPublic === false) && (
             <div className="flex items-center gap-1 text-xs text-white/60 mt-1">
               <MapPin className="w-3 h-3" />
-              <span className="line-clamp-1">{event.location}</span>
+              <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : event.location}</span>
             </div>
           )}
         </div>

@@ -135,7 +135,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
             </span>
             <span className="flex items-center gap-1">
               <MapPin className="w-4 h-4" />
-              {event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA'}
+              {event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}
             </span>
           </div>
           

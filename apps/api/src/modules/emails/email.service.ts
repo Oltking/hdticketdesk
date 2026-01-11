@@ -590,6 +590,9 @@ export class EmailService {
       this.logger.debug(`From: ${this.from}`);
       this.logger.debug(`Domain: ${this.domain}`);
 
+      // Generate unique message ID for tracking
+      const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${this.domain}>`;
+      
       const params: any = {
         from: this.from,
         to: [to],
@@ -597,6 +600,18 @@ export class EmailService {
         html,
         text: this.generateTextVersion(html),
         'h:Reply-To': this.fromEmail,
+        // Headers to improve deliverability and avoid spam filters
+        'h:Message-ID': messageId,
+        'h:List-Unsubscribe': `<mailto:unsubscribe@${this.domain}?subject=Unsubscribe>, <${this.frontendUrl}/unsubscribe>`,
+        'h:List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        'h:Precedence': 'bulk',
+        'h:X-Priority': '3',
+        'h:X-Mailer': 'hdticketdesk-mailer',
+        'h:MIME-Version': '1.0',
+        'h:X-Entity-Ref-ID': messageId, // Prevents threading issues in some clients
+        'o:tracking': 'yes', // Enable Mailgun tracking for deliverability insights
+        'o:tracking-clicks': 'htmlonly',
+        'o:tracking-opens': 'yes',
       };
 
       this.logger.debug(`Mailgun params (preview): ${JSON.stringify({ to, subject, from: this.from })}`);
@@ -673,8 +688,14 @@ export class EmailService {
               </p>
               <p style="margin: 16px 0 0 0;">
                 <a href="${this.frontendUrl}/privacy" style="color: #7c3aed; font-size: 12px; text-decoration: none; margin: 0 8px;">Privacy</a>
-                <a href="${this.frontendUrl}/terms" style="color: #7c3aed; font-size: 12px; text-decoration: none; margin: 0 8px;">Terms</a>
-                <a href="${this.frontendUrl}/help" style="color: #7c3aed; font-size: 12px; text-decoration: none; margin: 0 8px;">Help</a>
+                <a href="${this.frontendUrl}/about" style="color: #7c3aed; font-size: 12px; text-decoration: none; margin: 0 8px;">About</a>
+                <a href="mailto:support@hdticketdesk.com" style="color: #7c3aed; font-size: 12px; text-decoration: none; margin: 0 8px;">Help</a>
+              </p>
+              <p style="color: #9ca3af; font-size: 11px; margin: 16px 0 0 0;">
+                HD Ticket Desk Ltd. | Lagos, Nigeria
+              </p>
+              <p style="color: #9ca3af; font-size: 11px; margin: 4px 0 0 0;">
+                You received this email because you have an account with hdticketdesk or made a purchase.
               </p>
             </td>
           </tr>
@@ -687,13 +708,42 @@ export class EmailService {
     `.trim();
   }
 
-  // Generate a simple plain-text version of the HTML to improve deliverability
-  private generateTextVersion(html: string) {
+  // Generate a proper plain-text version of the HTML to improve deliverability
+  private generateTextVersion(html: string): string {
     try {
-      // Remove tags and collapse whitespace
-      return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      let text = html
+        // Convert <br> and block elements to newlines
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|h[1-6]|tr|li)>/gi, '\n')
+        .replace(/<\/(td|th)>/gi, '\t')
+        // Convert links to text with URL
+        .replace(/<a[^>]*href=["']([^"']*)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
+        // Remove style and script tags with content
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        // Remove remaining HTML tags
+        .replace(/<[^>]*>/g, '')
+        // Decode HTML entities
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&copy;/g, '©')
+        // Clean up whitespace
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n\s*\n\s*\n/g, '\n\n')
+        .trim();
+      
+      // Add footer for plain text
+      text += '\n\n---\nhdticketdesk - Africa\'s Premier Event Ticketing Platform\n';
+      text += `Visit us: ${this.frontendUrl}\n`;
+      text += 'Questions? Reply to this email or contact support@hdticketdesk.com\n';
+      
+      return text;
     } catch (e) {
-      return '';
+      return 'Please view this email in an HTML-compatible email client.';
     }
   }
 }

@@ -41,6 +41,7 @@ export interface Event {
   startDate: string;
   endDate: string | null;
   location: string | null;
+  isLocationPublic: boolean;
   isOnline: boolean;
   onlineLink: string | null;
   coverImage: string | null;
@@ -202,6 +203,7 @@ export interface EventFormData {
   startDate: string;
   endDate?: string;
   location?: string;
+  isLocationPublic?: boolean;
   isOnline: boolean;
   onlineLink?: string;
   coverImage?: string;

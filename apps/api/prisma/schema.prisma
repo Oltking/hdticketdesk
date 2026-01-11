@@ -1,18 +1,251 @@
-// This is your Prisma schema file
-// Run: npx prisma generate && npx prisma migrate dev --name update_schema
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-3.0.x", "windows"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-// ==================== ENUMS ====================
+model User {
+  id                      String            @id @default(cuid())
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  email                   String            @unique
+  password                String
+  role                    UserRole          @default(BUYER)
+  firstName               String?
+  lastName                String?
+  phone                   String?
+  emailVerified           Boolean           @default(false)
+  emailVerifiedAt         DateTime?
+  verificationToken       String?
+  verificationTokenExpiry DateTime?
+  loginOtp                String?
+  loginOtpExpiry          DateTime?
+  passwordResetToken      String?
+  passwordResetExp        DateTime?
+  failedLoginAttempts     Int               @default(0)
+  lockedUntil             DateTime?
+  lastLoginAt             DateTime?
+  lastLoginIp             String?
+  organizerProfile        OrganizerProfile?
+  payments                Payment[]
+  refreshTokens           RefreshToken[]
+  refunds                 Refund[]
+  tickets                 Ticket[]
+
+  @@index([email])
+}
+
+model OrganizerProfile {
+  id                    String        @id @default(cuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  title                 String
+  description           String?
+  logo                  String?
+  website               String?
+  bankName              String?
+  bankCode              String?
+  accountNumber         String?
+  accountName           String?
+  bankVerified          Boolean       @default(false)
+  paystackRecipientCode String?
+  pendingBalance        Decimal       @default(0) @db.Decimal(12, 2)
+  availableBalance      Decimal       @default(0) @db.Decimal(12, 2)
+  withdrawnBalance      Decimal       @default(0) @db.Decimal(12, 2)
+  notificationsEnabled  Boolean       @default(true)
+  userId                String        @unique
+  events                Event[]
+  ledgerEntries         LedgerEntry[]
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals           Withdrawal[]
+
+  @@index([userId])
+}
+
+model Event {
+  id                 String           @id @default(cuid())
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  title              String
+  slug               String           @unique
+  description        String?
+  status             EventStatus      @default(DRAFT)
+  startDate          DateTime
+  endDate            DateTime?
+  location           String?
+  isLocationPublic   Boolean          @default(true)
+  isOnline           Boolean          @default(false)
+  onlineLink         String?
+  coverImage         String?
+  gallery            String[]         @default([])
+  isFeatured         Boolean          @default(false)
+  maxTicketsPerOrder Int              @default(10)
+  organizerId        String
+  organizer          OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  payments           Payment[]
+  tickets            Ticket[]
+  tiers              TicketTier[]
+
+  @@index([slug])
+  @@index([organizerId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model TicketTier {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(12, 2)
+  capacity      Int
+  sold          Int       @default(0)
+  refundEnabled Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  eventId       String
+  payments      Payment[]
+  tickets       Ticket[]
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+}
+
+model Ticket {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  ticketNumber   String       @unique
+  qrCode         String
+  qrCodeUrl      String?
+  status         TicketStatus @default(ACTIVE)
+  buyerEmail     String
+  buyerFirstName String?
+  buyerLastName  String?
+  buyerPhone     String?
+  checkedInAt    DateTime?
+  checkedInBy    String?
+  amountPaid     Decimal      @db.Decimal(12, 2)
+  paystackRef    String?
+  eventId        String
+  tierId         String
+  buyerId        String
+  paymentId      String?
+  refund         Refund?
+  buyer          User         @relation(fields: [buyerId], references: [id])
+  event          Event        @relation(fields: [eventId], references: [id])
+  payment        Payment?     @relation(fields: [paymentId], references: [id])
+  tier           TicketTier   @relation(fields: [tierId], references: [id])
+
+  @@index([ticketNumber])
+  @@index([eventId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  reference      String        @unique
+  amount         Decimal       @db.Decimal(12, 2)
+  status         PaymentStatus @default(PENDING)
+  buyerEmail     String
+  paystackRef    String?
+  paystackPaidAt DateTime?
+  eventId        String
+  tierId         String
+  buyerId        String?
+  buyer          User?         @relation(fields: [buyerId], references: [id])
+  event          Event         @relation(fields: [eventId], references: [id])
+  tier           TicketTier    @relation(fields: [tierId], references: [id])
+  tickets        Ticket[]
+
+  @@index([reference])
+  @@index([eventId])
+  @@index([buyerId])
+}
+
+model Refund {
+  id                String       @id @default(cuid())
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  status            RefundStatus @default(PENDING)
+  reason            String?
+  refundAmount      Decimal      @db.Decimal(12, 2)
+  processedAt       DateTime?
+  processedBy       String?
+  rejectionNote     String?
+  paystackRefundRef String?
+  ticketId          String       @unique
+  requesterId       String
+  requester         User         @relation(fields: [requesterId], references: [id])
+  ticket            Ticket       @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId])
+  @@index([status])
+}
+
+model Withdrawal {
+  id                   String           @id @default(cuid())
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  amount               Decimal          @db.Decimal(12, 2)
+  status               WithdrawalStatus @default(PENDING)
+  bankName             String
+  bankCode             String
+  accountNumber        String
+  accountName          String
+  otpCode              String?
+  otpExpiresAt         DateTime?
+  otpAttempts          Int              @default(0)
+  paystackTransferRef  String?
+  paystackTransferCode String?
+  processedAt          DateTime?
+  failureReason        String?
+  organizerId          String
+  organizer            OrganizerProfile @relation(fields: [organizerId], references: [id])
+
+  @@index([organizerId])
+  @@index([status])
+}
+
+model LedgerEntry {
+  id                    String           @id @default(cuid())
+  createdAt             DateTime         @default(now())
+  type                  LedgerType
+  amount                Decimal          @db.Decimal(12, 2)
+  description           String?
+  pendingBalanceAfter   Decimal          @db.Decimal(12, 2)
+  availableBalanceAfter Decimal          @db.Decimal(12, 2)
+  ticketId              String?
+  withdrawalId          String?
+  organizerId           String
+  organizer             OrganizerProfile @relation(fields: [organizerId], references: [id])
+
+  @@index([organizerId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
 
 enum UserRole {
   BUYER
@@ -62,324 +295,4 @@ enum LedgerType {
   WITHDRAWAL
   CHARGEBACK
   ADJUSTMENT
-}
-
-// ==================== MODELS ====================
-
-model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  email         String   @unique
-  password      String
-  role          UserRole @default(BUYER)
-  firstName     String?
-  lastName      String?
-  phone         String?
-  
-  // Email verification
-  emailVerified            Boolean   @default(false)
-  emailVerifiedAt          DateTime?
-  verificationToken        String?
-  verificationTokenExpiry  DateTime?
-  
-  // Login OTP (for new device verification)
-  loginOtp                 String?
-  loginOtpExpiry           DateTime?
-  
-  // Password reset
-  passwordResetToken       String?
-  passwordResetExp         DateTime?
-  
-  // Security
-  failedLoginAttempts      Int       @default(0)
-  lockedUntil              DateTime?
-  lastLoginAt              DateTime?
-  lastLoginIp              String?
-
-  // Relations
-  organizerProfile OrganizerProfile?
-  tickets          Ticket[]
-  payments         Payment[]
-  refunds          Refund[]
-  refreshTokens    RefreshToken[]
-
-  @@index([email])
-}
-
-model OrganizerProfile {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  title       String
-  description String?
-  logo        String?
-  website     String?
-  
-  // Bank details
-  bankName      String?
-  bankCode      String?
-  accountNumber String?
-  accountName   String?
-  bankVerified  Boolean @default(false)
-  
-  // Paystack
-  paystackRecipientCode String?
-  
-  // Balances (in Naira)
-  pendingBalance   Decimal @default(0) @db.Decimal(12, 2)
-  availableBalance Decimal @default(0) @db.Decimal(12, 2)
-  withdrawnBalance Decimal @default(0) @db.Decimal(12, 2)
-  
-  // Settings
-  notificationsEnabled Boolean @default(true)
-  
-  // Relations
-  userId       String       @unique
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events       Event[]
-  withdrawals  Withdrawal[]
-  ledgerEntries LedgerEntry[]
-
-  @@index([userId])
-}
-
-model Event {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  title       String
-  slug        String      @unique
-  description String?     @db.Text
-  status      EventStatus @default(DRAFT)
-  
-  // Date & Time
-  startDate DateTime
-  endDate   DateTime?
-  
-  // Location
-  location         String?
-  isLocationPublic Boolean @default(true) // If false, location is only sent via email after ticket purchase
-  isOnline         Boolean @default(false)
-  onlineLink       String?
-  
-  // Media
-  coverImage String?
-  gallery    String[] @default([])
-  
-  // Settings
-  isFeatured      Boolean @default(false)
-  maxTicketsPerOrder Int   @default(10)
-  
-  // Relations
-  organizerId String
-  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
-  tiers       TicketTier[]
-  tickets     Ticket[]
-  payments    Payment[]
-
-  @@index([slug])
-  @@index([organizerId])
-  @@index([status])
-  @@index([startDate])
-}
-
-model TicketTier {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  name          String
-  description   String?
-  price         Decimal  @db.Decimal(12, 2)
-  capacity      Int
-  sold          Int      @default(0)
-  refundEnabled Boolean  @default(false)
-  sortOrder     Int      @default(0)
-  
-  // Relations
-  eventId  String
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tickets  Ticket[]
-  payments Payment[]
-
-  @@index([eventId])
-}
-
-model Ticket {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  ticketNumber String       @unique
-  qrCode       String
-  qrCodeUrl    String?
-  status       TicketStatus @default(ACTIVE)
-  
-  // Buyer info (for guest checkout)
-  buyerEmail     String
-  buyerFirstName String?
-  buyerLastName  String?
-  buyerPhone     String?
-  
-  // Check-in
-  checkedInAt DateTime?
-  checkedInBy String?
-  
-  // Payment info
-  amountPaid  Decimal  @db.Decimal(12, 2)
-  paystackRef String?
-  
-  // Relations
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id])
-  tierId    String
-  tier      TicketTier @relation(fields: [tierId], references: [id])
-  buyerId   String
-  buyer     User     @relation(fields: [buyerId], references: [id])
-  paymentId String?
-  payment   Payment? @relation(fields: [paymentId], references: [id])
-  refund    Refund?
-
-  @@index([ticketNumber])
-  @@index([eventId])
-  @@index([buyerId])
-  @@index([status])
-}
-
-model Payment {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  reference   String        @unique
-  amount      Decimal       @db.Decimal(12, 2)
-  status      PaymentStatus @default(PENDING)
-  
-  // Buyer info
-  buyerEmail String
-  
-  // Paystack response data
-  paystackRef    String?
-  paystackPaidAt DateTime?
-  
-  // Relations
-  eventId  String
-  event    Event    @relation(fields: [eventId], references: [id])
-  tierId   String
-  tier     TicketTier @relation(fields: [tierId], references: [id])
-  buyerId  String?
-  buyer    User?    @relation(fields: [buyerId], references: [id])
-  tickets  Ticket[]
-
-  @@index([reference])
-  @@index([eventId])
-  @@index([buyerId])
-}
-
-model Refund {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  status       RefundStatus @default(PENDING)
-  reason       String?
-  refundAmount Decimal      @db.Decimal(12, 2)
-  
-  // Processing
-  processedAt   DateTime?
-  processedBy   String?
-  rejectionNote String?
-  
-  // Paystack
-  paystackRefundRef String?
-  
-  // Relations
-  ticketId    String   @unique
-  ticket      Ticket   @relation(fields: [ticketId], references: [id])
-  requesterId String
-  requester   User     @relation(fields: [requesterId], references: [id])
-
-  @@index([ticketId])
-  @@index([status])
-}
-
-model Withdrawal {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  amount      Decimal          @db.Decimal(12, 2)
-  status      WithdrawalStatus @default(PENDING)
-  
-  // Bank details (snapshot at time of withdrawal)
-  bankName      String
-  bankCode      String
-  accountNumber String
-  accountName   String
-  
-  // OTP verification
-  otpCode       String?
-  otpExpiresAt  DateTime?
-  otpAttempts   Int      @default(0)
-  
-  // Paystack
-  paystackTransferRef String?
-  paystackTransferCode String?
-  
-  // Processing
-  processedAt   DateTime?
-  failureReason String?
-  
-  // Relations
-  organizerId String
-  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id])
-
-  @@index([organizerId])
-  @@index([status])
-}
-
-model LedgerEntry {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-
-  type        LedgerType
-  amount      Decimal    @db.Decimal(12, 2)
-  description String?
-  
-  // Balance snapshots
-  pendingBalanceAfter   Decimal @db.Decimal(12, 2)
-  availableBalanceAfter Decimal @db.Decimal(12, 2)
-  
-  // References
-  ticketId     String?
-  withdrawalId String?
-  
-  // Relations
-  organizerId String
-  organizer   OrganizerProfile @relation(fields: [organizerId], references: [id])
-
-  @@index([organizerId])
-  @@index([type])
-  @@index([createdAt])
-}
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  
-  token      String   @unique
-  expiresAt  DateTime
-  ipAddress  String?
-  userAgent  String?
-  
-  // Relations
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([token])
 }

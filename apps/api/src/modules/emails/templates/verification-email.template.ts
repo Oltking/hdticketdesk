@@ -55,8 +55,8 @@ export function getVerificationEmailTemplate(code: string): string {
             <td style="padding: 24px 32px; background-color: #fafafa; border-radius: 0 0 12px 12px; border-top: 1px solid #f0f0f0;">
               <p style="margin: 0; font-size: 12px; color: #999999; text-align: center;">
                 © ${new Date().getFullYear()} HD Ticket Desk. All rights reserved.<br>
-                <a href="#" style="color: #11998e; text-decoration: none;">Privacy Policy</a> • 
-                <a href="#" style="color: #11998e; text-decoration: none;">Terms of Service</a>
+                <a href="https://hdticketdesk.com/privacy" style="color: #11998e; text-decoration: none;">Privacy Policy</a> • 
+                <a href="https://hdticketdesk.com/terms" style="color: #11998e; text-decoration: none;">Terms of Service</a>
               </p>
             </td>
           </tr>

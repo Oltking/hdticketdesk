@@ -168,12 +168,12 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                     {event.isOnline ? (
                       <div className="flex items-center gap-2">
                         <Globe className="w-5 h-5 text-primary" />
-                        <span>Online Event</span>
+                        <span>{event.isLocationPublic === false ? 'Online Event (link sent after purchase)' : 'Online Event'}</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-primary" />
-                        <span>{event.location || 'TBA'}</span>
+                        <span>{event.isLocationPublic === false ? 'Location revealed after purchase' : (event.location || 'TBA')}</span>
                       </div>
                     )}
                     {(event.totalTicketsSold || 0) > 0 && (

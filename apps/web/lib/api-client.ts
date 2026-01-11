@@ -53,12 +53,22 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      const err = new Error(error.message || `Request failed with status ${response.status}`);
-      (err as any).response = { data: error, status: response.status };
+      // Handle wrapped error response
+      const errorData = error.data || error;
+      const err = new Error(errorData.message || error.message || `Request failed with status ${response.status}`);
+      (err as any).response = { data: errorData, status: response.status };
       throw err;
     }
 
-    return response.json();
+    const json = await response.json();
+    
+    // Unwrap the response if it's wrapped by TransformInterceptor
+    // Backend wraps responses as: { success: true, data: {...}, timestamp: "..." }
+    if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+      return json.data as T;
+    }
+    
+    return json as T;
   }
 
   // ==================== AUTH ====================

@@ -26,7 +26,6 @@ import {
   Eye,
   EyeOff,
   X,
-  AlertCircle,
   Mail,
   Loader2,
   Info,
@@ -201,13 +200,10 @@ export default function LoginPage() {
     setUnverifiedUserId(null);
 
     try {
-      const response = await api.login(data);
-      
-      // Handle wrapped response { success, data, timestamp } or direct response
-      const result = response.data || response;
+      const result = await api.login(data);
 
       // Handle new device OTP required
-      if (result.requiresOtp) {
+      if (result.requiresOtp && result.userId) {
         // Redirect to OTP verification page
         const params = new URLSearchParams();
         params.set('userId', result.userId);
@@ -235,32 +231,54 @@ export default function LoginPage() {
 
       // Normal login success - check if tokens exist
       if (!result.accessToken || !result.refreshToken) {
+        console.error('[Login] Missing tokens in response:', { 
+          hasAccessToken: !!result.accessToken, 
+          hasRefreshToken: !!result.refreshToken 
+        });
         setErrorState({
           message: 'Login failed. Please try again.',
         });
         return;
       }
 
+      // Set tokens
       localStorage.setItem('accessToken', result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
       api.setToken(result.accessToken);
       
-      // Small delay to ensure token is set before making the next request
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('[Login] Tokens set successfully');
       
-      // Fetch latest user profile to ensure correct role
-      const meResponse = await api.getMe();
-      // Handle wrapped response
-      const freshUser = meResponse.data || meResponse;
+      // Use the user from login response if available, otherwise fetch fresh
+      let user = result.user;
       
-      setUser(freshUser);
+      if (!user || !user.role) {
+        console.log('[Login] Fetching fresh user profile...');
+        try {
+          user = await api.getMe();
+          console.log('[Login] Fresh user fetched:', user);
+        } catch (meError: any) {
+          console.error('[Login] Failed to fetch user profile:', meError);
+          // Still proceed with login using the user from result if available
+          if (result.user) {
+            user = result.user;
+            console.log('[Login] Using user from login response instead');
+          } else {
+            setErrorState({
+              message: 'Login succeeded but failed to load profile. Please refresh.',
+            });
+            return;
+          }
+        }
+      }
+      
+      setUser(user);
       setAuthenticated(true);
 
-      success(`Welcome back, ${freshUser?.firstName || 'User'}!`);
+      success(`Welcome back, ${user?.firstName || 'User'}!`);
 
-      if (freshUser?.role === 'ADMIN') {
+      if (user?.role === 'ADMIN') {
         router.replace('/admin/overview');
-      } else if (freshUser?.role === 'ORGANIZER') {
+      } else if (user?.role === 'ORGANIZER') {
         router.replace('/dashboard');
       } else {
         router.replace('/tickets');
@@ -370,9 +388,25 @@ export default function LoginPage() {
               )}
             </div>
 
+            <div className="flex justify-end">
+              <Link
+                href={`/forgot-password${watchedEmail ? `?email=${encodeURIComponent(watchedEmail)}` : ''}`}
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? 'Signing in…' : 'Sign In'}
             </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="text-primary hover:underline font-medium">
+                Sign up
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

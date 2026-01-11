@@ -11,20 +11,15 @@ export class HealthController {
   @ApiOperation({ summary: 'Health check endpoint' })
   @ApiResponse({ status: 200, description: 'Service is healthy' })
   async check() {
-    // Check database connection
-    let dbStatus = 'healthy';
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-    } catch (error) {
-      dbStatus = 'unhealthy';
-    }
+    // Check database connection using the Prisma service health check
+    const isDbHealthy = await this.prisma.isHealthy();
 
     return {
-      status: 'ok',
+      status: isDbHealthy ? 'ok' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       services: {
-        database: dbStatus,
+        database: isDbHealthy ? 'healthy' : 'unhealthy',
       },
     };
   }

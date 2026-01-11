@@ -135,7 +135,7 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-white/80">
               <MapPin className="w-4 h-4" />
-              <span className="line-clamp-1">{event.isOnline ? 'Online Event' : event.location || 'TBA'}</span>
+              <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online Event' : event.location || 'TBA')}</span>
             </div>
             
             <div className="text-right">

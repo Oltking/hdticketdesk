@@ -106,8 +106,8 @@ export function getTicketEmailTemplate(data: {
               </p>
               <p style="margin: 0; font-size: 12px; color: #999999; text-align: center;">
                 © ${new Date().getFullYear()} HD Ticket Desk. All rights reserved.<br>
-                <a href="#" style="color: #667eea; text-decoration: none;">Privacy Policy</a> • 
-                <a href="#" style="color: #667eea; text-decoration: none;">Refund Policy</a>
+                <a href="https://hdticketdesk.com/privacy" style="color: #667eea; text-decoration: none;">Privacy Policy</a> • 
+                <a href="https://hdticketdesk.com/refunds" style="color: #667eea; text-decoration: none;">Refund Policy</a>
               </p>
             </td>
           </tr>
