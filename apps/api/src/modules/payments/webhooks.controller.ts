@@ -29,7 +29,7 @@ export class WebhooksController {
     this.logger.log(`Paystack webhook: ${event}`);
 
     try {
-      await this.paymentsService.handleWebhook(event, data);
+      await this.paymentsService.handleWebhook(req.body, signature);
       return res.status(HttpStatus.OK).send('OK');
     } catch (error) {
       this.logger.error('Webhook error:', error);

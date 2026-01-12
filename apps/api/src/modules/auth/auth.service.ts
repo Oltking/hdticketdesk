@@ -85,11 +85,10 @@ export class AuthService {
     // Send verification OTP email
     const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
     if (!emailResult.success) {
-      console.error('[AUTH] Failed to send verification OTP during registration:', emailResult.error);
+      this.logger.error(`Failed to send verification OTP during registration: ${emailResult.error}`);
     }
 
-    // Log created user and return some info so frontend can verify role
-    this.logger?.log?.(`[AUTH] Registered user: ${user.email} (role=${user.role})`);
+    this.logger.log(`Registered user: ${user.email} (role=${user.role})`);
 
     // Return userId and role so frontend can redirect to verify page and confirm role
     // Don't generate tokens yet - user must verify first
@@ -137,7 +136,7 @@ export class AuthService {
       // Send new verification OTP
       const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
       if (!emailResult.success) {
-        console.error('[AUTH] Failed to send verification OTP during login:', emailResult.error);
+        this.logger.error(`Failed to send verification OTP during login: ${emailResult.error}`);
       }
 
       // Throw custom exception with userId so frontend can redirect to verify page
@@ -211,12 +210,10 @@ export class AuthService {
     try {
       const welcomeResult = await this.emailService.sendWelcomeEmail(user.email, user.firstName ?? '', user.role as any);
       if (!welcomeResult.success) {
-        console.error('[AUTH] Failed to send welcome email:', welcomeResult.error);
-      } else {
-        console.log('[AUTH] Welcome email queued:', welcomeResult.id);
+        this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
       }
     } catch (e) {
-      console.error('[AUTH] Error sending welcome email', e);
+      this.logger.error('Error sending welcome email', e);
     }
 
     // Generate tokens and log user in
@@ -259,7 +256,7 @@ export class AuthService {
 
     const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
     if (!emailResult.success) {
-      console.error('[AUTH] Failed to send verification OTP (resend):', emailResult.error);
+      this.logger.error(`Failed to send verification OTP (resend): ${emailResult.error}`);
       throw new BadRequestException('Failed to send verification code. Please try again.');
     }
 
@@ -340,7 +337,7 @@ export class AuthService {
 
     const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
     if (!emailResult.success) {
-      console.error('[AUTH] Failed to send verification OTP (resend email):', emailResult.error);
+      this.logger.error(`Failed to send verification OTP (resend email): ${emailResult.error}`);
       throw new BadRequestException('Failed to send verification code. Please try again.');
     }
 
@@ -368,7 +365,7 @@ export class AuthService {
 
     const emailResult = await this.emailService.sendOtpEmail(email, otp);
     if (!emailResult.success) {
-      console.error('[AUTH] Failed to send login OTP:', emailResult.error);
+      this.logger.error(`Failed to send login OTP: ${emailResult.error}`);
       throw new BadRequestException('Failed to send OTP. Please try again.');
     }
   }
@@ -560,7 +557,7 @@ export class AuthService {
 
     const emailResult = await this.emailService.sendPasswordResetEmail(user.email, resetToken);
     if (!emailResult.success) {
-      console.error('[AUTH] Failed to send password reset email:', emailResult.error);
+      this.logger.error(`Failed to send password reset email: ${emailResult.error}`);
     }
 
     return { message: 'Password reset email sent' };

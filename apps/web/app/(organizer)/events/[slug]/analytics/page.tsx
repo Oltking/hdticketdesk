@@ -10,7 +10,7 @@ import { formatCurrency } from '@/lib/utils';
 import { Ticket, DollarSign, Users, TrendingUp } from 'lucide-react';
 
 export default function AnalyticsPage() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const { isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,10 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const data = await api.getEventAnalytics(id as string);
+        // First get event by slug to get the ID
+        const event = await api.getEventBySlug(slug as string);
+        const eventId = event.id || event.data?.id;
+        const data = await api.getEventAnalytics(eventId);
         setAnalytics(data);
       } catch (err) {
         console.error(err);
@@ -27,7 +30,7 @@ export default function AnalyticsPage() {
       }
     };
     fetchAnalytics();
-  }, [id]);
+  }, [slug]);
 
   if (authLoading || loading) {
     return (

@@ -42,16 +42,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
-    try {
-      console.log('[Auth Controller] Login attempt for:', dto.email);
-      const result = await this.authService.login(dto, ip, userAgent);
-      console.log('[Auth Controller] Login successful, result keys:', Object.keys(result));
-      return result;
-    } catch (error) {
-      console.error('[Auth Controller] Login error:', error);
-      console.error('[Auth Controller] Error stack:', error.stack);
-      throw error;
-    }
+    return this.authService.login(dto, ip, userAgent);
   }
 
   // ==================== VERIFY OTP (Generic) ====================
@@ -93,7 +84,6 @@ export class AuthController {
       const byToken = await this.authService.getUserByVerificationToken(body.code);
       if (byToken) {
         userId = byToken.id;
-        console.debug('[Auth] verify-otp resolved userId by token', { userId });
       }
     }
 
@@ -105,7 +95,6 @@ export class AuthController {
       });
     }
 
-    console.debug('[Auth] verify-otp resolved userId', { userId });
     return this.authService.verifyOtp(userId, body.code, body.type, ip, userAgent);
   }
 

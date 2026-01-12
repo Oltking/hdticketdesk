@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
@@ -12,6 +13,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class WithdrawalsService {
+  private readonly logger = new Logger(WithdrawalsService.name);
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -160,7 +163,7 @@ export class WithdrawalsService {
     });
 
     if (!withdrawal) {
-      console.error(`Withdrawal not found: ${withdrawalId}`);
+      this.logger.error(`Withdrawal not found: ${withdrawalId}`);
       return;
     }
 

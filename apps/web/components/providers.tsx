@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect, type ReactNode } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api-client';
+import { ToastProvider } from '@/hooks/use-toast';
 
 // Separate component to handle auth initialization
 // This prevents Zustand hydration issues during SSG
@@ -47,7 +48,9 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthInitializer>{children}</AuthInitializer>
+      <ToastProvider>
+        <AuthInitializer>{children}</AuthInitializer>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

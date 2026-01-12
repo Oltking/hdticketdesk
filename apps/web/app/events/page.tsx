@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Header } from '@/components/layouts/header';
+import { Footer } from '@/components/layouts/footer';
 
 type SearchParams = {
   page?: string | string[];
@@ -24,7 +26,7 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
   if (sort) params.set('sort', sort);
   if (filter) params.set('filter', filter);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
   let events: any[] = [];
   let total = 0;
@@ -54,13 +56,12 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
   }
 
   return (
-    <main className="container py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Events</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/" className={cn(buttonVariants({ variant: 'ghost' }))}>Home</Link>
+    <>
+      <Header />
+      <main className="flex-1 container py-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Events</h1>
         </div>
-      </div>
 
       {events.length === 0 ? (
         <div className="text-center py-16">
@@ -102,7 +103,8 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
           </div>
         </>
       )}
-
-    </main>
+      </main>
+      <Footer />
+    </>
   );
 }

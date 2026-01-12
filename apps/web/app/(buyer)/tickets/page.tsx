@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +12,42 @@ import { Footer } from '@/components/layouts/footer';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatDate, formatCurrency } from '@/lib/utils';
-import { Calendar, MapPin, QrCode, Ticket } from 'lucide-react';
+import { Calendar, MapPin, QrCode, Ticket, RotateCcw, Settings } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Ticket as TicketType } from '@/types';
+
+const buyerNavItems = [
+  { href: '/tickets', label: 'My Tickets', icon: Ticket },
+  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
+  { href: '/account', label: 'Settings', icon: Settings },
+];
+
+function BuyerNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="flex gap-1 mb-8 p-1 bg-muted/50 rounded-lg w-fit">
+      {buyerNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
+              isActive
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export default function MyTicketsPage() {
   const { isLoading: authLoading } = useAuth(true, ['BUYER']);
@@ -36,16 +72,35 @@ export default function MyTicketsPage() {
     <>
       <Header />
       <main className="flex-1 container py-8">
-        <h1 className="text-2xl font-bold mb-6">My Tickets</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 className="text-2xl font-bold">My Tickets</h1>
+        </div>
+        
+        <BuyerNav />
 
         {loading ? (
           <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}</div>
         ) : tickets.length === 0 ? (
-          <div className="text-center py-16">
-            <Ticket className="h-16 w-16 mx-auto mb-4 text-text-muted" />
-            <h2 className="text-xl font-semibold mb-2">No tickets yet</h2>
-            <p className="text-text-muted mb-4">Browse events and get your first ticket</p>
-            <Link href="/events"><Button>Browse Events</Button></Link>
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="relative w-24 h-24 mb-6 opacity-20">
+              <Image
+                src="/icon.svg"
+                alt="hdticketdesk"
+                fill
+                className="object-contain"
+              />
+            </div>
+            <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
+            <h2 className="text-xl font-semibold mb-2 text-foreground">No tickets yet</h2>
+            <p className="text-muted-foreground mb-6 text-center max-w-sm">
+              Discover amazing events and get your first ticket to start your journey
+            </p>
+            <Link href="/events">
+              <Button size="lg" className="gap-2">
+                <Ticket className="h-4 w-4" />
+                Browse Events
+              </Button>
+            </Link>
           </div>
         ) : (
           <div className="space-y-4">

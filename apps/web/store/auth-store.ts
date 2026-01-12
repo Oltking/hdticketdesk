@@ -41,11 +41,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (data) => {
-    const { user, accessToken } = await api.register(data);
-    api.setToken(accessToken);
-    // Always fetch fresh user data after registration to ensure correct role
-    const freshUser = await api.getMe?.() || user;
-    set({ user: freshUser, isAuthenticated: true, isLoading: false });
+    const result = await api.register(data);
+    // Registration now requires email verification first
+    // Don't set authenticated state - user needs to verify email
+    // The result contains userId, email, role but no tokens
+    if (result.accessToken) {
+      // If tokens are returned (email already verified case), set them
+      api.setToken(result.accessToken);
+      const freshUser = await api.getMe?.() || result.user;
+      set({ user: freshUser, isAuthenticated: true, isLoading: false });
+    } else {
+      // Email verification required - don't authenticate yet
+      set({ isLoading: false });
+    }
   },
 
   logout: () => {

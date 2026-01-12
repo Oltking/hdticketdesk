@@ -24,7 +24,8 @@ export class PaymentsController {
     @Body('eventId') eventId: string,
     @Body('tierId') tierId: string,
   ) {
-    return this.paymentsService.initializePayment(userId, email, eventId, tierId);
+    // Service expects: (eventId, tierId, userId, email)
+    return this.paymentsService.initializePayment(eventId, tierId, userId, email);
   }
 
   @Public()

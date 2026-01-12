@@ -12,14 +12,28 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, CheckCircle, XCircle, Search } from 'lucide-react';
 
 export default function ScanPage() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const { isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string; ticket?: any } | null>(null);
   const [recentScans, setRecentScans] = useState<any[]>([]);
+  const [eventId, setEventId] = useState<string | null>(null);
   const scannerRef = useRef<any>(null);
+
+  // Fetch event to get the ID from slug
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const event = await api.getEventBySlug(slug as string);
+        setEventId(event.id || event.data?.id);
+      } catch (err) {
+        console.error('Failed to fetch event:', err);
+      }
+    };
+    fetchEvent();
+  }, [slug]);
 
   useEffect(() => {
     return () => {
@@ -57,8 +71,12 @@ export default function ScanPage() {
   };
 
   const handleScan = async (code: string) => {
+    if (!eventId) {
+      error('Event not loaded yet');
+      return;
+    }
     try {
-      const result = await api.validateQr(code, id as string);
+      const result = await api.validateQr(code, eventId);
       setLastResult({ success: true, message: 'Check-in successful!', ticket: result });
       setRecentScans(prev => [{ ...result, time: new Date() }, ...prev.slice(0, 9)]);
       success('Check-in successful!');

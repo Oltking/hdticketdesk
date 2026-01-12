@@ -1,15 +1,53 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Header } from '@/components/layouts/header';
+import { Footer } from '@/components/layouts/footer';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { Ticket, RotateCcw, Settings } from 'lucide-react';
 
+const buyerNavItems = [
+  { href: '/tickets', label: 'My Tickets', icon: Ticket },
+  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
+  { href: '/account', label: 'Settings', icon: Settings },
+];
+
+function BuyerNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="flex gap-1 mb-8 p-1 bg-muted/50 rounded-lg w-fit">
+      {buyerNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
+              isActive
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export default function AccountPage() {
   const { user, isLoading: authLoading } = useAuth(true);
@@ -70,12 +108,18 @@ export default function AccountPage() {
   if (authLoading) return null;
 
   return (
-    <main className="p-8 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Account</h1>
+    <>
+      <Header />
+      <main className="flex-1 container py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h1 className="text-2xl font-bold">Account Settings</h1>
+        </div>
+        
+        {user?.role === 'BUYER' && <BuyerNav />}
 
-      {user?.role === 'BUYER' && (
-        <Card>
-          <CardHeader><CardTitle>Buyer Profile</CardTitle></CardHeader>
+        {user?.role === 'BUYER' && (
+          <Card className="max-w-2xl">
+            <CardHeader><CardTitle>Profile Information</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -91,7 +135,7 @@ export default function AccountPage() {
 
       {user?.role === 'ORGANIZER' && (
         <>
-          <Card className="mb-8">
+          <Card className="mb-8 max-w-2xl">
             <CardHeader><CardTitle>Organizer Profile</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
@@ -106,7 +150,7 @@ export default function AccountPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="max-w-2xl">
             <CardHeader><CardTitle>Bank Details</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={bankForm.handleSubmit(onBankSubmit)} className="space-y-4">
@@ -129,6 +173,8 @@ export default function AccountPage() {
           </Card>
         </>
       )}
-    </main>
+      </main>
+      <Footer />
+    </>
   );
 }

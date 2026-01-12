@@ -82,9 +82,9 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
                       <p className="text-sm text-text-muted">{formatDate(event.startDate)} • {event.totalTicketsSold} sold</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Link href={`/events/${event.id}/scan`}><Button variant="outline" size="sm"><QrCode className="h-4 w-4" /></Button></Link>
-                      <Link href={`/events/${event.id}/analytics`}><Button variant="outline" size="sm"><BarChart3 className="h-4 w-4" /></Button></Link>
-                      <Link href={`/events/${event.id}/edit`}><Button variant="outline" size="sm">Edit</Button></Link>
+                      <Link href={`/events/${event.slug}/scan`}><Button variant="outline" size="sm"><QrCode className="h-4 w-4" /></Button></Link>
+                      <Link href={`/events/${event.slug}/analytics`}><Button variant="outline" size="sm"><BarChart3 className="h-4 w-4" /></Button></Link>
+                      <Link href={`/events/${event.slug}/edit`}><Button variant="outline" size="sm">Edit</Button></Link>
                     </div>
                   </div>
                 ))}

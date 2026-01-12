@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
@@ -12,6 +13,8 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -116,12 +119,12 @@ export class PaymentsService {
     });
 
     if (!payment) {
-      console.error(`Payment not found for reference: ${reference}`);
+      this.logger.error(`Payment not found for reference: ${reference}`);
       return;
     }
 
     if (payment.status !== 'PENDING') {
-      console.log(`Payment already processed: ${reference}`);
+      this.logger.log(`Payment already processed: ${reference}`);
       return;
     }
 
@@ -132,7 +135,7 @@ export class PaymentsService {
     });
 
     if (!event) {
-      console.error(`Event not found for payment: ${reference}`);
+      this.logger.error(`Event not found for payment: ${reference}`);
       return;
     }
 
@@ -142,7 +145,7 @@ export class PaymentsService {
     });
 
     if (!tier) {
-      console.error(`Tier not found for payment: ${reference}`);
+      this.logger.error(`Tier not found for payment: ${reference}`);
       return;
     }
 
@@ -152,7 +155,7 @@ export class PaymentsService {
       : Number(payment.amount) * 100;
       
     if (amount !== expectedAmount) {
-      console.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}`);
+      this.logger.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}`);
       return;
     }
 
