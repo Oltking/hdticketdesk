@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layouts/sidebar';
@@ -46,7 +47,18 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
+                  {users.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="relative w-16 h-16 mb-4 opacity-20">
+                            <Image src="/icon.svg" alt="hdticketdesk" fill className="object-contain" />
+                          </div>
+                          <p className="text-text-muted">No users found</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : users.map((user) => (
                     <tr key={user.id} className="border-t border-border">
                       <td className="p-4">
                         <p className="font-medium">{user.firstName} {user.lastName}</p>

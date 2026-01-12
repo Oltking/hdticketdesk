@@ -230,7 +230,8 @@ class ApiClient {
   }
 
   async getEventById(id: string) {
-    return this.request<any>(`/events/id/${id}`);
+    // Backend uses slug-based routing, so try to get by slug (which could be an ID)
+    return this.request<any>(`/events/${id}`);
   }
 
   async getMyEvents(): Promise<any[]> {
@@ -280,7 +281,7 @@ class ApiClient {
   }
 
   async getEventTickets(id: string) {
-    return this.request<any[]>(`/events/${id}/tickets`);
+    return this.request<any[]>(`/tickets/event/${id}`);
   }
 
   // ==================== TICKETS ====================
@@ -319,9 +320,9 @@ class ApiClient {
       valid: boolean; 
       ticket?: any; 
       message: string;
-    }>('/qr/validate', {
+    }>('/tickets/validate-qr', {
       method: 'POST',
-      body: JSON.stringify({ code, eventId }),
+      body: JSON.stringify({ qrCode: code, eventId }),
     });
   }
 
@@ -345,14 +346,14 @@ class ApiClient {
   // ==================== USER ====================
   async updateProfile(data: any) {
     return this.request<any>('/users/profile', {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async updateBankDetails(data: any) {
-    return this.request<any>('/users/bank', {
-      method: 'PATCH',
+    return this.request<any>('/users/bank-details', {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
   }

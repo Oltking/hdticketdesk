@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -51,10 +52,10 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <StatCard icon={<Calendar />} label="Total Events" value={events.length} loading={loading} />
-          <StatCard icon={<Ticket />} label="Tickets Sold" value={totalSold} loading={loading} />
-          <StatCard icon={<TrendingUp />} label="Total Revenue" value={formatCurrency(totalRevenue)} loading={loading} />
-          <StatCard icon={<DollarSign />} label="Available Balance" value={formatCurrency(balance.available)} loading={loading} />
+          <StatCard icon={<Calendar className="h-6 w-6" />} label="Total Events" value={events.length} loading={loading} />
+          <StatCard icon={<Image src="/icon.svg" alt="Ticket" width={24} height={24} className="object-contain" />} label="Tickets Sold" value={totalSold} loading={loading} />
+          <StatCard icon={<TrendingUp className="h-6 w-6" />} label="Total Revenue" value={formatCurrency(totalRevenue)} loading={loading} />
+          <StatCard icon={<DollarSign className="h-6 w-6" />} label="Available Balance" value={formatCurrency(balance.available)} loading={loading} />
         </div>
 
         <Card>
@@ -66,9 +67,21 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
             {loading ? (
               <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
             ) : events.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-text-muted mb-4">No events yet</p>
-                <Link href="/events/create"><Button>Create Your First Event</Button></Link>
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="relative w-20 h-20 mb-6 opacity-20">
+                  <Image
+                    src="/icon.svg"
+                    alt="hdticketdesk"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
+                <h3 className="text-lg font-semibold mb-2">No events yet</h3>
+                <p className="text-text-muted mb-6 text-center max-w-sm">
+                  Create your first event and start selling tickets
+                </p>
+                <Link href="/events/create"><Button className="gap-2"><Plus className="h-4 w-4" />Create Your First Event</Button></Link>
               </div>
             ) : (
               <div className="space-y-4">
@@ -102,7 +115,9 @@ function StatCard({ icon, label, value, loading }: { icon: React.ReactNode; labe
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-primary/10 text-primary">{icon}</div>
+          <div className="p-3 rounded-lg bg-primary/10 text-primary">
+            {icon}
+          </div>
           <div>
             <p className="text-sm text-text-muted">{label}</p>
             {loading ? <Skeleton className="h-7 w-20" /> : <p className="text-2xl font-bold">{value}</p>}

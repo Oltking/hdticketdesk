@@ -1,6 +1,7 @@
 export const revalidate = 60;
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -64,9 +65,23 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
         </div>
 
       {events.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-lg text-muted-foreground">No events found.</p>
-          <Link href="/" className="text-primary hover:underline">Back to home</Link>
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="relative w-24 h-24 mb-6 opacity-20">
+            <Image
+              src="/icon.svg"
+              alt="hdticketdesk"
+              fill
+              className="object-contain"
+            />
+          </div>
+          <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
+          <h2 className="text-xl font-semibold mb-2 text-foreground">No events found</h2>
+          <p className="text-muted-foreground mb-6 text-center max-w-sm">
+            Check back soon for upcoming events or explore other categories
+          </p>
+          <Link href="/">
+            <Button size="lg">Back to Home</Button>
+          </Link>
         </div>
       ) : (
         <>

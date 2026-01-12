@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,6 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { DollarSign, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function PayoutsPage() {
   const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
@@ -80,7 +80,7 @@ export default function PayoutsPage() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-warning/10 text-warning"><Clock className="h-6 w-6" /></div>
+                <div className="p-3 rounded-lg bg-warning/10 text-warning">💰</div>
                 <div><p className="text-sm text-text-muted">Pending</p><p className="text-2xl font-bold">{formatCurrency(balance.pending)}</p></div>
               </div>
             </CardContent>
@@ -88,7 +88,7 @@ export default function PayoutsPage() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-success/10 text-success"><DollarSign className="h-6 w-6" /></div>
+                <div className="p-3 rounded-lg bg-success/10 text-success">✓</div>
                 <div><p className="text-sm text-text-muted">Available</p><p className="text-2xl font-bold">{formatCurrency(balance.available)}</p></div>
               </div>
             </CardContent>
@@ -96,7 +96,7 @@ export default function PayoutsPage() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-primary/10 text-primary"><CheckCircle className="h-6 w-6" /></div>
+                <div className="p-3 rounded-lg bg-primary/10 text-primary">📤</div>
                 <div><p className="text-sm text-text-muted">Withdrawn</p><p className="text-2xl font-bold">{formatCurrency(balance.withdrawn)}</p></div>
               </div>
             </CardContent>
@@ -115,7 +115,21 @@ export default function PayoutsPage() {
           <CardHeader><CardTitle>Withdrawal History</CardTitle></CardHeader>
           <CardContent>
             {history.length === 0 ? (
-              <p className="text-text-muted text-center py-8">No withdrawals yet</p>
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="relative w-20 h-20 mb-6 opacity-20">
+                  <Image
+                    src="/icon.svg"
+                    alt="hdticketdesk"
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+                <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
+                <h3 className="text-lg font-semibold mb-2">No withdrawals yet</h3>
+                <p className="text-text-muted text-center max-w-sm">
+                  Your withdrawal history will appear here once you make your first payout request
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {history.map((w) => (

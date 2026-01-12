@@ -1,13 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/utils';
-import { Ticket, DollarSign, Users, TrendingUp } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const { slug } = useParams();
@@ -50,10 +50,10 @@ export default function AnalyticsPage() {
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <h1 className="text-2xl font-bold mb-6">Event Analytics</h1>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <StatCard icon={<Ticket />} label="Tickets Sold" value={analytics?.totalSold || 0} />
-          <StatCard icon={<DollarSign />} label="Total Revenue" value={formatCurrency(analytics?.totalRevenue || 0)} />
-          <StatCard icon={<Users />} label="Checked In" value={analytics?.checkedIn || 0} />
-          <StatCard icon={<TrendingUp />} label="Check-in Rate" value={`${analytics?.checkInRate || 0}%`} />
+          <StatCard label="Tickets Sold" value={analytics?.totalSold || 0} />
+          <StatCard label="Total Revenue" value={formatCurrency(analytics?.totalRevenue || 0)} />
+          <StatCard label="Checked In" value={analytics?.checkedIn || 0} />
+          <StatCard label="Check-in Rate" value={`${analytics?.checkInRate || 0}%`} />
         </div>
 
         <Card>
@@ -82,12 +82,14 @@ export default function AnalyticsPage() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <Card>
       <CardContent className="p-6">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-primary/10 text-primary">{icon}</div>
+          <div className="p-3 rounded-lg bg-primary/10 relative w-12 h-12 flex items-center justify-center">
+            <Image src="/icon.svg" alt="" width={24} height={24} className="object-contain" />
+          </div>
           <div><p className="text-sm text-text-muted">{label}</p><p className="text-2xl font-bold">{value}</p></div>
         </div>
       </CardContent>
