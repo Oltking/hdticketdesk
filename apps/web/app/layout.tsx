@@ -3,7 +3,9 @@ import { Providers } from '@/components/providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://hdticketdesk.com'),
+  // Use hardcoded URL for metadataBase to ensure static generation works
+  // Environment variable NEXT_PUBLIC_APP_URL can override this in production
+  metadataBase: new URL('https://hdticketdesk.com'),
   title: {
     default: 'hdticketdesk - Africa\'s Premier Event Ticketing Platform',
     template: '%s | hdticketdesk',
