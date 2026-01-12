@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -36,5 +36,11 @@ export class AdminController {
   @ApiOperation({ summary: 'Get ledger audit' })
   async getLedger(@Query('page') page = 1, @Query('limit') limit = 50) {
     return this.adminService.getLedgerAudit(+page, +limit);
+  }
+
+  @Post('events/:id/unpublish')
+  @ApiOperation({ summary: 'Admin force unpublish an event (even with sales)' })
+  async adminUnpublishEvent(@Param('id') id: string) {
+    return this.adminService.adminUnpublishEvent(id);
   }
 }

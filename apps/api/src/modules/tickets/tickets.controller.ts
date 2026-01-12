@@ -29,6 +29,14 @@ export class TicketsController {
     return this.ticketsService.getBuyerTickets(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('number/:ticketNumber')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get ticket by ticket number' })
+  async getTicketByNumber(@Param('ticketNumber') ticketNumber: string) {
+    return this.ticketsService.getTicketByNumber(ticketNumber);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER)
   @Post(':ticketId/check-in')
@@ -49,10 +57,43 @@ export class TicketsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER)
+  @Post('scan')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Scan QR code and check in' })
+  async scanQr(@Body('qrCode') qrCode: string, @Body('eventId') eventId: string) {
+    // First validate, then check in if valid
+    const validation = await this.ticketsService.validateQr(qrCode, eventId);
+    if (!validation.valid || !validation.ticket) {
+      return {
+        success: false,
+        message: validation.message,
+        ticket: validation.ticket,
+      };
+    }
+    
+    // Check in the ticket
+    const result = await this.ticketsService.checkInTicket(validation.ticket.ticketNumber);
+    return {
+      success: result.success,
+      message: result.message,
+      ticket: result.ticket || validation.ticket,
+    };
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ORGANIZER)
   @Get('event/:eventId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get event tickets (Organizer)' })
   async getEventTickets(@Param('eventId') eventId: string, @CurrentUser('organizerProfile') profile: any) {
     return this.ticketsService.getEventTickets(eventId, profile?.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get ticket by ID' })
+  async getTicketById(@Param('id') id: string) {
+    return this.ticketsService.getTicketById(id);
   }
 }

@@ -343,10 +343,15 @@ export class EventsService {
     };
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, includeUnpublished = false) {
+    // Build the where condition - include unpublished for organizer edit pages
+    const statusCondition = includeUnpublished 
+      ? {} 
+      : { status: 'PUBLISHED' as const };
+
     // Try to find by slug first, then by ID
     let event = await this.prisma.event.findFirst({
-      where: { slug, status: 'PUBLISHED' },
+      where: { slug, ...statusCondition },
       include: {
         organizer: { select: { id: true, title: true } },
         tiers: true,
@@ -355,7 +360,20 @@ export class EventsService {
 
     if (!event) {
       event = await this.prisma.event.findFirst({
-        where: { id: slug, status: 'PUBLISHED' },
+        where: { id: slug, ...statusCondition },
+        include: {
+          organizer: { select: { id: true, title: true } },
+          tiers: true,
+        },
+      });
+    }
+
+    // If still not found and we're only looking at published, try including drafts
+    if (!event && !includeUnpublished) {
+      event = await this.prisma.event.findFirst({
+        where: { 
+          OR: [{ slug }, { id: slug }]
+        },
         include: {
           organizer: { select: { id: true, title: true } },
           tiers: true,
@@ -401,6 +419,7 @@ export class EventsService {
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         location: dto.location,
+        isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
         isOnline: dto.isOnline || false,
         onlineLink: dto.onlineLink,
         coverImage: dto.coverImage,
@@ -439,19 +458,30 @@ export class EventsService {
       throw new ForbiddenException('You can only update your own events');
     }
 
+    // Build update data, handling null/undefined correctly
+    const updateData: any = {};
+    
+    if (dto.title !== undefined) updateData.title = dto.title;
+    if (dto.description !== undefined) updateData.description = dto.description;
+    if (dto.startDate !== undefined) updateData.startDate = new Date(dto.startDate);
+    
+    // Handle endDate - allow explicit null to clear the field
+    if (dto.endDate === null) {
+      updateData.endDate = null;
+    } else if (dto.endDate !== undefined && dto.endDate !== '') {
+      updateData.endDate = new Date(dto.endDate);
+    }
+    
+    if (dto.location !== undefined) updateData.location = dto.location;
+    if (dto.isLocationPublic !== undefined) updateData.isLocationPublic = dto.isLocationPublic;
+    if (dto.isOnline !== undefined) updateData.isOnline = dto.isOnline;
+    if (dto.onlineLink !== undefined) updateData.onlineLink = dto.onlineLink;
+    if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
+    if (dto.gallery !== undefined) updateData.gallery = dto.gallery;
+
     const updated = await this.prisma.event.update({
       where: { id },
-      data: {
-        title: dto.title,
-        description: dto.description,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
-        location: dto.location,
-        isOnline: dto.isOnline,
-        onlineLink: dto.onlineLink,
-        coverImage: dto.coverImage,
-        gallery: dto.gallery,
-      },
+      data: updateData,
       include: {
         tiers: true,
         organizer: { select: { id: true, title: true } },
@@ -489,6 +519,50 @@ export class EventsService {
     });
 
     return published;
+  }
+
+  async unpublish(id: string, organizerId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: { 
+        tiers: true,
+        tickets: {
+          where: {
+            status: { in: ['ACTIVE', 'CHECKED_IN'] },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.organizerId !== organizerId) {
+      throw new ForbiddenException('You can only unpublish your own events');
+    }
+
+    if (event.status !== 'PUBLISHED') {
+      throw new ForbiddenException('Event is not published');
+    }
+
+    // Check if there are any sales
+    if (event.tickets.length > 0) {
+      throw new ForbiddenException(
+        'Cannot unpublish event with ticket sales. Please contact support at support@hdticketdesk.com for assistance.'
+      );
+    }
+
+    const unpublished = await this.prisma.event.update({
+      where: { id },
+      data: { status: 'DRAFT' },
+      include: {
+        tiers: true,
+        organizer: { select: { id: true, title: true } },
+      },
+    });
+
+    return unpublished;
   }
 
   async getAnalytics(id: string, organizerId: string) {
@@ -564,7 +638,16 @@ export class EventsService {
   }
 
   async remove(id: string, organizerId: string) {
-    const event = await this.prisma.event.findUnique({ where: { id } });
+    const event = await this.prisma.event.findUnique({ 
+      where: { id },
+      include: {
+        tickets: {
+          where: {
+            status: { in: ['ACTIVE', 'CHECKED_IN'] },
+          },
+        },
+      },
+    });
 
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -572,6 +655,20 @@ export class EventsService {
 
     if (event.organizerId !== organizerId) {
       throw new ForbiddenException('You can only delete your own events');
+    }
+
+    // Only allow deleting draft events
+    if (event.status !== 'DRAFT') {
+      throw new ForbiddenException(
+        'Only draft events can be deleted. Please unpublish the event first, or contact support if there are ticket sales.'
+      );
+    }
+
+    // Extra safety check - don't delete if there are any tickets
+    if (event.tickets.length > 0) {
+      throw new ForbiddenException(
+        'Cannot delete event with ticket sales. Please contact support at support@hdticketdesk.com for assistance.'
+      );
     }
 
     await this.prisma.event.delete({ where: { id } });

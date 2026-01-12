@@ -17,29 +17,29 @@ export class WithdrawalsController {
 
   @Get('balance')
   @ApiOperation({ summary: 'Get withdrawable amount' })
-  async getWithdrawableAmount(@CurrentUser('id') userId: string) {
-    return this.withdrawalsService.getWithdrawableAmount(userId);
+  async getWithdrawableAmount(@CurrentUser('organizerProfileId') organizerId: string) {
+    return this.withdrawalsService.getWithdrawableAmount(organizerId);
   }
 
   @Post('request')
   @ApiOperation({ summary: 'Request withdrawal' })
-  async requestWithdrawal(@CurrentUser('id') userId: string, @Body('amount') amount: number) {
-    return this.withdrawalsService.requestWithdrawal(userId, amount);
+  async requestWithdrawal(@CurrentUser('organizerProfileId') organizerId: string, @Body('amount') amount: number) {
+    return this.withdrawalsService.requestWithdrawal(organizerId, amount);
   }
 
   @Post(':id/verify')
   @ApiOperation({ summary: 'Verify withdrawal OTP' })
   async verifyOtp(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('organizerProfileId') organizerId: string,
     @Param('id') withdrawalId: string,
     @Body('otp') otp: string,
   ) {
-    return this.withdrawalsService.verifyWithdrawalOtp(userId, withdrawalId, otp);
+    return this.withdrawalsService.verifyWithdrawalOtp(organizerId, withdrawalId, otp);
   }
 
   @Get('history')
   @ApiOperation({ summary: 'Get withdrawal history' })
-  async getHistory(@CurrentUser('id') userId: string) {
-    return this.withdrawalsService.getWithdrawalHistory(userId);
+  async getHistory(@CurrentUser('organizerProfileId') organizerId: string) {
+    return this.withdrawalsService.getWithdrawalHistory(organizerId);
   }
 }

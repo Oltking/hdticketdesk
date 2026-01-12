@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { UserRole } from '@prisma/client';
 
 interface AuthenticatedRequest {
   user: {
@@ -106,7 +107,7 @@ export class EventsController {
    */
   @Get('my')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async getMyEvents(@Request() req: AuthenticatedRequest) {
     return this.eventsService.findByOrganizer(req.user.organizerProfileId || '');
   }
@@ -126,7 +127,7 @@ export class EventsController {
    */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async create(
     @Request() req: AuthenticatedRequest,
     @Body() createEventDto: CreateEventDto,
@@ -143,7 +144,7 @@ export class EventsController {
    */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async update(
     @Param('id') id: string,
     @Body() updateEventDto: UpdateEventDto,
@@ -162,9 +163,20 @@ export class EventsController {
    */
   @Post(':id/publish')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async publish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.eventsService.publish(id, req.user.organizerProfileId || '');
+  }
+
+  /**
+   * POST /events/:id/unpublish
+   * Unpublishes a published event (organizer only, only if no sales)
+   */
+  @Post(':id/unpublish')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  async unpublish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.eventsService.unpublish(id, req.user.organizerProfileId || '');
   }
 
   /**
@@ -173,7 +185,7 @@ export class EventsController {
    */
   @Get(':id/analytics')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async getAnalytics(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -187,7 +199,7 @@ export class EventsController {
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.eventsService.remove(id, req.user.organizerProfileId || '');
   }

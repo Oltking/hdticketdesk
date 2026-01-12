@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RefundsService } from './refunds.service';
+import { UserRole } from '@prisma/client';
 
 interface AuthenticatedRequest {
   user: {
@@ -44,7 +45,7 @@ export class RefundsController {
    */
   @Post(':id/approve')
   @UseGuards(RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async approveRefund(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -58,7 +59,7 @@ export class RefundsController {
    */
   @Post(':id/reject')
   @UseGuards(RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async rejectRefund(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -82,7 +83,7 @@ export class RefundsController {
    */
   @Get('organizer')
   @UseGuards(RolesGuard)
-  @Roles('ORGANIZER')
+  @Roles(UserRole.ORGANIZER)
   async getOrganizerRefunds(@Request() req: AuthenticatedRequest) {
     return this.refundsService.getRefundsByOrganizer(req.user.organizerProfileId || '');
   }

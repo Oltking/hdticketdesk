@@ -43,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       lastName: user.lastName,
       emailVerified: user.emailVerified,
       organizerProfile: user.organizerProfile,
+      organizerProfileId: user.organizerProfile?.id,
     };
   }
 }

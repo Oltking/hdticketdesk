@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -227,6 +227,58 @@ export class AdminService {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Admin force unpublish an event (even with sales)
+   * This is for admin use when organizers contact support
+   */
+  async adminUnpublishEvent(id: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: {
+        tiers: true,
+        tickets: {
+          where: {
+            status: { in: ['ACTIVE', 'CHECKED_IN'] },
+          },
+        },
+        organizer: {
+          select: {
+            id: true,
+            title: true,
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    if (event.status !== 'PUBLISHED') {
+      throw new ForbiddenException('Event is not published');
+    }
+
+    const unpublished = await this.prisma.event.update({
+      where: { id },
+      data: { status: 'DRAFT' },
+      include: {
+        tiers: true,
+        organizer: { select: { id: true, title: true } },
+      },
+    });
+
+    return {
+      ...unpublished,
+      ticketsSold: event.tickets.length,
+      message: `Event unpublished successfully. ${event.tickets.length} active ticket(s) exist for this event.`,
     };
   }
 }
