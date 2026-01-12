@@ -51,8 +51,18 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     }
     setPurchasing(tierId);
     try {
-      const { authorizationUrl } = await api.initializePayment(event!.id, tierId);
-      window.location.href = authorizationUrl;
+      const response = await api.initializePayment(event!.id, tierId);
+      
+      // Handle free tickets - no payment gateway needed
+      if (response.isFree) {
+        success(response.message || 'Free ticket claimed successfully!');
+        // Redirect to tickets page
+        router.push('/tickets');
+        return;
+      }
+      
+      // For paid tickets, redirect to Paystack
+      window.location.href = response.authorizationUrl;
     } catch (err: any) {
       error(err.message || 'Failed to initialize payment');
     } finally {
@@ -233,18 +243,27 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                           key={tier.id} 
                           className={cn(
                             "p-4 border rounded-xl transition-all",
-                            soldOut ? "opacity-60" : "hover:border-primary hover:shadow-md"
+                            soldOut ? "opacity-60" : "hover:border-primary hover:shadow-md",
+                            Number(tier.price) === 0 && !soldOut && "border-green-200 bg-green-50/50"
                           )}
                         >
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <h3 className="font-semibold">{tier.name}</h3>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{tier.name}</h3>
+                                {Number(tier.price) === 0 && (
+                                  <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
+                                )}
+                              </div>
                               {tier.description && (
                                 <p className="text-sm text-muted-foreground">{tier.description}</p>
                               )}
                             </div>
-                            <span className="font-display font-bold text-lg">
-                              {tier.price === 0 ? 'Free' : formatCurrency(tier.price)}
+                            <span className={cn(
+                              "font-display font-bold text-lg",
+                              Number(tier.price) === 0 && "text-green-600"
+                            )}>
+                              {Number(tier.price) === 0 ? 'Free' : formatCurrency(tier.price)}
                             </span>
                           </div>
                           
@@ -266,7 +285,10 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                           </div>
                           
                           <Button 
-                            className="w-full" 
+                            className={cn(
+                              "w-full",
+                              Number(tier.price) === 0 && !soldOut && "bg-green-600 hover:bg-green-700"
+                            )}
                             disabled={soldOut || purchasing === tier.id}
                             onClick={() => handlePurchase(tier.id)}
                           >
@@ -274,6 +296,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                               <>Processing...</>
                             ) : soldOut ? (
                               'Sold Out'
+                            ) : Number(tier.price) === 0 ? (
+                              'Claim Free Ticket'
                             ) : (
                               'Get Tickets'
                             )}

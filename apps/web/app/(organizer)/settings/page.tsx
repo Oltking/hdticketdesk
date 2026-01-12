@@ -17,6 +17,7 @@ export default function SettingsPage() {
   const { success, error } = useToast();
   const [banks, setBanks] = useState<any[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const profileForm = useForm();
   const bankForm = useForm();
@@ -68,12 +69,24 @@ export default function SettingsPage() {
 
   const handleResolveAccount = async () => {
     const accountNumber = bankForm.getValues('accountNumber');
-    if (!accountNumber || !selectedBank) return;
+    if (!accountNumber || accountNumber.length < 10) {
+      error('Please enter a valid 10-digit account number');
+      return;
+    }
+    if (!selectedBank) {
+      error('Please select a bank first');
+      return;
+    }
+    
+    setVerifying(true);
     try {
       const result = await api.resolveAccount(accountNumber, selectedBank);
       bankForm.setValue('accountName', result.accountName);
-    } catch {
-      error('Could not resolve account');
+      success('Account verified successfully!');
+    } catch (err: any) {
+      error(err.message || 'Could not resolve account. Please check the details and try again.');
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -127,8 +140,10 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   <Label>Account Number</Label>
                   <div className="flex gap-2">
-                    <Input {...bankForm.register('accountNumber')} maxLength={10} />
-                    <Button type="button" variant="outline" onClick={handleResolveAccount}>Verify</Button>
+                    <Input {...bankForm.register('accountNumber')} maxLength={10} placeholder="Enter 10-digit account number" />
+                    <Button type="button" variant="outline" onClick={handleResolveAccount} loading={verifying} disabled={verifying}>
+                      {verifying ? 'Verifying...' : 'Verify'}
+                    </Button>
                   </div>
                 </div>
                 <div className="space-y-2"><Label>Account Name</Label><Input {...bankForm.register('accountName')} readOnly className="bg-bg" /></div>

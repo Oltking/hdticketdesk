@@ -33,7 +33,7 @@ export default function EditEventPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, control, handleSubmit, watch, reset, formState: { isSubmitting } } = useForm();
+  const { register, control, handleSubmit, watch, reset, setValue, formState: { isSubmitting } } = useForm();
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
   const isOnline = watch('isOnline');
   const isLocationPublic = watch('isLocationPublic');
@@ -73,6 +73,12 @@ export default function EditEventPage() {
           }
         };
         
+        // Map tiers to include isFree flag based on price
+        const tiersWithFreeFlag = (event.tiers || []).map((tier: any) => ({
+          ...tier,
+          isFree: Number(tier.price) === 0,
+        }));
+
         reset({
           title: event.title || '',
           description: event.description || '',
@@ -82,7 +88,7 @@ export default function EditEventPage() {
           location: event.location || '',
           isLocationPublic: event.isLocationPublic ?? true,
           onlineLink: event.onlineLink || '',
-          tiers: event.tiers || [],
+          tiers: tiersWithFreeFlag,
         });
       } catch (err) {
         error('Failed to load event');
@@ -138,9 +144,19 @@ export default function EditEventPage() {
 
   const onSubmit = async (data: any, publish = false) => {
     try {
+      // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
+      const sanitizedTiers = data.tiers?.map((tier: any) => ({
+        name: tier.name,
+        description: tier.description,
+        price: tier.isFree ? 0 : tier.price,
+        capacity: tier.capacity,
+        refundEnabled: tier.refundEnabled,
+      })) || [];
+
       // Filter out empty strings for optional fields
       const eventData = {
         ...data,
+        tiers: sanitizedTiers,
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
@@ -379,22 +395,56 @@ export default function EditEventPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Ticket Tiers</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', price: 0, capacity: 50, refundEnabled: false })}><Plus className="h-4 w-4 mr-1" />Add</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })}><Plus className="h-4 w-4 mr-1" />Add</Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="p-4 border rounded-lg space-y-4">
-                    <div className="flex justify-between">
-                      <h4 className="font-medium">Tier {index + 1}</h4>
-                      {fields.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>}
+                {fields.map((field, index) => {
+                  const isFree = watch(`tiers.${index}.isFree`);
+                  return (
+                    <div key={field.id} className="p-4 border rounded-lg space-y-4">
+                      <div className="flex justify-between">
+                        <h4 className="font-medium">Tier {index + 1}</h4>
+                        {fields.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>}
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-2"><Label>Name</Label><Input {...register(`tiers.${index}.name`)} /></div>
+                        <div className="space-y-2">
+                          <Label>Price (₦)</Label>
+                          <div className="space-y-2">
+                            <Input 
+                              type="number" 
+                              {...register(`tiers.${index}.price`, { valueAsNumber: true })} 
+                              min={0}
+                              disabled={isFree}
+                              className={isFree ? 'bg-muted text-muted-foreground' : ''}
+                            />
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                id={`free-${index}`} 
+                                {...register(`tiers.${index}.isFree`)}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setValue(`tiers.${index}.isFree`, isChecked);
+                                  if (isChecked) {
+                                    setValue(`tiers.${index}.price`, 0);
+                                  }
+                                }}
+                                className="rounded border-green-500 text-green-600 focus:ring-green-500" 
+                              />
+                              <Label htmlFor={`free-${index}`} className="text-sm text-green-600 font-medium">Free Ticket</Label>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2"><Label>Capacity</Label><Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} /></div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />
+                        <Label htmlFor={`refund-${index}`}>Allow refunds for this tier</Label>
+                      </div>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="space-y-2"><Label>Name</Label><Input {...register(`tiers.${index}.name`)} /></div>
-                      <div className="space-y-2"><Label>Price</Label><Input type="number" {...register(`tiers.${index}.price`, { valueAsNumber: true })} /></div>
-                      <div className="space-y-2"><Label>Capacity</Label><Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} /></div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 

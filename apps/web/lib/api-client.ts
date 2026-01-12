@@ -27,9 +27,12 @@ class ApiClient {
   }
 
   getToken(): string | null {
-    if (this.accessToken) return this.accessToken;
+    // Always try to get from localStorage first to ensure we have the latest token
     if (typeof window !== 'undefined') {
-      this.accessToken = localStorage.getItem('accessToken');
+      const storedToken = localStorage.getItem('accessToken');
+      if (storedToken) {
+        this.accessToken = storedToken;
+      }
     }
     return this.accessToken;
   }
@@ -55,7 +58,20 @@ class ApiClient {
       const error = await response.json().catch(() => ({}));
       // Handle wrapped error response
       const errorData = error.data || error;
-      const err = new Error(errorData.message || error.message || `Request failed with status ${response.status}`);
+      
+      // Provide more helpful error messages for common status codes
+      let errorMessage = errorData.message || error.message;
+      if (!errorMessage) {
+        if (response.status === 401) {
+          errorMessage = 'Your session has expired. Please log in again.';
+        } else if (response.status === 403) {
+          errorMessage = 'You do not have permission to perform this action.';
+        } else {
+          errorMessage = `Request failed with status ${response.status}`;
+        }
+      }
+      
+      const err = new Error(errorMessage);
       (err as any).response = { data: errorData, status: response.status };
       throw err;
     }
@@ -245,6 +261,12 @@ class ApiClient {
   }
 
   async createEvent(data: any) {
+    // Ensure we have a valid token before attempting to create an event
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('You must be logged in to create an event. Please log in and try again.');
+    }
+    
     return this.request<any>('/events', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -265,6 +287,12 @@ class ApiClient {
   }
 
   async publishEvent(id: string) {
+    // Ensure we have a valid token before attempting to publish
+    const token = this.getToken();
+    if (!token) {
+      throw new Error('You must be logged in to publish an event. Please log in and try again.');
+    }
+    
     return this.request<any>(`/events/${id}/publish`, {
       method: 'POST',
     });

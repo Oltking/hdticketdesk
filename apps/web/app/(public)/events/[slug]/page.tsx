@@ -3,14 +3,16 @@ import { notFound } from 'next/navigation';
 import { EventDetailClient } from './client';
 import { generateEventStructuredData } from '@/lib/utils';
 
-// This would normally fetch from API - for now we'll use client-side
+// Fetch event from API with proper response unwrapping
 async function getEvent(slug: string) {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${slug}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return null;
-    return res.json();
+    const json = await res.json();
+    // Handle wrapped response from API (TransformInterceptor wraps in { success, data, timestamp })
+    return json?.data || json;
   } catch {
     return null;
   }

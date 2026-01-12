@@ -18,6 +18,7 @@ import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, 
 
 const tierSchema = z.object({
   name: z.string().min(1, 'Required'),
+  isFree: z.boolean().default(false),
   price: z.number().min(0),
   capacity: z.number().min(1),
   description: z.string().optional(),
@@ -48,9 +49,9 @@ export default function CreateEventPage() {
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { isOnline: false, isLocationPublic: true, tiers: [{ name: 'General', price: 0, capacity: 100, refundEnabled: false }] },
+    defaultValues: { isOnline: false, isLocationPublic: true, tiers: [{ name: 'General', isFree: false, price: 0, capacity: 100, refundEnabled: false }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
@@ -111,10 +112,24 @@ export default function CreateEventPage() {
 
   const onSubmit = async (data: FormData, publish = false) => {
     try {
+      if (publish) {
+        setPublishing(true);
+      }
+      
+      // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
+      const sanitizedTiers = data.tiers.map((tier) => ({
+        name: tier.name,
+        description: tier.description,
+        price: tier.isFree ? 0 : tier.price,
+        capacity: tier.capacity,
+        refundEnabled: tier.refundEnabled,
+      }));
+
       // Include cover image in the event data
       // Filter out empty strings for optional fields
       const eventData = {
         ...data,
+        tiers: sanitizedTiers,
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : undefined,
@@ -124,12 +139,14 @@ export default function CreateEventPage() {
         onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
       
-      const response = await api.createEvent(eventData);
-      // Handle wrapped response
-      const event = response.data || response;
+      // API client already unwraps the response, so response is the event directly
+      const event = await api.createEvent(eventData);
+      
+      if (!event || !event.id) {
+        throw new Error('Failed to create event - no event ID returned');
+      }
       
       if (publish) {
-        setPublishing(true);
         await api.publishEvent(event.id);
         success('Event created and published!');
       } else {
@@ -329,39 +346,67 @@ export default function CreateEventPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Ticket Tiers</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', price: 0, capacity: 50, refundEnabled: false })}>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })}>
                   <Plus className="h-4 w-4 mr-1" />Add Tier
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="p-4 border border-border rounded-lg space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-medium">Tier {index + 1}</h4>
-                      {fields.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>
-                      )}
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label>Tier Name</Label>
-                        <Input {...register(`tiers.${index}.name`)} placeholder="e.g., VIP, General" />
+                {fields.map((field, index) => {
+                  const isFree = watch(`tiers.${index}.isFree`);
+                  return (
+                    <div key={field.id} className="p-4 border border-border rounded-lg space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Tier {index + 1}</h4>
+                        {fields.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label>Price (₦)</Label>
-                        <Input type="number" {...register(`tiers.${index}.price`, { valueAsNumber: true })} min={0} />
+                      <div className="grid gap-4 md:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label>Tier Name</Label>
+                          <Input {...register(`tiers.${index}.name`)} placeholder="e.g., VIP, General" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Price (₦)</Label>
+                          <div className="space-y-2">
+                            <Input 
+                              type="number" 
+                              {...register(`tiers.${index}.price`, { valueAsNumber: true })} 
+                              min={0} 
+                              disabled={isFree}
+                              className={isFree ? 'bg-muted text-muted-foreground' : ''}
+                              value={isFree ? 0 : undefined}
+                            />
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                id={`free-${index}`} 
+                                {...register(`tiers.${index}.isFree`)}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setValue(`tiers.${index}.isFree`, isChecked);
+                                  if (isChecked) {
+                                    setValue(`tiers.${index}.price`, 0);
+                                  }
+                                }}
+                                className="rounded border-green-500 text-green-600 focus:ring-green-500" 
+                              />
+                              <Label htmlFor={`free-${index}`} className="text-sm text-green-600 font-medium">Free Ticket</Label>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Capacity</Label>
+                          <Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Capacity</Label>
-                        <Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} />
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />
+                        <Label htmlFor={`refund-${index}`}>Allow refunds for this tier</Label>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />
-                      <Label htmlFor={`refund-${index}`}>Allow refunds for this tier</Label>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
 
