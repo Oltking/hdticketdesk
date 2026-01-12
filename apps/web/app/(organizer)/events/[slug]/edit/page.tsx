@@ -22,9 +22,15 @@ export default function EditEventPage() {
   const { success, error } = useToast();
   const [loading, setLoading] = useState(true);
   const [eventId, setEventId] = useState<string | null>(null);
+  const [eventStatus, setEventStatus] = useState<string | null>(null);
+  const [ticketsSold, setTicketsSold] = useState<number>(0);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, control, handleSubmit, watch, reset, formState: { isSubmitting } } = useForm();
@@ -46,17 +52,37 @@ export default function EditEventPage() {
         // Handle wrapped response
         const event = response.data || response;
         setEventId(event.id);
-        setCoverImage(event.coverImage || null);
+        setEventStatus(event.status);
+        setTicketsSold(event.totalTicketsSold || 0);
+        
+        // Set cover image - ensure it's a valid URL
+        if (event.coverImage && event.coverImage.startsWith('http')) {
+          setCoverImage(event.coverImage);
+        } else {
+          setCoverImage(null);
+        }
+        
+        // Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
+        const formatDateForInput = (dateStr: string | null | undefined) => {
+          if (!dateStr) return '';
+          try {
+            const date = new Date(dateStr);
+            return date.toISOString().slice(0, 16);
+          } catch {
+            return '';
+          }
+        };
+        
         reset({
-          title: event.title,
-          description: event.description,
-          startDate: event.startDate?.slice(0, 16),
-          endDate: event.endDate?.slice(0, 16),
-          isOnline: event.isOnline,
-          location: event.location,
+          title: event.title || '',
+          description: event.description || '',
+          startDate: formatDateForInput(event.startDate),
+          endDate: formatDateForInput(event.endDate),
+          isOnline: event.isOnline || false,
+          location: event.location || '',
           isLocationPublic: event.isLocationPublic ?? true,
-          onlineLink: event.onlineLink,
-          tiers: event.tiers,
+          onlineLink: event.onlineLink || '',
+          tiers: event.tiers || [],
         });
       } catch (err) {
         error('Failed to load event');
@@ -110,17 +136,66 @@ export default function EditEventPage() {
     }
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any, publish = false) => {
     try {
+      // Filter out empty strings for optional fields
       const eventData = {
         ...data,
         coverImage: coverImage || undefined,
+        // Only include endDate if it has a value
+        endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
+        // Only include location if not online and has value
+        location: !data.isOnline && data.location ? data.location : undefined,
+        // Only include onlineLink if online and has value
+        onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
+      
       await api.updateEvent(eventId as string, eventData);
-      success('Event updated!');
+      
+      if (publish && eventStatus === 'DRAFT') {
+        setPublishing(true);
+        await api.publishEvent(eventId as string);
+        success('Event updated and published!');
+      } else {
+        success('Event updated!');
+      }
+      
       router.push('/dashboard');
     } catch (err: any) {
       error(err.message || 'Failed to update');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublish = async () => {
+    if (!eventId) return;
+    
+    try {
+      setUnpublishing(true);
+      await api.unpublishEvent(eventId);
+      setEventStatus('DRAFT');
+      success('Event unpublished! It is now a draft.');
+    } catch (err: any) {
+      error(err.message || 'Failed to unpublish event');
+    } finally {
+      setUnpublishing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!eventId) return;
+    
+    try {
+      setDeleting(true);
+      await api.deleteEvent(eventId);
+      success('Event deleted successfully!');
+      router.push('/dashboard');
+    } catch (err: any) {
+      error(err.message || 'Failed to delete event');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -139,7 +214,7 @@ export default function EditEventPage() {
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <div className="max-w-3xl">
           <h1 className="text-2xl font-bold mb-6">Edit Event</h1>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit((d) => onSubmit(d, false))} className="space-y-6">
             {/* Banner/Cover Image Upload */}
             <Card>
               <CardHeader><CardTitle>Event Banner</CardTitle></CardHeader>
@@ -323,7 +398,76 @@ export default function EditEventPage() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="bg-primary text-white" loading={isSubmitting}>Save Changes</Button>
+            <div className="flex flex-wrap gap-4">
+              <Button type="submit" variant="outline" loading={isSubmitting && !publishing}>
+                Save Changes
+              </Button>
+              {eventStatus === 'DRAFT' && (
+                <Button 
+                  type="button" 
+                  className="bg-primary text-white" 
+                  loading={publishing}
+                  onClick={handleSubmit((d) => onSubmit(d, true))}
+                >
+                  Save & Publish
+                </Button>
+              )}
+              {eventStatus === 'PUBLISHED' && ticketsSold === 0 && (
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  className="border-warning text-warning hover:bg-warning/10"
+                  loading={unpublishing}
+                  onClick={handleUnpublish}
+                >
+                  Unpublish Event
+                </Button>
+              )}
+              {eventStatus === 'PUBLISHED' && ticketsSold > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg text-sm text-muted-foreground">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>To unpublish, contact <a href="mailto:support@hdticketdesk.com" className="text-primary underline">support</a></span>
+                </div>
+              )}
+              {eventStatus === 'DRAFT' && (
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  Delete Event
+                </Button>
+              )}
+            </div>
+
+            {/* Delete Confirmation Dialog */}
+            {showDeleteConfirm && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                  <h3 className="text-lg font-semibold mb-2">Delete Event?</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Are you sure you want to delete this event? This action cannot be undone.
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={deleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      loading={deleting}
+                      onClick={handleDelete}
+                    >
+                      Delete Event
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
         </div>
       </main>

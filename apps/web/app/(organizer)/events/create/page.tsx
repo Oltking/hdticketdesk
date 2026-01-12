@@ -112,9 +112,16 @@ export default function CreateEventPage() {
   const onSubmit = async (data: FormData, publish = false) => {
     try {
       // Include cover image in the event data
+      // Filter out empty strings for optional fields
       const eventData = {
         ...data,
         coverImage: coverImage || undefined,
+        // Only include endDate if it has a value
+        endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : undefined,
+        // Only include location if not online and has value
+        location: !data.isOnline && data.location ? data.location : undefined,
+        // Only include onlineLink if online and has value
+        onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
       
       const response = await api.createEvent(eventData);

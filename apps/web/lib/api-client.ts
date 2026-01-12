@@ -327,7 +327,7 @@ class ApiClient {
   }
 
   async checkInTicket(ticketId: string) {
-    return this.request<{ message: string; ticket: any }>(`/tickets/${ticketId}/checkin`, {
+    return this.request<{ message: string; ticket: any }>(`/tickets/${ticketId}/check-in`, {
       method: 'POST',
     });
   }
@@ -395,7 +395,7 @@ class ApiClient {
       available: number; 
       withdrawn: number; 
       withdrawable: number;
-    }>('/withdrawals/available');
+    }>('/withdrawals/balance');
   }
 
   async requestWithdrawal(amount: number) {
@@ -406,9 +406,9 @@ class ApiClient {
   }
 
   async verifyWithdrawalOtp(withdrawalId: string, otp: string) {
-    return this.request<{ message: string }>('/withdrawals/verify', {
+    return this.request<{ message: string }>(`/withdrawals/${withdrawalId}/verify`, {
       method: 'POST',
-      body: JSON.stringify({ withdrawalId, otp }),
+      body: JSON.stringify({ otp }),
     });
   }
 
@@ -467,7 +467,6 @@ class ApiClient {
   async uploadImage(file: File, folder?: string) {
     const formData = new FormData();
     formData.append('file', file);
-    if (folder) formData.append('folder', folder);
 
     const token = this.getToken();
     const headers: Record<string, string> = {};
@@ -475,7 +474,10 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE}/media/upload`, {
+    // Use folder in URL path if provided, otherwise use default endpoint
+    const endpoint = folder ? `/media/upload/${folder}` : '/media/upload';
+    
+    const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'POST',
       headers,
       body: formData,
@@ -483,10 +485,18 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || 'Upload failed');
+      const errorData = error.data || error;
+      throw new Error(errorData.message || error.message || 'Upload failed');
     }
 
-    return response.json() as Promise<{ url: string; publicId: string }>;
+    const json = await response.json();
+    
+    // Unwrap the response if it's wrapped by TransformInterceptor
+    if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+      return json.data as { url: string; publicId: string };
+    }
+    
+    return json as { url: string; publicId: string };
   }
 
   async deleteImage(publicId: string) {
@@ -536,6 +546,12 @@ class ApiClient {
     return this.request<{ withdrawals: any[]; total: number; page: number; totalPages: number }>(
       `/admin/withdrawals?page=${page}&limit=${limit}`
     );
+  }
+
+  async adminUnpublishEvent(id: string) {
+    return this.request<{ message: string; ticketsSold: number }>(`/admin/events/${id}/unpublish`, {
+      method: 'POST',
+    });
   }
 }
 

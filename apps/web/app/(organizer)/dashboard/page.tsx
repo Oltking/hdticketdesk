@@ -9,35 +9,84 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, TrendingUp, Ticket, Calendar, DollarSign, QrCode, BarChart3 } from 'lucide-react';
+import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye } from 'lucide-react';
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
+  const { success, error } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [balance, setBalance] = useState({ pending: 0, available: 0, withdrawn: 0 });
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showPublishConfirm, setShowPublishConfirm] = useState<{ id: string; title: string } | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const [eventsData, balanceData] = await Promise.all([api.getMyEvents(), api.getBalance()]);
+      setEvents(eventsData);
+      setBalance(balanceData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [eventsData, balanceData] = await Promise.all([api.getMyEvents(), api.getBalance()]);
-        setEvents(eventsData);
-        setBalance(balanceData);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     if (!authLoading && user) fetchData();
   }, [authLoading, user]);
+
+  const handleUnpublish = async (eventId: string) => {
+    try {
+      setActionLoading(eventId);
+      await api.unpublishEvent(eventId);
+      success('Event unpublished! It is now a draft.');
+      setShowUnpublishConfirm(null);
+      await fetchData();
+    } catch (err: any) {
+      error(err.message || 'Failed to unpublish event');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (eventId: string) => {
+    try {
+      setActionLoading(eventId);
+      await api.deleteEvent(eventId);
+      success('Event deleted successfully!');
+      setShowDeleteConfirm(null);
+      await fetchData();
+    } catch (err: any) {
+      error(err.message || 'Failed to delete event');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePublish = async (eventId: string) => {
+    try {
+      setActionLoading(eventId);
+      await api.publishEvent(eventId);
+      success('Event published successfully! It is now live.');
+      setShowPublishConfirm(null);
+      await fetchData();
+    } catch (err: any) {
+      error(err.message || 'Failed to publish event');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Skeleton className="h-8 w-32" /></div>;
 
   const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
-const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
+  const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
 
   return (
     <div className="flex min-h-screen">
@@ -86,18 +135,64 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
             ) : (
               <div className="space-y-4">
                 {events.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-bg/50 transition">
+                  <div key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-border rounded-lg hover:bg-bg/50 transition gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold">{event.title}</h3>
                         <Badge variant={event.status === 'PUBLISHED' ? 'success' : 'secondary'}>{event.status}</Badge>
                       </div>
-                      <p className="text-sm text-text-muted">{formatDate(event.startDate)} • {event.totalTicketsSold} sold</p>
+                      <p className="text-sm text-text-muted">{formatDate(event.startDate)} • {event.totalTicketsSold || 0} sold</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Link href={`/events/${event.slug}/scan`}><Button variant="outline" size="sm"><QrCode className="h-4 w-4" /></Button></Link>
-                      <Link href={`/events/${event.slug}/analytics`}><Button variant="outline" size="sm"><BarChart3 className="h-4 w-4" /></Button></Link>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/events/${event.slug}/scan`}><Button variant="outline" size="sm" title="Scan tickets"><QrCode className="h-4 w-4" /></Button></Link>
+                      <Link href={`/events/${event.slug}/analytics`}><Button variant="outline" size="sm" title="Analytics"><BarChart3 className="h-4 w-4" /></Button></Link>
                       <Link href={`/events/${event.slug}/edit`}><Button variant="outline" size="sm">Edit</Button></Link>
+                      
+                      {/* Unpublish button - only for published events with no sales */}
+                      {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) === 0 && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="border-warning text-warning hover:bg-warning/10"
+                          title="Unpublish event"
+                          onClick={() => setShowUnpublishConfirm({ id: event.id, title: event.title })}
+                        >
+                          <EyeOff className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Contact support hint for published events with sales */}
+                      {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) > 0 && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1" title="Contact support to unpublish">
+                          <AlertCircle className="h-3 w-3" />
+                        </span>
+                      )}
+                      
+                      {/* Publish button - only for draft events */}
+                      {event.status === 'DRAFT' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="border-primary text-primary hover:bg-primary/10"
+                          title="Publish event"
+                          onClick={() => setShowPublishConfirm({ id: event.id, title: event.title })}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {/* Delete button - only for draft events */}
+                      {event.status === 'DRAFT' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="border-destructive text-destructive hover:bg-destructive/10"
+                          title="Delete event"
+                          onClick={() => setShowDeleteConfirm({ id: event.id, title: event.title })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -105,6 +200,94 @@ const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
             )}
           </CardContent>
         </Card>
+
+        {/* Unpublish Confirmation Dialog */}
+        {showUnpublishConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-2">Unpublish Event?</h3>
+              <p className="text-muted-foreground mb-4">
+                Are you sure you want to unpublish <strong>{showUnpublishConfirm.title}</strong>? 
+                The event will be moved to draft status and will no longer be visible to the public.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowUnpublishConfirm(null)}
+                  disabled={actionLoading === showUnpublishConfirm.id}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="default"
+                  className="bg-warning text-warning-foreground hover:bg-warning/90"
+                  loading={actionLoading === showUnpublishConfirm.id}
+                  onClick={() => handleUnpublish(showUnpublishConfirm.id)}
+                >
+                  Unpublish
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Publish Confirmation Dialog */}
+        {showPublishConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-2">Publish Event?</h3>
+              <p className="text-muted-foreground mb-4">
+                Are you sure you want to publish <strong>{showPublishConfirm.title}</strong>? 
+                The event will be visible to the public and users can start purchasing tickets.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPublishConfirm(null)}
+                  disabled={actionLoading === showPublishConfirm.id}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="bg-primary text-white"
+                  loading={actionLoading === showPublishConfirm.id}
+                  onClick={() => handlePublish(showPublishConfirm.id)}
+                >
+                  Publish Event
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-2">Delete Event?</h3>
+              <p className="text-muted-foreground mb-4">
+                Are you sure you want to delete <strong>{showDeleteConfirm.title}</strong>? 
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteConfirm(null)}
+                  disabled={actionLoading === showDeleteConfirm.id}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive"
+                  loading={actionLoading === showDeleteConfirm.id}
+                  onClick={() => handleDelete(showDeleteConfirm.id)}
+                >
+                  Delete Event
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
