@@ -62,7 +62,11 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
       }
       
       // For paid tickets, redirect to Paystack
-      window.location.href = response.authorizationUrl;
+      if (response.authorizationUrl) {
+        window.location.href = response.authorizationUrl;
+      } else {
+        throw new Error('Payment initialization failed - no authorization URL');
+      }
     } catch (err: any) {
       error(err.message || 'Failed to initialize payment');
     } finally {
