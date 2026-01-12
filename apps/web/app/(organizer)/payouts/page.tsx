@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
@@ -33,8 +34,8 @@ export default function PayoutsPage() {
         const [balanceData, historyData] = await Promise.all([api.getWithdrawableAmount(), api.getWithdrawalHistory()]);
         setBalance(balanceData);
         setHistory(historyData);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        // Silent fail
       } finally {
         setLoading(false);
       }
@@ -68,7 +69,20 @@ export default function PayoutsPage() {
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar type="organizer" />
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
+          <Skeleton className="h-8 w-32 mb-6" />
+          <div className="grid gap-6 md:grid-cols-3 mb-8">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24" />)}
+          </div>
+          <Skeleton className="h-64" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">

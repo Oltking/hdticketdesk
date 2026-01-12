@@ -4,35 +4,42 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate, formatCurrency } from '@/lib/utils';
-import { EyeOff, AlertTriangle } from 'lucide-react';
+import { EyeOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function AdminEventsPage() {
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const { success, error } = useToast();
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState<{ id: string; title: string; ticketsSold: number } | null>(null);
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (pageNum: number) => {
     try {
-      const data = await api.getAdminEvents();
-      setEvents(data.events || data);
-    } catch (err) {
-      console.error(err);
+      setLoading(true);
+      const data = await api.getAdminEvents(pageNum, 20);
+      setEvents(data.events || []);
+      setTotalPages(data.totalPages || 1);
+      setTotal(data.total || 0);
+    } catch {
+      // Silent fail
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!authLoading) fetchEvents();
-  }, [authLoading]);
+    if (!authLoading) fetchEvents(page);
+  }, [authLoading, page]);
 
   const handleUnpublish = async (eventId: string) => {
     try {
@@ -41,7 +48,7 @@ export default function AdminEventsPage() {
       success(result.message || 'Event unpublished successfully');
       setShowUnpublishConfirm(null);
       // Refresh events list
-      await fetchEvents();
+      await fetchEvents(page);
     } catch (err: any) {
       error(err.message || 'Failed to unpublish event');
     } finally {
@@ -49,13 +56,26 @@ export default function AdminEventsPage() {
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar type="admin" />
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
+          <Skeleton className="h-8 w-32 mb-6" />
+          <Skeleton className="h-96 w-full" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">
       <Sidebar type="admin" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <h1 className="text-2xl font-bold mb-6">Events</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Events</h1>
+          <span className="text-sm text-muted-foreground">{total} total events</span>
+        </div>
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -71,7 +91,18 @@ export default function AdminEventsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {events.length === 0 ? (
+                  {loading ? (
+                    [...Array(5)].map((_, i) => (
+                      <tr key={i} className="border-t border-border">
+                        <td className="p-4"><Skeleton className="h-10 w-40" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-20" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-12" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-20" /></td>
+                        <td className="p-4"><Skeleton className="h-6 w-24" /></td>
+                        <td className="p-4"><Skeleton className="h-8 w-24" /></td>
+                      </tr>
+                    ))
+                  ) : events.length === 0 ? (
                     <tr>
                       <td colSpan={6}>
                         <div className="flex flex-col items-center justify-center py-12">
@@ -114,6 +145,35 @@ export default function AdminEventsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1 || loading}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages || loading}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

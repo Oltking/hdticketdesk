@@ -2,52 +2,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
+import { BuyerNav } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
-import { formatDate, formatCurrency } from '@/lib/utils';
-import { Calendar, MapPin, QrCode, Ticket, RotateCcw, Settings } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
+import { Calendar, MapPin, QrCode, Ticket } from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
-
-const buyerNavItems = [
-  { href: '/tickets', label: 'My Tickets', icon: Ticket },
-  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
-  { href: '/account', label: 'Settings', icon: Settings },
-];
-
-function BuyerNav() {
-  const pathname = usePathname();
-  return (
-    <nav className="flex gap-1 mb-8 p-1 bg-muted/50 rounded-lg w-fit">
-      {buyerNavItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
-              isActive
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 
 export default function MyTicketsPage() {
   const { isLoading: authLoading } = useAuth(true, ['BUYER']);
@@ -59,8 +25,8 @@ export default function MyTicketsPage() {
       try {
         const data = await api.getMyTickets();
         setTickets(data);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        // Silent fail - empty tickets will be shown
       } finally {
         setLoading(false);
       }

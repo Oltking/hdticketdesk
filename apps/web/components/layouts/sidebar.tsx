@@ -7,9 +7,43 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/ui/logo';
 import { 
   LayoutDashboard, Calendar, Plus, DollarSign, Settings, 
-  Users, BarChart3, BookOpen, Menu, X, LogOut
+  Users, BarChart3, BookOpen, Menu, X, LogOut, Ticket, RotateCcw
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
+
+// Buyer navigation items - used in buyer pages
+const buyerNavItems = [
+  { href: '/tickets', label: 'My Tickets', icon: Ticket },
+  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
+  { href: '/account', label: 'Settings', icon: Settings },
+];
+
+export function BuyerNav() {
+  const pathname = usePathname();
+  return (
+    <nav className="flex gap-1 mb-8 p-1 bg-muted/50 rounded-lg w-fit">
+      {buyerNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
+              isActive
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 interface SidebarProps {
   type: 'organizer' | 'admin';

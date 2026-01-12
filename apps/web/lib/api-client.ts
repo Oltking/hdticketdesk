@@ -379,6 +379,13 @@ class ApiClient {
     });
   }
 
+  async verifyBankAccount(bankCode: string, accountNumber: string) {
+    return this.request<{ account_name: string; account_number: string }>('/payments/verify-account', {
+      method: 'POST',
+      body: JSON.stringify({ bankCode, accountNumber }),
+    });
+  }
+
   // ==================== BALANCE & WITHDRAWALS ====================
   async getBalance() {
     return this.request<{ 

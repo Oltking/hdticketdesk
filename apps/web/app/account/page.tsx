@@ -1,62 +1,32 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
+import { BuyerNav } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { Ticket, RotateCcw, Settings } from 'lucide-react';
-
-const buyerNavItems = [
-  { href: '/tickets', label: 'My Tickets', icon: Ticket },
-  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
-  { href: '/account', label: 'Settings', icon: Settings },
-];
-
-function BuyerNav() {
-  const pathname = usePathname();
-  return (
-    <nav className="flex gap-1 mb-8 p-1 bg-muted/50 rounded-lg w-fit">
-      {buyerNavItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all',
-              isActive
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
+import { CheckCircle, Loader2 } from 'lucide-react';
 
 export default function AccountPage() {
   const { user, isLoading: authLoading } = useAuth(true);
   const { success, error } = useToast();
   const [banks, setBanks] = useState<any[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
 
   const profileForm = useForm();
   const bankForm = useForm();
+
+  const accountNumber = bankForm.watch('accountNumber');
 
   useEffect(() => {
     if (user) {
@@ -68,6 +38,9 @@ export default function AccountPage() {
           accountName: user.organizerProfile.accountName,
         });
         setSelectedBank(user.organizerProfile.bankCode || '');
+        if (user.organizerProfile.accountName) {
+          setVerified(true);
+        }
       }
     }
   }, [user]);
@@ -78,13 +51,18 @@ export default function AccountPage() {
         try {
           const data = await api.getBanks();
           setBanks(data);
-        } catch (err) {
-          console.error(err);
+        } catch {
+          // Silent fail - bank list will be empty
         }
       };
       fetchBanks();
     }
   }, [user]);
+
+  // Reset verification when bank or account number changes
+  useEffect(() => {
+    setVerified(false);
+  }, [selectedBank, accountNumber]);
 
   const onProfileSubmit = async (data: any) => {
     try {
@@ -95,17 +73,57 @@ export default function AccountPage() {
     }
   };
 
+  const handleVerifyAccount = async () => {
+    const accNumber = bankForm.getValues('accountNumber');
+    if (!selectedBank || !accNumber || accNumber.length < 10) {
+      error('Please enter a valid bank and account number');
+      return;
+    }
+
+    try {
+      setVerifying(true);
+      const result = await api.verifyBankAccount(selectedBank, accNumber);
+      if (result.account_name) {
+        bankForm.setValue('accountName', result.account_name);
+        setVerified(true);
+        success('Account verified!');
+      } else {
+        error('Could not verify account. Please check details.');
+      }
+    } catch (err: any) {
+      error(err.message || 'Failed to verify account');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const onBankSubmit = async (data: any) => {
+    if (!verified) {
+      error('Please verify your account first');
+      return;
+    }
     try {
       const bank = banks.find(b => b.code === selectedBank);
-      await api.updateOrganizerBank({ ...data, bankName: bank?.name });
+      await api.updateOrganizerBank({ ...data, bankCode: selectedBank, bankName: bank?.name });
       success('Bank details updated!');
     } catch (err: any) {
       error(err.message || 'Failed to update bank details');
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <>
+        <Header />
+        <main className="flex-1 container py-8">
+          <Skeleton className="h-8 w-48 mb-6" />
+          <Skeleton className="h-12 w-64 mb-8" />
+          <Skeleton className="h-64 max-w-2xl" />
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
@@ -165,9 +183,48 @@ export default function AccountPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Account Number</Label><Input {...bankForm.register('accountNumber')} /></div>
-                <div className="space-y-2"><Label>Account Name</Label><Input {...bankForm.register('accountName')} /></div>
-                <Button type="submit" loading={bankForm.formState.isSubmitting}>Save Bank Details</Button>
+                <div className="space-y-2">
+                  <Label>Account Number</Label>
+                  <div className="flex gap-2">
+                    <Input {...bankForm.register('accountNumber')} placeholder="Enter 10-digit account number" />
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={handleVerifyAccount}
+                      disabled={verifying || !selectedBank || !accountNumber || accountNumber.length < 10}
+                    >
+                      {verifying ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-1" />Verifying</>
+                      ) : verified ? (
+                        <><CheckCircle className="h-4 w-4 mr-1 text-green-500" />Verified</>
+                      ) : (
+                        'Verify'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Name</Label>
+                  <Input 
+                    {...bankForm.register('accountName')} 
+                    disabled 
+                    placeholder="Will be filled after verification"
+                    className={verified ? 'bg-green-50 border-green-200' : ''}
+                  />
+                  {verified && (
+                    <p className="text-sm text-green-600 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Account verified successfully
+                    </p>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  loading={bankForm.formState.isSubmitting}
+                  disabled={!verified}
+                >
+                  Save Bank Details
+                </Button>
               </form>
             </CardContent>
           </Card>
