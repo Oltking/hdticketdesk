@@ -56,9 +56,59 @@ export class PaymentsService {
     // Calculate amount
     const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
 
-    // Create pending payment record
+    // Create reference
     const reference = `HD-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
+    // Handle FREE tickets (price = 0) - skip payment gateway
+    if (tierPrice === 0) {
+      // Get user info
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+      // Create payment record as SUCCESS immediately for free tickets
+      const payment = await this.prisma.payment.create({
+        data: {
+          reference,
+          amount: 0,
+          status: 'SUCCESS',
+          eventId,
+          tierId,
+          buyerId: userId,
+          buyerEmail: email,
+        },
+      });
+
+      // Create ticket directly
+      const ticket = await this.ticketsService.createTicket({
+        eventId,
+        tierId,
+        buyerId: userId,
+        buyerEmail: email,
+        buyerFirstName: user?.firstName || undefined,
+        buyerLastName: user?.lastName || undefined,
+        paymentId: payment.id,
+        paystackRef: reference,
+        amountPaid: 0,
+      });
+
+      // Update tier sold count
+      await this.prisma.ticketTier.update({
+        where: { id: tierId },
+        data: { sold: { increment: 1 } },
+      });
+
+      // Return success response indicating free ticket was created
+      return {
+        isFree: true,
+        success: true,
+        reference,
+        paymentId: payment.id,
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        message: 'Free ticket claimed successfully!',
+      };
+    }
+
+    // For paid tickets, proceed with Paystack payment
     const payment = await this.prisma.payment.create({
       data: {
         reference,
@@ -84,6 +134,7 @@ export class PaymentsService {
     );
 
     return {
+      isFree: false,
       authorizationUrl: paystackResponse.authorization_url,
       reference,
       paymentId: payment.id,

@@ -410,6 +410,24 @@ export class EventsService {
   }
 
   async create(organizerId: string, dto: CreateEventDto) {
+    // Validate that organizerId is provided
+    if (!organizerId) {
+      throw new ForbiddenException(
+        'Organizer profile not found. Please complete your organizer profile setup first.'
+      );
+    }
+
+    // Verify the organizer profile exists
+    const organizerProfile = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+    });
+
+    if (!organizerProfile) {
+      throw new ForbiddenException(
+        'Organizer profile not found. Please complete your organizer profile setup first.'
+      );
+    }
+
     const slug = this.generateSlug(dto.title);
 
     const event = await this.prisma.event.create({

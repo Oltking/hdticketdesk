@@ -27,16 +27,19 @@ export class TicketsService {
     // Generate ticket number
     const ticketNumber = this.generateTicketNumber();
 
-    // Generate QR code
+    // Generate QR code - returns { code: string, url: string }
     const qrResult = await this.qrService.generateQrCode(ticketNumber);
-    const qrCodeString = typeof qrResult === 'string' ? qrResult : qrResult.url || qrResult.code;
+    // Store the actual code value (what gets encoded in the QR) in qrCode field for validation
+    // Store the data URL (base64 image) in qrCodeUrl for display/email
+    const qrCode = qrResult.code;
+    const qrCodeUrl = qrResult.url;
 
     // Create ticket
     const ticket = await this.prisma.ticket.create({
       data: {
         ticketNumber,
-        qrCode: qrCodeString,
-        qrCodeUrl: qrCodeString,
+        qrCode: qrCode,       // The actual scannable code value
+        qrCodeUrl: qrCodeUrl, // The base64 data URL image
         status: 'ACTIVE',
         eventId: data.eventId,
         tierId: data.tierId,
@@ -62,7 +65,7 @@ export class TicketsService {
       eventLocation: ticket.event.location || 'TBA',
       tierName: ticket.tier.name,
       buyerName: `${data.buyerFirstName || ''} ${data.buyerLastName || ''}`.trim() || 'Guest',
-      qrCodeUrl: ticket.qrCodeUrl || qrCodeString,
+      qrCodeUrl: ticket.qrCodeUrl || qrCodeUrl, // Use the data URL image for email
       isOnline: ticket.event.isOnline,
       onlineLink: ticket.event.onlineLink || undefined,
     });

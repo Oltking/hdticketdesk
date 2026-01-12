@@ -173,7 +173,11 @@ export class PaystackService {
       throw new Error(data.message || 'Failed to resolve account');
     }
 
-    return data.data;
+    // Map Paystack's snake_case response to camelCase for frontend
+    return {
+      accountNumber: data.data.account_number,
+      accountName: data.data.account_name,
+    };
   }
 
   verifyWebhookSignature(payload: string, signature: string): boolean {

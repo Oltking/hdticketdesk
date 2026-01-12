@@ -76,10 +76,20 @@ export default function ScanPage() {
       return;
     }
     try {
-      const result = await api.validateQr(code, eventId);
-      setLastResult({ success: true, message: 'Check-in successful!', ticket: result });
-      setRecentScans(prev => [{ ...result, time: new Date() }, ...prev.slice(0, 9)]);
-      success('Check-in successful!');
+      // Use scanQr which validates AND checks in the ticket in one call
+      const result = await api.scanQr({ qrCode: code, eventId });
+      
+      if (result.success) {
+        setLastResult({ success: true, message: result.message || 'Check-in successful!', ticket: result.ticket });
+        if (result.ticket) {
+          setRecentScans(prev => [{ ...result.ticket, time: new Date() }, ...prev.slice(0, 9)]);
+        }
+        success(result.message || 'Check-in successful!');
+      } else {
+        // Ticket validation failed (already checked in, wrong event, etc.)
+        setLastResult({ success: false, message: result.message || 'Invalid ticket', ticket: result.ticket });
+        error(result.message || 'Invalid ticket');
+      }
     } catch (err: any) {
       setLastResult({ success: false, message: err.message || 'Invalid ticket' });
       error(err.message || 'Invalid ticket');
