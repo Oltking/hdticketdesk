@@ -14,7 +14,7 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe, Info, Percent } from 'lucide-react';
 
 const tierSchema = z.object({
   name: z.string().min(1, 'Required'),
@@ -35,6 +35,7 @@ const schema = z.object({
   isLocationPublic: z.boolean().default(true),
   onlineLink: z.string().optional(),
   tiers: z.array(tierSchema).min(1, 'At least one ticket tier is required'),
+  passFeeTobuyer: z.boolean().default(false),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -51,7 +52,7 @@ export default function CreateEventPage() {
 
   const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { isOnline: false, isLocationPublic: true, tiers: [{ name: 'General', isFree: false, price: 0, capacity: 100, refundEnabled: false }] },
+    defaultValues: { isOnline: false, isLocationPublic: true, passFeeTobuyer: false, tiers: [{ name: 'General', isFree: false, price: 0, capacity: 100, refundEnabled: false }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
@@ -340,6 +341,48 @@ export default function CreateEventPage() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Service Fee Option */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Percent className="h-5 w-5" />
+                  Service Fee
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input 
+                        type="checkbox" 
+                        id="passFeeTobuyer"
+                        {...register('passFeeTobuyer')} 
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="passFeeTobuyer" className="flex items-center gap-2 cursor-pointer">
+                        <span className="font-medium text-sm">
+                          Pass service fee to buyers
+                        </span>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        If checked, the 5% platform service fee will be added to the ticket price during checkout and paid by the buyer. 
+                        If unchecked, the fee will be deducted from your earnings.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
+                    <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Example: For a ₦10,000 ticket, if passed to buyer, they pay ₦10,500 (₦10,000 + ₦500 fee). 
+                      If not passed, buyer pays ₦10,000 and you receive ₦9,500.
+                    </span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

@@ -86,16 +86,30 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu Button - Far Right on Mobile */}
-        <button className="md:hidden p-2 ml-auto" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        {/* Mobile Menu Button - Far Right on Mobile (hidden when menu is open) */}
+        {!mobileMenuOpen && (
+          <button className="md:hidden p-2 ml-auto" onClick={() => setMobileMenuOpen(true)}>
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background">
           <nav className="container py-4 flex flex-col gap-4">
+            {/* Close button inside mobile menu */}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <span className="font-semibold text-sm">Menu</span>
+              <button 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="p-1 rounded-md hover:bg-muted"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
                 {link.label}

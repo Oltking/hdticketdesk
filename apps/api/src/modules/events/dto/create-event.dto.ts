@@ -83,4 +83,8 @@ export class CreateEventDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTicketTierDto)
   tiers: CreateTicketTierDto[];
+
+  @IsBoolean()
+  @IsOptional()
+  passFeeTobuyer?: boolean; // If true, 5% service fee is added to buyer's payment at checkout
 }

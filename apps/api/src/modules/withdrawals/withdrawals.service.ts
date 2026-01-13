@@ -67,6 +67,27 @@ export class WithdrawalsService {
       throw new BadRequestException('Please set up your bank details first');
     }
 
+    // Check 24-hour rule: Find the first PAID ticket sale (amount > 0)
+    // Free tickets (amount = 0) should not count towards this restriction
+    const firstPaidSale = await this.prisma.ledgerEntry.findFirst({
+      where: {
+        organizerId,
+        type: 'TICKET_SALE',
+        amount: { gt: 0 }, // Only paid tickets (amount > 0)
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (firstPaidSale) {
+      const hoursSinceFirstSale = (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceFirstSale < 24) {
+        const hoursRemaining = Math.ceil(24 - hoursSinceFirstSale);
+        throw new BadRequestException(
+          `Not eligible for withdrawal yet. Please wait ${hoursRemaining} more hour${hoursRemaining > 1 ? 's' : ''} after your first paid sale.`,
+        );
+      }
+    }
+
     const availableBalance = organizer.availableBalance instanceof Decimal 
       ? organizer.availableBalance.toNumber() 
       : Number(organizer.availableBalance);

@@ -85,6 +85,7 @@ model Event {
   gallery            String[]         @default([])
   isFeatured         Boolean          @default(false)
   maxTicketsPerOrder Int              @default(10)
+  passFeeTobuyer     Boolean          @default(false) // If true, 5% service fee is added to buyer's payment
   organizerId        String
   organizer          OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   payments           Payment[]

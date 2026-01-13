@@ -17,8 +17,8 @@ export function Footer() {
             </p>
             <div className="flex gap-4">
               <a href="https://x.com/hdticketdesk" className="text-muted-foreground hover:text-primary transition-colors"><Twitter className="w-5 h-5" /></a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="w-5 h-5" /></a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="w-5 h-5" /></a>
+              <a href="https://instagram.com/hdticketdesk" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="w-5 h-5" /></a>
+              <a href="https://facebook.com/hdticketdesk" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="w-5 h-5" /></a>
             </div>
           </div>
 

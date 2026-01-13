@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart } from 'lucide-react';
+import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info } from 'lucide-react';
 import type { Event } from '@/types';
 
 interface Props {
@@ -27,6 +28,16 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
   const [event, setEvent] = useState<Event | null>(initialEvent);
   const [loading, setLoading] = useState(!initialEvent);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [checkoutDialog, setCheckoutDialog] = useState<{
+    open: boolean;
+    tierId: string;
+    tierName: string;
+    tierPrice: number;
+    serviceFee: number;
+    totalAmount: number;
+    authorizationUrl: string;
+  } | null>(null);
+  const [processingCheckout, setProcessingCheckout] = useState(false);
 
   useEffect(() => {
     if (!initialEvent) {
@@ -72,9 +83,28 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
         return;
       }
       
-      // For paid tickets, redirect to Paystack
+      // For paid tickets, show checkout dialog with price breakdown if there's a service fee
       if (response.authorizationUrl) {
-        window.location.href = response.authorizationUrl;
+        const tier = event!.tiers?.find(t => t.id === tierId);
+        const tierPrice = response.tierPrice || Number(tier?.price) || 0;
+        const serviceFee = response.serviceFee || 0;
+        const totalAmount = response.totalAmount || tierPrice;
+        
+        // If there's a service fee, show confirmation dialog
+        if (serviceFee > 0) {
+          setCheckoutDialog({
+            open: true,
+            tierId,
+            tierName: tier?.name || 'Ticket',
+            tierPrice,
+            serviceFee,
+            totalAmount,
+            authorizationUrl: response.authorizationUrl,
+          });
+        } else {
+          // No service fee, redirect directly
+          window.location.href = response.authorizationUrl;
+        }
       } else {
         throw new Error('Payment initialization failed - no authorization URL');
       }
@@ -83,6 +113,17 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     } finally {
       setPurchasing(null);
     }
+  };
+
+  const handleConfirmCheckout = () => {
+    if (checkoutDialog?.authorizationUrl) {
+      setProcessingCheckout(true);
+      window.location.href = checkoutDialog.authorizationUrl;
+    }
+  };
+
+  const handleCancelCheckout = () => {
+    setCheckoutDialog(null);
   };
 
   const handleShare = async () => {
@@ -334,6 +375,70 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
         </div>
       </main>
       <Footer />
+
+      {/* Checkout Confirmation Dialog */}
+      <Dialog open={checkoutDialog?.open || false} onOpenChange={(open) => !open && handleCancelCheckout()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ticket className="w-5 h-5" />
+              Confirm Your Purchase
+            </DialogTitle>
+          </DialogHeader>
+          
+          {checkoutDialog && (
+            <div className="space-y-4">
+              {/* Ticket Info */}
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="font-medium">{checkoutDialog.tierName}</p>
+                <p className="text-sm text-muted-foreground">{event?.title}</p>
+              </div>
+
+              {/* Price Breakdown */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Ticket Price</span>
+                  <span>{formatCurrency(checkoutDialog.tierPrice)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Service Fee (5%)</span>
+                  <span>{formatCurrency(checkoutDialog.serviceFee)}</span>
+                </div>
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span className="text-primary">{formatCurrency(checkoutDialog.totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Note */}
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  You will be redirected to Paystack to complete your payment securely.
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancelCheckout} disabled={processingCheckout}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmCheckout} disabled={processingCheckout}>
+              {processingCheckout ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Redirecting...
+                </>
+              ) : (
+                'Proceed to Payment'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

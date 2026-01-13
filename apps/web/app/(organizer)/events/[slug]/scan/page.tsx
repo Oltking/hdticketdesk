@@ -9,7 +9,7 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, CheckCircle, XCircle, Search, Loader2 } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, Search, Loader2, ScanLine } from 'lucide-react';
 
 export default function ScanPage() {
   const { slug } = useParams();
@@ -101,7 +101,8 @@ export default function ScanPage() {
       if (result.success) {
         setLastResult({ success: true, message: result.message || 'Check-in successful!', ticket: result.ticket });
         if (result.ticket) {
-          setRecentScans(prev => [{ ...result.ticket, time: new Date() }, ...prev.slice(0, 9)]);
+          // Keep only last 5 recent scans
+          setRecentScans(prev => [{ ...result.ticket, time: new Date() }, ...prev.slice(0, 4)]);
         }
         success(result.message || 'Check-in successful!');
       } else {
@@ -114,6 +115,11 @@ export default function ScanPage() {
       error(err.message || 'Invalid ticket');
     } finally {
       setIsProcessing(false);
+      // Auto-dismiss result after 5 seconds
+      setTimeout(() => {
+        setLastResult(null);
+        lastScannedRef.current = null;
+      }, 5000);
     }
   };
 
@@ -136,7 +142,23 @@ export default function ScanPage() {
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Camera className="h-5 w-5" />Camera Scanner</CardTitle></CardHeader>
             <CardContent>
-              <div id="scanner" className="w-full aspect-square bg-black/5 rounded-lg overflow-hidden mb-4" />
+              <div className="relative w-full aspect-square bg-black/5 rounded-lg overflow-hidden mb-4">
+                <div id="scanner" className="w-full h-full" />
+                {/* QR Scanner placeholder when camera is not active */}
+                {!scanning && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50">
+                    <div className="relative">
+                      <ScanLine className="h-24 w-24 text-primary/40" strokeWidth={1} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 border-2 border-dashed border-primary/40 rounded-lg" />
+                      </div>
+                    </div>
+                    <p className="mt-4 text-sm text-muted-foreground text-center px-4">
+                      Click "Start Scanner" to open camera and scan QR codes
+                    </p>
+                  </div>
+                )}
+              </div>
               <Button onClick={scanning ? stopScanner : startScanner} className="w-full" variant={scanning ? 'destructive' : 'default'}>
                 {scanning ? 'Stop Scanner' : 'Start Scanner'}
               </Button>
@@ -169,7 +191,7 @@ export default function ScanPage() {
             )}
 
             {lastResult && !isProcessing && (
-              <Card className={lastResult.success ? 'border-success' : 'border-danger'}>
+              <Card className={lastResult.success ? 'border-success border-2' : 'border-danger border-2'}>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     {lastResult.success ? <CheckCircle className="h-12 w-12 text-success" /> : <XCircle className="h-12 w-12 text-danger" />}
@@ -178,11 +200,14 @@ export default function ScanPage() {
                       {lastResult.ticket && <p className="text-text-muted">{lastResult.ticket.buyerFirstName} {lastResult.ticket.buyerLastName} - {lastResult.ticket.tier?.name}</p>}
                     </div>
                   </div>
-                  {scanning && (
-                    <Button onClick={resetForNextScan} className="w-full mt-4" variant="outline">
-                      Scan Next Ticket
-                    </Button>
-                  )}
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">Auto-dismissing in 5 seconds...</p>
+                    {scanning && (
+                      <Button onClick={resetForNextScan} size="sm" variant="outline">
+                        Scan Next
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             )}

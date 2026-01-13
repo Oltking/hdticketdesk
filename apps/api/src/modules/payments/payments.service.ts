@@ -84,6 +84,12 @@ export class PaymentsService {
 
     // Calculate amount
     const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
+    
+    // Calculate service fee (5%) - only added to buyer's payment if organizer opted to pass fee
+    const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
+    const passFeeTobuyer = (event as any).passFeeTobuyer ?? false;
+    const serviceFee = passFeeTobuyer ? tierPrice * (platformFeePercent / 100) : 0;
+    const totalAmountForBuyer = tierPrice + serviceFee;
 
     // Create reference
     const reference = `HD-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -138,10 +144,11 @@ export class PaymentsService {
     }
 
     // For paid tickets, proceed with Paystack payment
+    // Store the tier price in payment record (what organizer receives before platform fee)
     const payment = await this.prisma.payment.create({
       data: {
         reference,
-        amount: tierPrice,
+        amount: tierPrice, // Store original tier price
         status: 'PENDING',
         eventId,
         tierId,
@@ -150,15 +157,17 @@ export class PaymentsService {
       },
     });
 
-    // Initialize Paystack transaction
+    // Initialize Paystack transaction with total amount (including service fee if passed to buyer)
     const paystackResponse = await this.paystackService.initializeTransaction(
       email,
-      tierPrice * 100, // Paystack expects kobo
+      totalAmountForBuyer * 100, // Paystack expects kobo - includes service fee if applicable
       reference,
       {
         eventId,
         tierId,
         paymentId: payment.id,
+        serviceFee: serviceFee.toString(), // Track the service fee in metadata (as string)
+        passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
       },
     );
 
@@ -167,6 +176,10 @@ export class PaymentsService {
       authorizationUrl: paystackResponse.authorization_url,
       reference,
       paymentId: payment.id,
+      // Return breakdown for frontend display if needed
+      tierPrice,
+      serviceFee,
+      totalAmount: totalAmountForBuyer,
     };
   }
 
@@ -229,10 +242,14 @@ export class PaymentsService {
       return;
     }
 
-    // Verify amount
-    const expectedAmount = payment.amount instanceof Decimal 
-      ? payment.amount.toNumber() * 100 
-      : Number(payment.amount) * 100;
+    // Verify amount - account for service fee if passed to buyer
+    const tierPrice = payment.amount instanceof Decimal 
+      ? payment.amount.toNumber() 
+      : Number(payment.amount);
+    const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
+    const eventPassFeeTobuyer = (event as any).passFeeTobuyer ?? false;
+    const serviceFee = eventPassFeeTobuyer ? tierPrice * (platformFeePercent / 100) : 0;
+    const expectedAmount = (tierPrice + serviceFee) * 100; // In kobo
       
     if (amount !== expectedAmount) {
       this.logger.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}`);
@@ -259,20 +276,72 @@ export class PaymentsService {
         : Number(payment.amount),
     });
 
-    // Calculate platform fee (5%)
-    const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
+    // Calculate organizer earnings
+    // If fee was passed to buyer: organizer gets full tier price (buyer paid tier + fee)
+    // If fee was NOT passed to buyer: organizer gets tier price minus platform fee
     const paymentAmount = payment.amount instanceof Decimal 
       ? payment.amount.toNumber() 
       : Number(payment.amount);
-    const platformFee = paymentAmount * (platformFeePercent / 100);
-    const organizerAmount = paymentAmount - platformFee;
+    
+    let organizerAmount: number;
+    let platformFee: number;
+    
+    if (eventPassFeeTobuyer) {
+      // Buyer paid the fee separately, organizer gets full tier price
+      organizerAmount = paymentAmount;
+      platformFee = paymentAmount * (platformFeePercent / 100); // Still track fee for records
+    } else {
+      // Organizer absorbs the fee
+      platformFee = paymentAmount * (platformFeePercent / 100);
+      organizerAmount = paymentAmount - platformFee;
+    }
 
-    // Update organizer balance
+    // Check if 24 hours have passed since first paid sale
+    // If yes, new sales go directly to availableBalance
+    // If no, sales go to pendingBalance
+    const firstPaidSale = await this.prisma.ledgerEntry.findFirst({
+      where: {
+        organizerId: event.organizerId,
+        type: 'TICKET_SALE',
+        amount: { gt: 0 },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const hoursSinceFirstSale = firstPaidSale 
+      ? (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60)
+      : 0;
+    
+    const isAfter24Hours = firstPaidSale && hoursSinceFirstSale >= 24;
+
+    // Get current organizer profile for pending balance check
+    const organizerProfile = await this.prisma.organizerProfile.findUnique({
+      where: { id: event.organizerId },
+    });
+
+    // If 24 hours have passed and there's still pending balance, move it to available first
+    if (isAfter24Hours && organizerProfile) {
+      const currentPending = organizerProfile.pendingBalance instanceof Decimal
+        ? organizerProfile.pendingBalance.toNumber()
+        : Number(organizerProfile.pendingBalance);
+      
+      if (currentPending > 0) {
+        await this.prisma.organizerProfile.update({
+          where: { id: event.organizerId },
+          data: {
+            pendingBalance: { decrement: currentPending },
+            availableBalance: { increment: currentPending },
+          },
+        });
+      }
+    }
+
+    // Update organizer balance - go to availableBalance if after 24h, otherwise pendingBalance
     await this.prisma.organizerProfile.update({
       where: { id: event.organizerId },
-      data: {
-        pendingBalance: { increment: organizerAmount },
-      },
+      data: isAfter24Hours
+        ? { availableBalance: { increment: organizerAmount } }
+        : { pendingBalance: { increment: organizerAmount } },
     });
 
     // Record in ledger

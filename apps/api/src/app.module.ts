@@ -35,6 +35,7 @@ import { QrModule } from './modules/qr/qr.module';
 import { MediaModule } from './modules/media/media.module';
 import { EmailModule } from './modules/emails/email.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { TasksModule } from './modules/tasks/tasks.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { AdminModule } from './modules/admin/admin.module';
     MediaModule,
     EmailModule,
     AdminModule,
+    TasksModule,
   ],
   providers: [
     // Global Rate Limiting Guard
