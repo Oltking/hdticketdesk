@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async getDashboardStats() {
@@ -279,6 +282,150 @@ export class AdminService {
       ...unpublished,
       ticketsSold: event.tickets.length,
       message: `Event unpublished successfully. ${event.tickets.length} active ticket(s) exist for this event.`,
+    };
+  }
+
+  /**
+   * Admin force delete an event (including all related records)
+   * This is for admin use when organizers contact support
+   * WARNING: This permanently deletes all related tickets, payments, refunds, etc.
+   */
+  async adminDeleteEvent(id: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id },
+      include: {
+        tiers: true,
+        tickets: true,
+        payments: true,
+        organizer: {
+          select: {
+            id: true,
+            title: true,
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    // Store counts for the response
+    const ticketCount = event.tickets.length;
+    const paymentCount = event.payments.length;
+    const tierCount = event.tiers.length;
+    const eventTitle = event.title;
+    const organizerEmail = event.organizer?.user?.email;
+
+    // Get ticket IDs for ledger entry cleanup
+    const ticketIds = event.tickets.map(t => t.id);
+
+    // Use transaction to delete all related records in correct order
+    await this.prisma.$transaction(async (tx) => {
+      // Delete refunds associated with tickets of this event
+      await tx.refund.deleteMany({
+        where: {
+          ticket: {
+            eventId: id,
+          },
+        },
+      });
+
+      // Delete ledger entries associated with this event's tickets
+      if (ticketIds.length > 0) {
+        await tx.ledgerEntry.deleteMany({
+          where: {
+            ticketId: { in: ticketIds },
+          },
+        });
+      }
+
+      // Delete tickets
+      await tx.ticket.deleteMany({
+        where: { eventId: id },
+      });
+
+      // Delete payments
+      await tx.payment.deleteMany({
+        where: { eventId: id },
+      });
+
+      // Delete ticket tiers (should cascade, but being explicit)
+      await tx.ticketTier.deleteMany({
+        where: { eventId: id },
+      });
+
+      // Finally delete the event
+      await tx.event.delete({
+        where: { id },
+      });
+    });
+
+    return {
+      message: `Event "${eventTitle}" deleted successfully by admin.`,
+      deletedRecords: {
+        tickets: ticketCount,
+        payments: paymentCount,
+        tiers: tierCount,
+      },
+      organizer: organizerEmail,
+    };
+  }
+
+  /**
+   * Create a new admin user (admin-only)
+   * This is the secure way to create additional admin accounts
+   */
+  async createAdminUser(dto: { email: string; password: string; firstName: string; lastName: string }) {
+    // Check if email already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('A user with this email already exists');
+    }
+
+    // Validate password strength
+    if (dto.password.length < 12) {
+      throw new ForbiddenException('Admin password must be at least 12 characters long');
+    }
+
+    // Hash password with high cost factor for admin accounts
+    const hashedPassword = await bcrypt.hash(dto.password, 14);
+
+    // Create admin user
+    const adminUser = await this.prisma.user.create({
+      data: {
+        email: dto.email.toLowerCase(),
+        password: hashedPassword,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: 'ADMIN',
+        emailVerified: true, // Admin accounts are pre-verified
+        emailVerifiedAt: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+    });
+
+    this.logger.log(`New admin user created: ${adminUser.email}`);
+
+    return {
+      message: 'Admin user created successfully',
+      user: adminUser,
     };
   }
 }

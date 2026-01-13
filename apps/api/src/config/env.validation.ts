@@ -48,6 +48,28 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CLOUDINARY_API_SECRET: string;
+
+  // Admin seed credentials (for initial admin setup via prisma seed)
+  @IsString()
+  @IsOptional()
+  ADMIN_SEED_EMAIL?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_SEED_PASSWORD?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_SEED_FIRST_NAME?: string;
+
+  @IsString()
+  @IsOptional()
+  ADMIN_SEED_LAST_NAME?: string;
+
+  // Test user password (for development seed only)
+  @IsString()
+  @IsOptional()
+  TEST_SEED_PASSWORD?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

@@ -89,6 +89,43 @@ export class TicketsService {
     return ticket;
   }
 
+  /**
+   * Get ticket by ID with authorization check
+   * - Buyers can only view their own tickets
+   * - Organizers can view tickets for their events
+   * - Admins can view any ticket
+   */
+  async getTicketByIdWithAuth(id: string, userId: string, role: string, organizerId?: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id },
+      include: {
+        event: true,
+        tier: true,
+      },
+    });
+
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    // Admin can view any ticket
+    if (role === 'ADMIN') {
+      return ticket;
+    }
+
+    // Organizer can view tickets for their events
+    if (role === 'ORGANIZER' && organizerId && ticket.event.organizerId === organizerId) {
+      return ticket;
+    }
+
+    // Buyer can only view their own tickets
+    if (ticket.buyerId === userId) {
+      return ticket;
+    }
+
+    throw new ForbiddenException('You do not have permission to view this ticket');
+  }
+
   async getTicketByNumber(ticketNumber: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { ticketNumber },

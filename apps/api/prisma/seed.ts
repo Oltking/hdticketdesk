@@ -3,11 +3,77 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// Get admin credentials from environment variables (required for production)
+const ADMIN_EMAIL = process.env.ADMIN_SEED_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_SEED_PASSWORD;
+const ADMIN_FIRST_NAME = process.env.ADMIN_SEED_FIRST_NAME || 'Admin';
+const ADMIN_LAST_NAME = process.env.ADMIN_SEED_LAST_NAME || 'User';
+
+// For non-admin test users (only used in development/testing)
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const TEST_PASSWORD = process.env.TEST_SEED_PASSWORD || 'TestPassword123!';
+
 async function main() {
   console.log('🌱 Starting seed...');
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
 
-  // Clean up existing data (in correct order due to foreign keys)
-  console.log('🧹 Cleaning up existing data...');
+  // ==================== PRODUCTION MODE ====================
+  // In production, NEVER delete existing data - only create admin if not exists
+  if (IS_PRODUCTION) {
+    console.log('🔒 PRODUCTION MODE - Safe seed (no data deletion)');
+    
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      console.log('⚠️  No ADMIN_SEED_EMAIL/ADMIN_SEED_PASSWORD provided.');
+      console.log('   To create an admin user, set these environment variables and run seed again.');
+      console.log('\n🎉 Production seed completed (no changes made).');
+      return;
+    }
+    
+    if (ADMIN_PASSWORD.length < 12) {
+      throw new Error('❌ ADMIN_SEED_PASSWORD must be at least 12 characters in production.');
+    }
+
+    // Check if admin already exists
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: ADMIN_EMAIL.toLowerCase() },
+    });
+
+    if (existingAdmin) {
+      console.log(`✅ Admin user already exists: ${existingAdmin.email}`);
+      console.log('   No changes made. To create a new admin, use the admin panel or change the email.');
+      console.log('\n🎉 Production seed completed (no changes made).');
+      return;
+    }
+
+    // Create admin user only
+    const adminHashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
+    const adminUser = await prisma.user.create({
+      data: {
+        email: ADMIN_EMAIL.toLowerCase(),
+        password: adminHashedPassword,
+        firstName: ADMIN_FIRST_NAME,
+        lastName: ADMIN_LAST_NAME,
+        role: 'ADMIN',
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
+    
+    console.log(`✅ Admin user created: ${adminUser.email}`);
+    console.log('\n🎉 Production seed completed!');
+    console.log('📊 Summary:');
+    console.log(`  - Admin User: ${adminUser.email}`);
+    console.log('\n🔐 Security Notes:');
+    console.log('  - Change the admin password after first login');
+    console.log('  - Store credentials securely (never commit to git)');
+    console.log('  - Remove ADMIN_SEED_PASSWORD from env after setup');
+    return;
+  }
+
+  // ==================== DEVELOPMENT MODE ====================
+  // Only in development: Clean up and seed test data
+  console.log('🧹 DEVELOPMENT MODE - Cleaning up existing data...');
+  console.log('⚠️  This will DELETE all existing data!');
   
   await prisma.ledgerEntry.deleteMany();
   await prisma.refund.deleteMany();
@@ -22,25 +88,32 @@ async function main() {
 
   console.log('✅ Cleanup complete');
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash('Password123!', 12);
-
-  // ==================== CREATE USERS ====================
+  // ==================== CREATE ADMIN USER (Development) ====================
   console.log('👤 Creating users...');
 
-  // Admin user
-  const adminUser = await prisma.user.create({
-    data: {
-      email: 'admin@hdticketdesk.com',
-      password: hashedPassword,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: 'ADMIN',
-      emailVerified: true,
-      emailVerifiedAt: new Date(),
-    },
-  });
-  console.log(`  ✅ Admin: ${adminUser.email}`);
+  // Create admin if credentials are provided
+  let adminUser = null;
+  if (ADMIN_EMAIL && ADMIN_PASSWORD) {
+    const adminHashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
+    adminUser = await prisma.user.create({
+      data: {
+        email: ADMIN_EMAIL.toLowerCase(),
+        password: adminHashedPassword,
+        firstName: ADMIN_FIRST_NAME,
+        lastName: ADMIN_LAST_NAME,
+        role: 'ADMIN',
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+      },
+    });
+    console.log(`  ✅ Admin: ${adminUser.email}`);
+  } else {
+    console.log('  ⚠️  Skipping admin user (no ADMIN_SEED_EMAIL/ADMIN_SEED_PASSWORD provided)');
+  }
+
+  // ==================== TEST USERS (Development Only) ====================
+  // Hash password for test users
+  const hashedPassword = await bcrypt.hash(TEST_PASSWORD, 12);
 
   // Organizer user
   const organizerUser = await prisma.user.create({
@@ -377,19 +450,23 @@ async function main() {
   console.log('  ✅ Ledger entries created');
 
   // ==================== SUMMARY ====================
-  console.log('\n🎉 Seed completed successfully!\n');
+  console.log('\n🎉 Development seed completed successfully!\n');
   console.log('📊 Summary:');
-  console.log('  - Users: 4 (1 Admin, 1 Organizer, 2 Buyers)');
+  console.log(`  - Users: ${adminUser ? '4 (1 Admin, 1 Organizer, 2 Buyers)' : '3 (1 Organizer, 2 Buyers)'}`);
   console.log('  - Events: 4 (3 Published, 1 Draft)');
   console.log('  - Tickets: 2');
   console.log('  - Payments: 2');
   console.log('  - Ledger Entries: 2');
   
   console.log('\n🔑 Test Accounts:');
-  console.log('  Admin:     admin@hdticketdesk.com / Password123!');
-  console.log('  Organizer: organizer@hdticketdesk.com / Password123!');
-  console.log('  Buyer:     buyer@hdticketdesk.com / Password123!');
-  console.log('  Buyer 2:   buyer2@hdticketdesk.com / Password123!');
+  if (adminUser) {
+    console.log(`  Admin:     ${adminUser.email} / [ADMIN_SEED_PASSWORD]`);
+  }
+  console.log(`  Organizer: organizer@hdticketdesk.com / ${TEST_PASSWORD}`);
+  console.log(`  Buyer:     buyer@hdticketdesk.com / ${TEST_PASSWORD}`);
+  console.log(`  Buyer 2:   buyer2@hdticketdesk.com / ${TEST_PASSWORD}`);
+  
+  console.log('\n💡 Tip: Set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD env vars to create admin user');
 }
 
 main()

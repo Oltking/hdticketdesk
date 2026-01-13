@@ -445,6 +445,7 @@ export class EventsService {
         slug,
         organizerId,
         status: 'DRAFT',
+        passFeeTobuyer: dto.passFeeTobuyer || false,
         tiers: {
           create: dto.tiers.map((tier) => ({
             name: tier.name,
@@ -466,7 +467,15 @@ export class EventsService {
   }
 
   async update(id: string, organizerId: string, dto: UpdateEventDto) {
-    const event = await this.prisma.event.findUnique({ where: { id } });
+    const event = await this.prisma.event.findUnique({ 
+      where: { id },
+      include: { 
+        tiers: true,
+        tickets: {
+          where: { status: { in: ['ACTIVE', 'CHECKED_IN'] } },
+        },
+      },
+    });
 
     if (!event) {
       throw new NotFoundException('Event not found');
@@ -475,6 +484,9 @@ export class EventsService {
     if (event.organizerId !== organizerId) {
       throw new ForbiddenException('You can only update your own events');
     }
+
+    // Check if event has any active ticket sales
+    const hasTicketSales = event.tickets.length > 0;
 
     // Build update data, handling null/undefined correctly
     const updateData: any = {};
@@ -496,7 +508,51 @@ export class EventsService {
     if (dto.onlineLink !== undefined) updateData.onlineLink = dto.onlineLink;
     if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
     if (dto.gallery !== undefined) updateData.gallery = dto.gallery;
+    if (dto.passFeeTobuyer !== undefined) updateData.passFeeTobuyer = dto.passFeeTobuyer;
 
+    // Handle tier updates - only if tiers are provided and event has no sales
+    if (dto.tiers !== undefined && dto.tiers.length > 0) {
+      if (hasTicketSales) {
+        // If there are ticket sales, only allow updating tier descriptions (not price/capacity)
+        // For safety, we'll skip tier updates entirely if there are sales
+        // Organizers should contact support for tier changes after sales begin
+      } else {
+        // No ticket sales - safe to update/replace tiers
+        // Use a transaction to delete old tiers and create new ones
+        const updated = await this.prisma.$transaction(async (tx) => {
+          // Delete existing tiers
+          await tx.ticketTier.deleteMany({
+            where: { eventId: id },
+          });
+
+          // Update event with new tiers
+          return tx.event.update({
+            where: { id },
+            data: {
+              ...updateData,
+              tiers: {
+                create: dto.tiers!.map((tier) => ({
+                  name: tier.name,
+                  description: tier.description,
+                  price: tier.price,
+                  capacity: tier.capacity,
+                  sold: 0,
+                  refundEnabled: tier.refundEnabled || false,
+                })),
+              },
+            },
+            include: {
+              tiers: true,
+              organizer: { select: { id: true, title: true } },
+            },
+          });
+        });
+
+        return updated;
+      }
+    }
+
+    // Update without tier changes (either no tiers provided or has ticket sales)
     const updated = await this.prisma.event.update({
       where: { id },
       data: updateData,

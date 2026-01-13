@@ -42,6 +42,16 @@ export class AuthService {
 
   // ==================== REGISTER ====================
   async register(dto: RegisterDto, ip: string, userAgent: string) {
+    // 🔒 SECURITY: Prevent ADMIN role assignment via public registration
+    // Admins can only be created via:
+    // 1. Database seed with ADMIN_SEED_EMAIL/ADMIN_SEED_PASSWORD env vars
+    // 2. Admin-only endpoint: POST /admin/users/create-admin
+    if (dto.role === 'ADMIN') {
+      throw new ForbiddenException(
+        'Admin accounts cannot be created through registration. Please contact system administrator.'
+      );
+    }
+
     // Check if email exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -113,10 +123,43 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      const minutesRemaining = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      throw new ForbiddenException(
+        `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`
+      );
+    }
+
     // Validate password
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
+      // Increment failed login attempts
+      const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
+      const maxAttempts = 5;
+      
+      const updateData: any = { failedLoginAttempts: newFailedAttempts };
+      
+      // Lock account after max attempts (30 minutes lockout)
+      if (newFailedAttempts >= maxAttempts) {
+        updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+        this.logger.warn(`Account locked due to failed attempts: ${user.email}`);
+      }
+      
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+      
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Reset failed attempts on successful login
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
     }
 
     // ⚠️ CHECK IF EMAIL IS VERIFIED - This is the key check!
@@ -159,6 +202,12 @@ export class AuthService {
     // Generate tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
+
+    // Update last login info
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date(), lastLoginIp: ip },
+    });
 
     const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
 

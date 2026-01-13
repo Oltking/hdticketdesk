@@ -1,10 +1,33 @@
-import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Param, Query, Body, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiProperty } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+
+// DTO for creating admin users
+export class CreateAdminDto {
+  @ApiProperty({ example: 'newadmin@example.com' })
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  email: string;
+
+  @ApiProperty({ example: 'SecurePassword123!' })
+  @IsString()
+  @MinLength(12, { message: 'Admin password must be at least 12 characters long' })
+  password: string;
+
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  @MinLength(1, { message: 'First name is required' })
+  firstName: string;
+
+  @ApiProperty({ example: 'Admin' })
+  @IsString()
+  @MinLength(1, { message: 'Last name is required' })
+  lastName: string;
+}
 
 @ApiTags('Admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,5 +65,17 @@ export class AdminController {
   @ApiOperation({ summary: 'Admin force unpublish an event (even with sales)' })
   async adminUnpublishEvent(@Param('id') id: string) {
     return this.adminService.adminUnpublishEvent(id);
+  }
+
+  @Post('events/:id/delete')
+  @ApiOperation({ summary: 'Admin force delete an event (use with caution - deletes all related records)' })
+  async adminDeleteEvent(@Param('id') id: string) {
+    return this.adminService.adminDeleteEvent(id);
+  }
+
+  @Post('users/create-admin')
+  @ApiOperation({ summary: 'Create a new admin user (admin only)' })
+  async createAdminUser(@Body() dto: CreateAdminDto) {
+    return this.adminService.createAdminUser(dto);
   }
 }

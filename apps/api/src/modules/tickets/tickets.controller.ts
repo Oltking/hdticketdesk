@@ -93,7 +93,12 @@ export class TicketsController {
   @Get(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get ticket by ID' })
-  async getTicketById(@Param('id') id: string) {
-    return this.ticketsService.getTicketById(id);
+  async getTicketById(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: string,
+    @CurrentUser('organizerProfile') organizerProfile: any,
+  ) {
+    return this.ticketsService.getTicketByIdWithAuth(id, userId, role, organizerProfile?.id);
   }
 }

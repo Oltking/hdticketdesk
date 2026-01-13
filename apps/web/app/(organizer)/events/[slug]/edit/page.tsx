@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock } from 'lucide-react';
+import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info } from 'lucide-react';
 
 export default function EditEventPage() {
   const { slug } = useParams();
@@ -88,6 +88,7 @@ export default function EditEventPage() {
           location: event.location || '',
           isLocationPublic: event.isLocationPublic ?? true,
           onlineLink: event.onlineLink || '',
+          passFeeTobuyer: event.passFeeTobuyer || false,
           tiers: tiersWithFreeFlag,
         });
       } catch (err) {
@@ -389,6 +390,48 @@ export default function EditEventPage() {
                     </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Service Fee Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Percent className="h-5 w-5" />
+                  Service Fee
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input 
+                        type="checkbox" 
+                        id="passFeeTobuyer"
+                        {...register('passFeeTobuyer')} 
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="passFeeTobuyer" className="flex items-center gap-2 cursor-pointer">
+                        <span className="font-medium text-sm">
+                          Pass service fee to buyers
+                        </span>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        If checked, the 5% platform service fee will be added to the ticket price during checkout and paid by the buyer. 
+                        If unchecked, the fee will be deducted from your earnings.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
+                    <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Example: For a ₦10,000 ticket, if passed to buyer, they pay ₦10,500 (₦10,000 + ₦500 fee). 
+                      If not passed, buyer pays ₦10,000 and you receive ₦9,500.
+                    </span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

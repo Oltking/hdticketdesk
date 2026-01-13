@@ -10,7 +10,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate, formatCurrency } from '@/lib/utils';
-import { EyeOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EyeOff, AlertTriangle, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 
 export default function AdminEventsPage() {
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
@@ -22,6 +22,8 @@ export default function AdminEventsPage() {
   const [total, setTotal] = useState(0);
   const [unpublishingId, setUnpublishingId] = useState<string | null>(null);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState<{ id: string; title: string; ticketsSold: number } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; title: string; ticketsSold: number } | null>(null);
 
   const fetchEvents = async (pageNum: number) => {
     try {
@@ -53,6 +55,21 @@ export default function AdminEventsPage() {
       error(err.message || 'Failed to unpublish event');
     } finally {
       setUnpublishingId(null);
+    }
+  };
+
+  const handleDelete = async (eventId: string) => {
+    try {
+      setDeletingId(eventId);
+      const result = await api.adminDeleteEvent(eventId);
+      success(result.message || 'Event deleted successfully');
+      setShowDeleteConfirm(null);
+      // Refresh events list
+      await fetchEvents(page);
+    } catch (err: any) {
+      error(err.message || 'Failed to delete event');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -124,21 +141,36 @@ export default function AdminEventsPage() {
                       <td className="p-4">{formatCurrency(event.totalRevenue || 0)}</td>
                       <td className="p-4 text-text-muted">{formatDate(event.startDate)}</td>
                       <td className="p-4">
-                        {event.status === 'PUBLISHED' && (
+                        <div className="flex gap-2">
+                          {event.status === 'PUBLISHED' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-warning text-warning hover:bg-warning/10"
+                              onClick={() => setShowUnpublishConfirm({ 
+                                id: event.id, 
+                                title: event.title, 
+                                ticketsSold: event._count?.tickets || 0 
+                              })}
+                            >
+                              <EyeOff className="w-4 h-4 mr-1" />
+                              Unpublish
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
-                            className="border-warning text-warning hover:bg-warning/10"
-                            onClick={() => setShowUnpublishConfirm({ 
+                            className="border-destructive text-destructive hover:bg-destructive/10"
+                            onClick={() => setShowDeleteConfirm({ 
                               id: event.id, 
                               title: event.title, 
                               ticketsSold: event._count?.tickets || 0 
                             })}
                           >
-                            <EyeOff className="w-4 h-4 mr-1" />
-                            Unpublish
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
                           </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -216,6 +248,58 @@ export default function AdminEventsPage() {
                   onClick={() => handleUnpublish(showUnpublishConfirm.id)}
                 >
                   Unpublish Event
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-full bg-destructive/10">
+                  <Trash2 className="w-6 h-6 text-destructive" />
+                </div>
+                <h3 className="text-lg font-semibold">Delete Event Permanently?</h3>
+              </div>
+              <p className="text-muted-foreground mb-2">
+                Are you sure you want to permanently delete <strong>{showDeleteConfirm.title}</strong>?
+              </p>
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg mb-4">
+                <p className="text-sm text-destructive font-medium">
+                  ⚠️ WARNING: This action cannot be undone!
+                </p>
+                <p className="text-sm text-destructive mt-1">
+                  This will permanently delete the event and ALL related records including:
+                </p>
+                <ul className="text-sm text-destructive mt-1 list-disc list-inside">
+                  <li>All ticket tiers</li>
+                  {showDeleteConfirm.ticketsSold > 0 && (
+                    <>
+                      <li>{showDeleteConfirm.ticketsSold} ticket(s)</li>
+                      <li>All payment records</li>
+                      <li>All refund records</li>
+                      <li>Related ledger entries</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteConfirm(null)}
+                  disabled={deletingId === showDeleteConfirm.id}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive"
+                  loading={deletingId === showDeleteConfirm.id}
+                  onClick={() => handleDelete(showDeleteConfirm.id)}
+                >
+                  Delete Permanently
                 </Button>
               </div>
             </div>

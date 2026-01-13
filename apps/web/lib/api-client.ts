@@ -603,6 +603,16 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  async adminDeleteEvent(id: string) {
+    return this.request<{ 
+      message: string; 
+      deletedRecords: { tickets: number; payments: number; tiers: number };
+      organizer: string;
+    }>(`/admin/events/${id}/delete`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();
