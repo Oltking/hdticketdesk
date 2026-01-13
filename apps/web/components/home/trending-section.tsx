@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { TrendingUp, Calendar, MapPin, Flame, ArrowRight, Ticket } from 'lucide-react';
+import { TrendingUp, Calendar, MapPin, Flame, ArrowRight, Ticket, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
@@ -12,6 +12,9 @@ import type { Event } from '@/types';
 export function TrendingSection() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -26,6 +29,31 @@ export function TrendingSection() {
     };
     fetchEvents();
   }, []);
+
+  const checkScrollability = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener('resize', checkScrollability);
+    return () => window.removeEventListener('resize', checkScrollability);
+  }, [events]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 340; // Card width + gap
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+      setTimeout(checkScrollability, 300);
+    }
+  };
 
   if (!loading && events.length === 0) {
     return null;
@@ -48,23 +76,49 @@ export function TrendingSection() {
             </div>
           </div>
           
-          <Link href="/events?sort=trending">
-            <Button variant="ghost" className="group">
-              View All
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 mr-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-9 w-9"
+                onClick={() => scroll('left')}
+                disabled={!canScrollLeft}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-9 w-9"
+                onClick={() => scroll('right')}
+                disabled={!canScrollRight}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+            <Link href="/events?sort=trending">
+              <Button variant="ghost" className="group">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Trending Events Grid */}
+        {/* Trending Events Carousel */}
         {loading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="flex gap-6 overflow-hidden">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-80 rounded-2xl bg-card animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-80 h-[22rem] rounded-2xl bg-card animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div
+            ref={scrollRef}
+            onScroll={checkScrollability}
+            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+          >
             {events.map((event, index) => (
               <TrendingEventCard key={event.id} event={event} rank={index + 1} />
             ))}
@@ -87,11 +141,11 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
   return (
     <Link 
       href={`/events/${event.slug}`}
-      className="block group animate-in"
+      className="block group animate-in flex-shrink-0 w-80 snap-start"
       style={{ animationDelay: `${rank * 0.1}s` }}
     >
       <div className={cn(
-        "relative h-80 rounded-2xl overflow-hidden",
+        "relative h-[22rem] rounded-2xl overflow-hidden",
         "bg-card border shadow-sm",
         "transition-all duration-300",
         "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1"
@@ -108,7 +162,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         </div>
         
         {/* Image */}
-        <div className="h-44 overflow-hidden">
+        <div className="h-40 overflow-hidden">
           {event.coverImage ? (
             <img
               src={event.coverImage}
@@ -123,24 +177,24 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         </div>
         
         {/* Content */}
-        <div className="p-5">
-          <h3 className="font-display font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+        <div className="p-4 flex flex-col h-[calc(22rem-10rem)]">
+          <h3 className="font-display font-bold text-base mb-2 line-clamp-2 group-hover:text-primary transition-colors">
             {event.title}
           </h3>
           
-          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
+          <div className="flex flex-col gap-1 text-sm text-muted-foreground mb-2">
             <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              {formatDate(event.startDate, 'short')}
+              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{formatDate(event.startDate, 'short')}</span>
             </span>
             <span className="flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              {event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}
+              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
             </span>
           </div>
           
           {/* Progress bar */}
-          <div className="mb-3">
+          <div className="mb-2">
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-muted-foreground">{event.totalTicketsSold} sold</span>
               <span className={cn(
@@ -162,14 +216,14 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
           </div>
           
           {/* Price */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-auto">
             <div>
               <p className="text-xs text-muted-foreground">From</p>
-              <p className="font-display font-bold text-lg">
+              <p className="font-display font-bold text-base">
                 {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
-            <Button size="sm" className="rounded-full">
+            <Button size="sm" className="rounded-full text-sm">
               Get Tickets
             </Button>
           </div>

@@ -27,19 +27,19 @@ export class TicketsService {
     // Generate ticket number
     const ticketNumber = this.generateTicketNumber();
 
-    // Generate QR code - returns { code: string, url: string }
+    // Generate QR code - returns { code: string, url: string, hostedUrl: string }
     const qrResult = await this.qrService.generateQrCode(ticketNumber);
     // Store the actual code value (what gets encoded in the QR) in qrCode field for validation
-    // Store the data URL (base64 image) in qrCodeUrl for display/email
+    // Store the hosted URL (Cloudinary) in qrCodeUrl for display/email (email clients don't support data URLs)
     const qrCode = qrResult.code;
-    const qrCodeUrl = qrResult.url;
+    const qrCodeUrl = qrResult.hostedUrl; // Use hosted URL for email compatibility
 
     // Create ticket
     const ticket = await this.prisma.ticket.create({
       data: {
         ticketNumber,
         qrCode: qrCode,       // The actual scannable code value
-        qrCodeUrl: qrCodeUrl, // The base64 data URL image
+        qrCodeUrl: qrCodeUrl, // The hosted Cloudinary URL
         status: 'ACTIVE',
         eventId: data.eventId,
         tierId: data.tierId,
@@ -57,7 +57,7 @@ export class TicketsService {
       },
     });
 
-    // Send ticket email
+    // Send ticket email with hosted QR code URL (works in all email clients)
     await this.emailService.sendTicketEmail(data.buyerEmail, {
       ticketNumber: ticket.ticketNumber,
       eventTitle: ticket.event.title,
@@ -65,7 +65,7 @@ export class TicketsService {
       eventLocation: ticket.event.location || 'TBA',
       tierName: ticket.tier.name,
       buyerName: `${data.buyerFirstName || ''} ${data.buyerLastName || ''}`.trim() || 'Guest',
-      qrCodeUrl: ticket.qrCodeUrl || qrCodeUrl, // Use the data URL image for email
+      qrCodeUrl: qrCodeUrl, // Use the hosted Cloudinary URL for email
       isOnline: ticket.event.isOnline,
       onlineLink: ticket.event.onlineLink || undefined,
     });

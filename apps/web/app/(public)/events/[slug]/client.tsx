@@ -44,6 +44,15 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     }
   }, [slug, initialEvent]);
 
+  const refetchEvent = async () => {
+    try {
+      const data = await api.getEventBySlug(slug);
+      setEvent(data);
+    } catch (err) {
+      console.error('Failed to refetch event:', err);
+    }
+  };
+
   const handlePurchase = async (tierId: string) => {
     if (!isAuthenticated) {
       router.push(`/login?redirect=/events/${slug}`);
@@ -56,6 +65,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
       // Handle free tickets - no payment gateway needed
       if (response.isFree) {
         success(response.message || 'Free ticket claimed successfully!');
+        // Refetch event data to update ticket counts before redirecting
+        await refetchEvent();
         // Redirect to tickets page
         router.push('/tickets');
         return;

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { Radio, MapPin, Users, ArrowRight } from 'lucide-react';
+import { Radio, MapPin, Users, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api-client';
@@ -12,6 +12,9 @@ import type { Event } from '@/types';
 export function LiveNowSection() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -26,6 +29,31 @@ export function LiveNowSection() {
     };
     fetchEvents();
   }, []);
+
+  const checkScrollability = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollability();
+    window.addEventListener('resize', checkScrollability);
+    return () => window.removeEventListener('resize', checkScrollability);
+  }, [events]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 380; // Card width + gap
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+      setTimeout(checkScrollability, 300);
+    }
+  };
 
   // Don't render section if no live events
   if (!loading && events.length === 0) {
@@ -53,23 +81,49 @@ export function LiveNowSection() {
             </Badge>
           </div>
           
-          <Link href="/events?filter=live">
-            <Button variant="ghost" className="group">
-              View All
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 mr-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-9 w-9"
+                onClick={() => scroll('left')}
+                disabled={!canScrollLeft}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-9 w-9"
+                onClick={() => scroll('right')}
+                disabled={!canScrollRight}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+            <Link href="/events?filter=live">
+              <Button variant="ghost" className="group">
+                View All
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        {/* Live Events Grid */}
+        {/* Live Events Carousel */}
         {loading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="flex gap-6 overflow-hidden">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 rounded-2xl bg-muted animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-[356px] h-64 rounded-2xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div
+            ref={scrollRef}
+            onScroll={checkScrollability}
+            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+          >
             {events.map((event, index) => (
               <LiveEventCard key={event.id} event={event} index={index} />
             ))}
@@ -88,7 +142,7 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
   return (
     <Link 
       href={`/events/${event.slug}`}
-      className="block group animate-in"
+      className="block group animate-in flex-shrink-0 w-[356px] snap-start"
       style={{ animationDelay: `${index * 0.1}s` }}
     >
       <div className={cn(

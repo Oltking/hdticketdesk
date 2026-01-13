@@ -9,18 +9,20 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, CheckCircle, XCircle, Search } from 'lucide-react';
+import { Camera, CheckCircle, XCircle, Search, Loader2 } from 'lucide-react';
 
 export default function ScanPage() {
   const { slug } = useParams();
   const { isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [scanning, setScanning] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string; ticket?: any } | null>(null);
   const [recentScans, setRecentScans] = useState<any[]>([]);
   const [eventId, setEventId] = useState<string | null>(null);
   const scannerRef = useRef<any>(null);
+  const lastScannedRef = useRef<string | null>(null);
 
   // Fetch event to get the ID from slug
   useEffect(() => {
@@ -45,6 +47,8 @@ export default function ScanPage() {
 
   const startScanner = async () => {
     setScanning(true);
+    setLastResult(null);
+    lastScannedRef.current = null;
     try {
       const { Html5Qrcode } = await import('html5-qrcode');
       scannerRef.current = new Html5Qrcode('scanner');
@@ -52,6 +56,11 @@ export default function ScanPage() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         async (decodedText: string) => {
+          // Prevent duplicate scans of the same QR code while processing
+          if (isProcessing || lastScannedRef.current === decodedText) {
+            return;
+          }
+          lastScannedRef.current = decodedText;
           await handleScan(decodedText);
         },
         () => {}
@@ -68,6 +77,12 @@ export default function ScanPage() {
       scannerRef.current = null;
     }
     setScanning(false);
+    lastScannedRef.current = null;
+  };
+
+  const resetForNextScan = () => {
+    setLastResult(null);
+    lastScannedRef.current = null;
   };
 
   const handleScan = async (code: string) => {
@@ -75,6 +90,10 @@ export default function ScanPage() {
       error('Event not loaded yet');
       return;
     }
+    
+    // Set processing state to prevent multiple scans
+    setIsProcessing(true);
+    
     try {
       // Use scanQr which validates AND checks in the ticket in one call
       const result = await api.scanQr({ qrCode: code, eventId });
@@ -93,6 +112,8 @@ export default function ScanPage() {
     } catch (err: any) {
       setLastResult({ success: false, message: err.message || 'Invalid ticket' });
       error(err.message || 'Invalid ticket');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -133,16 +154,35 @@ export default function ScanPage() {
               </CardContent>
             </Card>
 
-            {lastResult && (
+            {isProcessing && (
+              <Card className="border-primary">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                    <div>
+                      <p className="font-bold text-lg">Processing...</p>
+                      <p className="text-text-muted">Validating ticket</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {lastResult && !isProcessing && (
               <Card className={lastResult.success ? 'border-success' : 'border-danger'}>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     {lastResult.success ? <CheckCircle className="h-12 w-12 text-success" /> : <XCircle className="h-12 w-12 text-danger" />}
-                    <div>
+                    <div className="flex-1">
                       <p className="font-bold text-lg">{lastResult.message}</p>
                       {lastResult.ticket && <p className="text-text-muted">{lastResult.ticket.buyerFirstName} {lastResult.ticket.buyerLastName} - {lastResult.ticket.tier?.name}</p>}
                     </div>
                   </div>
+                  {scanning && (
+                    <Button onClick={resetForNextScan} className="w-full mt-4" variant="outline">
+                      Scan Next Ticket
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}

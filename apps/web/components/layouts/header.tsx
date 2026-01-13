@@ -21,13 +21,15 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
-        <Logo href="/" size="md" showText className="hidden sm:flex" />
-        <Logo href="/" size="md" showText={false} className="sm:hidden" />
+      <div className="container flex h-16 items-center">
+        {/* Logo - Far Left */}
+        <div className="flex items-center">
+          <Logo href="/" size="md" showText className="hidden sm:flex" />
+          <Logo href="/" size="md" showText={false} className="sm:hidden" />
+        </div>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        {/* Desktop Nav - After Logo */}
+        <nav className="hidden md:flex items-center gap-6 ml-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -42,7 +44,10 @@ export function Header() {
           ))}
         </nav>
 
-        {/* Desktop Auth */}
+        {/* Spacer to push auth to the right */}
+        <div className="flex-1" />
+
+        {/* Desktop Auth - Far Right */}
         <div className="hidden md:flex items-center gap-4">
           {isAuthenticated ? (
             <>
@@ -81,8 +86,8 @@ export function Header() {
           )}
         </div>
 
-        {/* Mobile Menu Button */}
-        <button className="md:hidden p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        {/* Mobile Menu Button - Far Right on Mobile */}
+        <button className="md:hidden p-2 ml-auto" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>

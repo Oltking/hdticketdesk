@@ -108,4 +108,25 @@ export class MediaService {
       return null;
     }
   }
+
+  /**
+   * Upload a base64 data URL image to Cloudinary
+   * Used for QR codes that need to be emailed (email clients don't support data URLs)
+   */
+  async uploadBase64Image(
+    dataUrl: string,
+    folder: string = 'hdticketdesk/qrcodes',
+  ): Promise<string> {
+    try {
+      const result = await cloudinary.uploader.upload(dataUrl, {
+        folder,
+        resource_type: 'image',
+      });
+      return result.secure_url;
+    } catch (error: any) {
+      console.error('Failed to upload base64 image:', error.message);
+      // Return the original data URL as fallback (won't work in emails but better than nothing)
+      return dataUrl;
+    }
+  }
 }

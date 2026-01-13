@@ -7,7 +7,8 @@ import { generateEventStructuredData } from '@/lib/utils';
 async function getEvent(slug: string) {
   try {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/events/${slug}`, {
-      next: { revalidate: 60 },
+      // Short revalidation for ticket availability to update quickly
+      next: { revalidate: 10 },
     });
     if (!res.ok) return null;
     const json = await res.json();

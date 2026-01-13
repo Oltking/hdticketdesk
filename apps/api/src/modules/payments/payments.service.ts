@@ -53,6 +53,35 @@ export class PaymentsService {
       throw new BadRequestException('Tickets sold out');
     }
 
+    // Check if user is an organizer - organizers cannot buy tickets
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (user?.role === 'ORGANIZER') {
+      throw new BadRequestException(
+        'Organizer accounts cannot purchase tickets. Please create or login with an attendee account to buy tickets.',
+      );
+    }
+
+    // Check if user already has a ticket for this event (any tier)
+    const existingTicket = await this.prisma.ticket.findFirst({
+      where: {
+        eventId,
+        buyerId: userId,
+        status: {
+          in: ['ACTIVE', 'CHECKED_IN'], // Only count valid tickets, not cancelled/refunded
+        },
+      },
+    });
+
+    if (existingTicket) {
+      throw new BadRequestException(
+        'You already have a ticket for this event. Each user can only purchase one ticket per event.',
+      );
+    }
+
     // Calculate amount
     const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
 

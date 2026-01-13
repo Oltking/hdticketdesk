@@ -11,7 +11,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye } from 'lucide-react';
+import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye, Info, X } from 'lucide-react';
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
@@ -24,6 +24,20 @@ export default function DashboardPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showPublishConfirm, setShowPublishConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showAttendTip, setShowAttendTip] = useState(true);
+
+  // Check if tip was previously dismissed
+  useEffect(() => {
+    const tipDismissed = localStorage.getItem('organizer-attend-tip-dismissed');
+    if (tipDismissed === 'true') {
+      setShowAttendTip(false);
+    }
+  }, []);
+
+  const dismissAttendTip = () => {
+    setShowAttendTip(false);
+    localStorage.setItem('organizer-attend-tip-dismissed', 'true');
+  };
 
   const fetchData = async () => {
     try {
@@ -92,7 +106,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-text-muted">Welcome back, {user?.firstName || 'Organizer'}!</p>
@@ -100,9 +114,26 @@ export default function DashboardPage() {
           <Link href="/events/create"><Button className="bg-primary text-white"><Plus className="h-4 w-4 mr-2" />Create Event</Button></Link>
         </div>
 
+        {/* Tip for organizers about buying tickets */}
+        {showAttendTip && (
+          <div className="flex items-start gap-3 p-3 mb-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-sm">
+            <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+            <p className="text-blue-700 dark:text-blue-300 flex-1">
+              <span className="font-medium">Tip:</span> Want to attend events? Organizer accounts cannot purchase tickets. Please create a separate attendee account to buy or claim tickets for events.
+            </p>
+            <button
+              onClick={dismissAttendTip}
+              className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              aria-label="Dismiss tip"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard icon={<Calendar className="h-6 w-6" />} label="Total Events" value={events.length} loading={loading} />
-          <StatCard icon={<Image src="/icon.svg" alt="Ticket" width={24} height={24} className="object-contain" />} label="Tickets Sold" value={totalSold} loading={loading} />
+          <StatCard icon={<QrCode className="h-6 w-6" />} label="Tickets Sold" value={totalSold} loading={loading} />
           <StatCard icon={<TrendingUp className="h-6 w-6" />} label="Total Revenue" value={formatCurrency(totalRevenue)} loading={loading} />
           <StatCard icon={<DollarSign className="h-6 w-6" />} label="Available Balance" value={formatCurrency(balance.available)} loading={loading} />
         </div>
