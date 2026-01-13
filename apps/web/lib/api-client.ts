@@ -319,6 +319,10 @@ class ApiClient {
       authorizationUrl?: string; 
       reference: string;
       paymentId: string;
+      // Price breakdown (for service fee display)
+      tierPrice?: number;
+      serviceFee?: number;
+      totalAmount?: number;
       // For free tickets
       isFree?: boolean;
       success?: boolean;

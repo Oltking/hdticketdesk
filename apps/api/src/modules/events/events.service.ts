@@ -656,14 +656,13 @@ export class EventsService {
   }
 
   async remove(id: string, organizerId: string) {
+    // Fetch event with ALL related tickets and payments (not just active ones)
     const event = await this.prisma.event.findUnique({ 
       where: { id },
       include: {
-        tickets: {
-          where: {
-            status: { in: ['ACTIVE', 'CHECKED_IN'] },
-          },
-        },
+        tickets: true,  // Get ALL tickets regardless of status
+        payments: true, // Get ALL payments regardless of status
+        tiers: true,    // Get tiers for deletion
       },
     });
 
@@ -682,14 +681,26 @@ export class EventsService {
       );
     }
 
-    // Extra safety check - don't delete if there are any tickets
+    // Check for ANY tickets (regardless of status) - preserves financial records integrity
     if (event.tickets.length > 0) {
       throw new ForbiddenException(
-        'Cannot delete event with ticket sales. Please contact support at support@hdticketdesk.com for assistance.'
+        'Cannot delete event with ticket records. Please contact support at support@hdticketdesk.com for assistance.'
       );
     }
 
-    await this.prisma.event.delete({ where: { id } });
+    // Check for ANY payments (regardless of status) - preserves financial records integrity
+    if (event.payments.length > 0) {
+      throw new ForbiddenException(
+        'Cannot delete event with payment records. Please contact support at support@hdticketdesk.com for assistance.'
+      );
+    }
+
+    // Use transaction to safely delete event and related tiers
+    // TicketTiers have onDelete: Cascade, so they'll be deleted automatically
+    await this.prisma.$transaction(async (tx) => {
+      // Delete the event (tiers cascade automatically due to schema)
+      await tx.event.delete({ where: { id } });
+    });
 
     return { message: 'Event deleted successfully' };
   }
