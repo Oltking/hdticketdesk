@@ -331,6 +331,11 @@ export class AuthService {
       return null;
     }
 
+    // Social-only accounts don't have a password
+    if (!user.password) {
+      return null;
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {

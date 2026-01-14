@@ -7,7 +7,8 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import * as cookieParser from 'cookie-parser';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
