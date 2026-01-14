@@ -1,4 +1,4 @@
-import { Module, Logger } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -12,9 +12,8 @@ import { EmailModule } from '../emails/email.module';
 let GoogleOAuthStrategy: any = null;
 try {
   GoogleOAuthStrategy = require('./strategies/google.strategy').GoogleOAuthStrategy;
-  console.log('[AuthModule] GoogleOAuthStrategy loaded successfully');
 } catch (error) {
-  console.error('[AuthModule] Failed to load GoogleOAuthStrategy:', error.message);
+  console.warn('[AuthModule] Google OAuth disabled:', error.message);
 }
 
 // Build providers array - only include Google if it loaded
@@ -42,11 +41,4 @@ if (GoogleOAuthStrategy) {
   providers: providers,
   exports: [AuthService, JwtModule],
 })
-export class AuthModule {
-  private readonly logger = new Logger(AuthModule.name);
-
-  constructor() {
-    this.logger.log('AuthModule initialized');
-    this.logger.log(`Google OAuth: ${GoogleOAuthStrategy ? 'ENABLED' : 'DISABLED'}`);
-  }
-}
+export class AuthModule {}

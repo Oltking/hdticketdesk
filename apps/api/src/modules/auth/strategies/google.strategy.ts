@@ -23,21 +23,13 @@ export class GoogleOAuthStrategy extends PassportStrategy(GoogleStrategy, 'googl
     const clientSecret = configService.get<string>('GOOGLE_CLIENT_SECRET');
     const callbackURL = configService.get<string>('GOOGLE_CALLBACK_URL');
 
-    // Log configuration for debugging
-    console.log('🔍 Google OAuth Strategy Initialization:');
-    console.log('- Client ID:', clientID ? `${clientID.substring(0, 10)}...` : 'MISSING');
-    console.log('- Client Secret:', clientSecret ? 'SET' : 'MISSING');
-    console.log('- Callback URL:', callbackURL || 'MISSING');
-
     if (!clientID || !clientSecret || !callbackURL) {
       const missingVars = [];
       if (!clientID) missingVars.push('GOOGLE_CLIENT_ID');
       if (!clientSecret) missingVars.push('GOOGLE_CLIENT_SECRET');
       if (!callbackURL) missingVars.push('GOOGLE_CALLBACK_URL');
       
-      const errorMsg = `Missing required Google OAuth environment variables: ${missingVars.join(', ')}`;
-      console.error('❌ Google OAuth Strategy Failed:', errorMsg);
-      throw new Error(errorMsg);
+      throw new Error(`Missing Google OAuth config: ${missingVars.join(', ')}`);
     }
 
     super({
@@ -46,8 +38,6 @@ export class GoogleOAuthStrategy extends PassportStrategy(GoogleStrategy, 'googl
       callbackURL,
       scope: ['email', 'profile'],
     });
-
-    console.log('✅ Google OAuth Strategy initialized successfully');
   }
 
   async validate(

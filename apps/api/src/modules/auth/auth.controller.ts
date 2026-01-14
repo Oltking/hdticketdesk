@@ -227,40 +227,31 @@ export class AuthController {
   }
 
   // ==================== GOOGLE OAUTH ====================
-  // Note: More specific routes (/google/callback, /google/test) must come BEFORE /google
+  // Note: More specific routes (/google/callback) must come BEFORE /google
   
-  @Get('google/test')
-  @ApiOperation({ summary: 'Test Google OAuth routes are registered' })
-  async googleTest() {
-    this.logger.log('Google test endpoint hit');
-    return { 
-      message: 'Google OAuth routes are registered',
-      callbackUrl: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
-      frontendUrl: this.configService.get<string>('FRONTEND_URL'),
-    };
-  }
-
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiExcludeEndpoint() // Hide from Swagger as it's a callback
   async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
-    this.logger.log('Google OAuth callback received');
-    
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    // Get intended role from cookie (set during /google initiation)
+    const intendedRole = req.cookies?.oauth_intended_role || null;
+    
+    // Clear the role cookie
+    res.clearCookie('oauth_intended_role');
 
     try {
       const googleUser = req.user as any;
       
       if (!googleUser) {
-        this.logger.error('No Google user data received');
+        this.logger.error('Google OAuth: No user data received');
         return res.redirect(`${frontendUrl}/login?error=no_user_data`);
       }
-
-      this.logger.log(`Google user received: ${googleUser.email}`);
       
-      const result = await this.authService.googleLogin(googleUser, ip, userAgent, null);
+      const result = await this.authService.googleLogin(googleUser, ip, userAgent, intendedRole);
 
       // Check if this is a new organizer who needs to complete profile
       if (result.needsOrganizerSetup) {
@@ -281,7 +272,7 @@ export class AuthController {
         userId: result.user.id,
       });
 
-      this.logger.log(`Google OAuth successful for: ${result.user.email}`);
+      this.logger.log(`Google OAuth successful: ${result.user.email}`);
       return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
     } catch (error) {
       this.logger.error('Google OAuth callback error:', error);
@@ -290,12 +281,27 @@ export class AuthController {
   }
 
   @Get('google')
-  @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
-  async googleAuth() {
-    // GoogleAuthGuard handles the redirect to Google automatically
-    // This method body is never reached
+  async googleAuth(@Req() req: Request, @Res() res: Response) {
+    // Store intended role in a secure cookie before redirecting to Google
+    const role = req.query.role as string;
+    if (role === 'organizer') {
+      res.cookie('oauth_intended_role', 'organizer', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 10 * 60 * 1000, // 10 minutes
+        sameSite: 'lax',
+      });
+    }
+
+    // Manually redirect to Google OAuth (since we need to set cookie first)
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const callbackUrl = this.configService.get<string>('GOOGLE_CALLBACK_URL') || '';
+    const scope = encodeURIComponent('email profile');
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
+
+    return res.redirect(googleAuthUrl);
   }
 
   @Post('complete-organizer-setup')
