@@ -132,6 +132,13 @@ async function bootstrap() {
 
   await app.listen(port);
 
+  // Debug Google OAuth environment variables
+  console.log('🔍 GOOGLE OAUTH ENV CHECK:');
+  console.log('- GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'MISSING');
+  console.log('- GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING');
+  console.log('- GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL || 'MISSING');
+  console.log('- FRONTEND_URL:', process.env.FRONTEND_URL || 'MISSING');
+
   console.log('');
   console.log('🎫 ================================');
   console.log('   HD TICKET DESK API');
