@@ -36,7 +36,8 @@ export class RefundsController {
     @Request() req: AuthenticatedRequest,
     @Body() body: { ticketId: string; reason?: string },
   ) {
-    return this.refundsService.requestRefund(body.ticketId, req.user.id, body.reason);
+    const userId = (req.user as any)?.sub || (req.user as any)?.id;
+    return this.refundsService.requestRefund(body.ticketId, userId, body.reason);
   }
 
   /**
@@ -74,7 +75,8 @@ export class RefundsController {
    */
   @Get('my')
   async getMyRefunds(@Request() req: AuthenticatedRequest) {
-    return this.refundsService.getRefundsByUser(req.user.id);
+    const userId = (req.user as any)?.sub || (req.user as any)?.id;
+    return this.refundsService.getRefundsByUser(userId);
   }
 
   /**

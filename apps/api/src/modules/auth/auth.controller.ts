@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -299,7 +300,10 @@ export class AuthController {
     @Req() req: Request,
     @Body() body: { organizationName: string },
   ) {
-    const userId = (req.user as any).id;
+    const userId = (req.user as any)?.sub || (req.user as any)?.id;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token');
+    }
     return this.authService.completeOrganizerSetup(userId, body.organizationName);
   }
 }
