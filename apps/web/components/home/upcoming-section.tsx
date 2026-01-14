@@ -60,19 +60,25 @@ export function UpcomingSection() {
   }
 
   return (
-    <section className="py-16">
-      <div className="container">
+    <section className="py-20 relative overflow-hidden bg-zinc-900">
+      {/* Charcoal black rough surface background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900" />
+      <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
+      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+      <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+      
+      <div className="container relative z-10">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary/10">
-              <CalendarDays className="w-6 h-6 text-primary" />
+            <div className="p-2 rounded-xl bg-white/10">
+              <CalendarDays className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl md:text-3xl font-display font-bold">
+              <h2 className="text-2xl md:text-3xl font-display font-bold text-white">
                 Upcoming Events
               </h2>
-              <p className="text-sm text-muted-foreground">Don&apos;t miss out</p>
+              <p className="text-sm text-zinc-400">Don&apos;t miss out</p>
             </div>
           </div>
           
@@ -81,7 +87,7 @@ export function UpcomingSection() {
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-full h-9 w-9"
+                className="rounded-full h-9 w-9 border-zinc-600 text-white hover:bg-white/10 hover:text-white disabled:opacity-30"
                 onClick={() => scroll('left')}
                 disabled={!canScrollLeft}
               >
@@ -90,7 +96,7 @@ export function UpcomingSection() {
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-full h-9 w-9"
+                className="rounded-full h-9 w-9 border-zinc-600 text-white hover:bg-white/10 hover:text-white disabled:opacity-30"
                 onClick={() => scroll('right')}
                 disabled={!canScrollRight}
               >
@@ -98,7 +104,7 @@ export function UpcomingSection() {
               </Button>
             </div>
             <Link href="/events?sort=date">
-              <Button variant="ghost" className="group">
+              <Button variant="ghost" className="group text-white hover:text-white hover:bg-white/10">
                 View All
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>

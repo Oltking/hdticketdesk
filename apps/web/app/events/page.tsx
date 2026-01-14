@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
+import { Search, Calendar, MapPin, Ticket, Sparkles, Filter, ArrowRight, Clock, Users } from 'lucide-react';
 
 type SearchParams = {
   page?: string | string[];
@@ -75,178 +76,209 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
   return (
     <>
       <Header />
-      <main className="flex-1 container py-8">
-        {/* Title and Search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold">Events</h1>
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="relative py-16 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-purple-500/5" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
           
-          {/* Search Form */}
-          <form action="/events" method="GET" className="flex items-center gap-2 w-full md:w-auto">
-            {/* Preserve filter and sort when searching */}
-            {filter && <input type="hidden" name="filter" value={filter} />}
-            {sort && <input type="hidden" name="sort" value={sort} />}
-            <div className="relative flex-1 md:w-72">
-              <Input 
-                type="search" 
-                name="search" 
-                placeholder="Search events..." 
-                defaultValue={searchQuery || ''}
-                className="pr-10"
-              />
-              <button 
-                type="submit" 
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <path d="m21 21-4.3-4.3"></path>
-                </svg>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Filters and Sort */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          {/* Filter Badges */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={buildUrl({ sort, search: searchQuery })}>
-              <Badge 
-                variant={!filter ? "default" : "outline"} 
-                className={cn(
-                  "cursor-pointer hover:bg-primary/90 transition-colors",
-                  !filter && "bg-primary text-white"
-                )}
-              >
-                All Events
-              </Badge>
-            </Link>
-            <Link href={buildUrl({ filter: 'free', sort, search: searchQuery })}>
-              <Badge 
-                variant={filter === 'free' ? "default" : "outline"} 
-                className={cn(
-                  "cursor-pointer hover:bg-green-600/90 transition-colors",
-                  filter === 'free' ? "bg-green-600 text-white" : "border-green-600 text-green-600 hover:bg-green-50"
-                )}
-              >
-                🎉 Free Events
-              </Badge>
-            </Link>
-            <Link href={buildUrl({ filter: 'upcoming', sort, search: searchQuery })}>
-              <Badge 
-                variant={filter === 'upcoming' ? "default" : "outline"} 
-                className={cn(
-                  "cursor-pointer hover:bg-primary/90 transition-colors",
-                  filter === 'upcoming' && "bg-primary text-white"
-                )}
-              >
-                Upcoming
-              </Badge>
-            </Link>
-            <Link href={buildUrl({ filter: 'live', sort, search: searchQuery })}>
-              <Badge 
-                variant={filter === 'live' ? "default" : "outline"} 
-                className={cn(
-                  "cursor-pointer hover:bg-red-600/90 transition-colors",
-                  filter === 'live' ? "bg-red-600 text-white" : "border-red-600 text-red-600 hover:bg-red-50"
-                )}
-              >
-                🔴 Live Now
-              </Badge>
-            </Link>
-          </div>
-
-          {/* Sort Options */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <div className="flex items-center gap-1">
-              <Link href={buildUrl({ filter, search: searchQuery })}>
-                <Badge 
-                  variant={!sort ? "default" : "outline"} 
-                  className={cn(
-                    "cursor-pointer transition-colors text-xs",
-                    !sort ? "bg-primary text-white" : "hover:bg-muted"
-                  )}
-                >
-                  Date
-                </Badge>
-              </Link>
-              <Link href={buildUrl({ filter, sort: 'newest', search: searchQuery })}>
-                <Badge 
-                  variant={sort === 'newest' ? "default" : "outline"} 
-                  className={cn(
-                    "cursor-pointer transition-colors text-xs",
-                    sort === 'newest' ? "bg-primary text-white" : "hover:bg-muted"
-                  )}
-                >
-                  Newest
-                </Badge>
-              </Link>
-              <Link href={buildUrl({ filter, sort: 'trending', search: searchQuery })}>
-                <Badge 
-                  variant={sort === 'trending' ? "default" : "outline"} 
-                  className={cn(
-                    "cursor-pointer transition-colors text-xs",
-                    sort === 'trending' ? "bg-primary text-white" : "hover:bg-muted"
-                  )}
-                >
-                  🔥 Trending
-                </Badge>
-              </Link>
+          <div className="container relative z-10">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-4">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">Discover Amazing Events</span>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
+                Find Your Next <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500">Experience</span>
+              </h1>
+              <p className="text-lg text-muted-foreground mb-8">
+                Explore concerts, workshops, conferences, and more. Your next unforgettable moment is just a click away.
+              </p>
+              
+              {/* Search Form */}
+              <form action="/events" method="GET">
+                {filter && <input type="hidden" name="filter" value={filter} />}
+                {sort && <input type="hidden" name="sort" value={sort} />}
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-20 group-hover:opacity-30 transition duration-500" />
+                  <div className="relative flex items-center bg-card rounded-xl border shadow-lg">
+                    <Search className="w-5 h-5 text-muted-foreground ml-4" />
+                    <input
+                      type="text"
+                      name="search"
+                      defaultValue={searchQuery || ''}
+                      placeholder="Search events, artists, venues..."
+                      className="flex-1 px-4 py-4 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                    />
+                    <Button type="submit" className="m-2 rounded-lg">
+                      Search
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Active Search Query Display */}
-        {searchQuery && (
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">
-              Showing results for: <strong className="text-foreground">"{searchQuery}"</strong>
-            </span>
-            <Link href={buildUrl({ filter, sort })} className="text-sm text-primary hover:underline">
-              Clear search
-            </Link>
+        {/* Filters Section */}
+        <section className="border-y bg-muted/30">
+          <div className="container py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {/* Filter Badges */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground mr-2 hidden sm:inline">
+                  <Filter className="w-4 h-4 inline mr-1" />
+                  Filter:
+                </span>
+                <Link href={buildUrl({ sort, search: searchQuery })}>
+                  <Badge 
+                    variant={!filter ? "default" : "outline"} 
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      !filter ? "bg-primary text-white shadow-md" : "hover:bg-muted"
+                    )}
+                  >
+                    All Events
+                  </Badge>
+                </Link>
+                <Link href={buildUrl({ filter: 'free', sort, search: searchQuery })}>
+                  <Badge 
+                    variant={filter === 'free' ? "default" : "outline"} 
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      filter === 'free' ? "bg-green-500 text-white shadow-md" : "hover:bg-green-50 dark:hover:bg-green-950/30 border-green-500/50 text-green-600 dark:text-green-400"
+                    )}
+                  >
+                    🎉 Free
+                  </Badge>
+                </Link>
+                <Link href={buildUrl({ filter: 'upcoming', sort, search: searchQuery })}>
+                  <Badge 
+                    variant={filter === 'upcoming' ? "default" : "outline"} 
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      filter === 'upcoming' ? "bg-blue-500 text-white shadow-md" : "hover:bg-blue-50 dark:hover:bg-blue-950/30 border-blue-500/50 text-blue-600 dark:text-blue-400"
+                    )}
+                  >
+                    <Calendar className="w-3 h-3 mr-1" />
+                    Upcoming
+                  </Badge>
+                </Link>
+                <Link href={buildUrl({ filter: 'live', sort, search: searchQuery })}>
+                  <Badge 
+                    variant={filter === 'live' ? "default" : "outline"} 
+                    className={cn(
+                      "cursor-pointer transition-all duration-200",
+                      filter === 'live' ? "bg-red-500 text-white shadow-md animate-pulse" : "hover:bg-red-50 dark:hover:bg-red-950/30 border-red-500/50 text-red-600 dark:text-red-400"
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-current mr-1.5 animate-pulse" />
+                    Live Now
+                  </Badge>
+                </Link>
+              </div>
+
+              {/* Sort Options */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Sort:</span>
+                <div className="flex items-center gap-1">
+                  <Link href={buildUrl({ filter, search: searchQuery })}>
+                    <Badge 
+                      variant={!sort ? "default" : "outline"} 
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 text-xs",
+                        !sort ? "bg-primary text-white" : "hover:bg-muted"
+                      )}
+                    >
+                      Date
+                    </Badge>
+                  </Link>
+                  <Link href={buildUrl({ filter, sort: 'newest', search: searchQuery })}>
+                    <Badge 
+                      variant={sort === 'newest' ? "default" : "outline"} 
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 text-xs",
+                        sort === 'newest' ? "bg-primary text-white" : "hover:bg-muted"
+                      )}
+                    >
+                      Newest
+                    </Badge>
+                  </Link>
+                  <Link href={buildUrl({ filter, sort: 'trending', search: searchQuery })}>
+                    <Badge 
+                      variant={sort === 'trending' ? "default" : "outline"} 
+                      className={cn(
+                        "cursor-pointer transition-all duration-200 text-xs",
+                        sort === 'trending' ? "bg-orange-500 text-white" : "hover:bg-orange-50 dark:hover:bg-orange-950/30 border-orange-500/50 text-orange-600 dark:text-orange-400"
+                      )}
+                    >
+                      🔥 Trending
+                    </Badge>
+                  </Link>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+        </section>
+
+        {/* Events Grid Section */}
+        <section className="py-12">
+          <div className="container">
+            {/* Active Search Query Display */}
+            {searchQuery && (
+              <div className="flex items-center gap-2 mb-6 p-4 bg-muted/50 rounded-lg">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Showing results for: <strong className="text-foreground">"{searchQuery}"</strong>
+                </span>
+                <Link href={buildUrl({ filter, sort })} className="text-sm text-primary hover:underline ml-auto">
+                  Clear search
+                </Link>
+              </div>
+            )}
 
       {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20">
-          <div className="relative w-24 h-24 mb-6 opacity-20">
-            <Image
-              src="/icon.svg"
-              alt="hdticketdesk"
-              fill
-              className="object-contain"
-            />
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/10 to-purple-500/10 flex items-center justify-center mb-6">
+            <Ticket className="w-10 h-10 text-primary/50" />
           </div>
-          <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
-          <h2 className="text-xl font-semibold mb-2 text-foreground">
+          <h2 className="text-2xl font-display font-bold mb-2 text-foreground">
             {searchQuery ? `No events found for "${searchQuery}"` :
              filter === 'free' ? 'No free events found' : 
              filter === 'live' ? 'No live events right now' :
              filter === 'upcoming' ? 'No upcoming events found' :
              'No events found'}
           </h2>
-          <p className="text-muted-foreground mb-6 text-center max-w-sm">
+          <p className="text-muted-foreground mb-8 text-center max-w-md">
             {searchQuery ? 'Try a different search term or browse all events' :
              filter === 'free' ? 'Check back soon for free events or browse all events' : 
              filter === 'live' ? 'No events are live at the moment. Check upcoming events!' :
              filter === 'upcoming' ? 'No upcoming events scheduled. Check back later!' :
              'Check back soon for upcoming events or explore other categories'}
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 justify-center">
             {(filter || searchQuery) && (
               <Link href="/events">
-                <Button variant="outline" size="lg">View All Events</Button>
+                <Button variant="outline" size="lg" className="rounded-full">View All Events</Button>
               </Link>
             )}
             <Link href="/">
-              <Button size="lg">Back to Home</Button>
+              <Button size="lg" className="rounded-full">Back to Home</Button>
             </Link>
           </div>
         </div>
       ) : (
         <>
+          {/* Results count */}
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-sm text-muted-foreground">
+              Showing <span className="font-medium text-foreground">{events.length}</span> events
+              {total > 0 && <span> of {total}</span>}
+            </p>
+          </div>
+
+          {/* Events Grid */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => {
               // Check if event has any free tickets
@@ -256,52 +288,109 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                 ? Math.min(...event.tiers.map((t: any) => Number(t.price)))
                 : null;
               
+              // Format date nicely
+              const eventDate = new Date(event.startDate);
+              const dateStr = eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              const timeStr = eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+              
               return (
-                <Link key={event.id} href={`/events/${event.slug}`} className="block group rounded-lg overflow-hidden border border-border hover:shadow-md transition-shadow">
-                  <div className="h-44 w-full bg-gray-100 relative">
+                <Link 
+                  key={event.id} 
+                  href={`/events/${event.slug}`} 
+                  className="group relative bg-card rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
+                >
+                  {/* Image */}
+                  <div className="h-48 w-full bg-muted relative overflow-hidden">
                     {event.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={event.coverImage} alt={event.title} className="object-cover w-full h-full" />
+                      <img 
+                        src={event.coverImage} 
+                        alt={event.title} 
+                        className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110" 
+                      />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-text-muted">No Image</div>
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-purple-500/5">
+                        <Ticket className="w-12 h-12 text-muted-foreground/30" />
+                      </div>
                     )}
+                    
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    
                     {/* Price/Free Badge */}
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute top-3 right-3">
                       {hasFreeTickets ? (
-                        <Badge className="bg-green-500 text-white">FREE</Badge>
+                        <Badge className="bg-green-500 text-white shadow-lg">FREE</Badge>
                       ) : lowestPrice !== null && (
-                        <Badge variant="secondary" className="bg-white/90 text-foreground">
+                        <Badge className="bg-white/95 text-foreground shadow-lg backdrop-blur-sm">
                           From ₦{lowestPrice.toLocaleString()}
                         </Badge>
                       )}
                     </div>
+
+                    {/* Date badge at bottom of image */}
+                    <div className="absolute bottom-3 left-3">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/50 backdrop-blur-sm rounded-lg text-white text-xs">
+                        <Calendar className="w-3 h-3" />
+                        {dateStr} • {timeStr}
+                      </div>
+                    </div>
                   </div>
+                  
+                  {/* Content */}
                   <div className="p-4">
-                    <h3 className="font-semibold">{event.title}</h3>
-                    <p className="text-sm text-text-muted mt-1">{event.location || (event.isOnline ? 'Online' : '')}</p>
-                    <p className="text-sm text-muted mt-2">Starts: {new Date(event.startDate).toLocaleString()}</p>
+                    <h3 className="font-display font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                      {event.title}
+                    </h3>
+                    
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">
+                        {event.location || (event.isOnline ? '🌐 Online Event' : 'Location TBA')}
+                      </span>
+                    </div>
+
+                    {/* Tickets sold indicator */}
+                    {event.totalTicketsSold > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3 pt-3 border-t">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{event.totalTicketsSold} attending</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Hover arrow */}
+                  <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowRight className="w-4 h-4 text-primary" />
                   </div>
                 </Link>
               );
             })}
           </div>
 
-          <div className="flex items-center justify-between mt-6">
-            <div className="text-sm text-muted-foreground">
-              Page {page} {total ? `of ${Math.ceil(total / 12)}` : ''} 
-              {total > 0 && <span className="ml-2">({total} events)</span>}
-            </div>
+          {/* Pagination */}
+          <div className="flex items-center justify-between mt-10 pt-6 border-t">
+            <p className="text-sm text-muted-foreground">
+              Page <span className="font-medium">{page}</span>
+              {total > 0 && <span> of {Math.ceil(total / 12)}</span>}
+            </p>
             <div className="flex items-center gap-2">
               <Link href={buildUrl({ filter, sort, search: searchQuery, page: Math.max(1, page - 1) })}>
-                <Button disabled={page <= 1}>Previous</Button>
+                <Button variant="outline" disabled={page <= 1} className="rounded-full">
+                  Previous
+                </Button>
               </Link>
               <Link href={buildUrl({ filter, sort, search: searchQuery, page: page + 1 })}>
-                <Button disabled={events.length === 0 || page >= Math.ceil(total / 12)}>Next</Button>
+                <Button disabled={events.length === 0 || page >= Math.ceil(total / 12)} className="rounded-full">
+                  Next
+                </Button>
               </Link>
             </div>
           </div>
         </>
       )}
+          </div>
+        </section>
       </main>
       <Footer />
     </>

@@ -60,8 +60,14 @@ export function FeaturedSection() {
   }
 
   return (
-    <section className="py-16 bg-gradient-to-b from-muted/30 to-transparent">
-      <div className="container">
+    <section className="py-20 relative overflow-hidden">
+      {/* Premium golden gradient background - darker version */}
+      <div className="absolute inset-0 bg-gradient-to-br from-yellow-100 via-amber-50 to-orange-100 dark:from-yellow-950/40 dark:via-amber-950/30 dark:to-orange-950/30" />
+      <div className="absolute top-0 left-0 w-80 h-80 bg-yellow-500/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 right-0 w-80 h-80 bg-amber-500/20 rounded-full blur-3xl" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/15 rounded-full blur-3xl" />
+      
+      <div className="container relative z-10">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
