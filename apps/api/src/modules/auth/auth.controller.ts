@@ -227,6 +227,7 @@ export class AuthController {
 
   // ==================== GOOGLE OAUTH ====================
   @Get('google')
+  @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
   async googleAuth(@Req() req: Request, @Res() res: Response) {
@@ -240,14 +241,7 @@ export class AuthController {
         sameSite: 'lax',
       });
     }
-
-    // Manually redirect to Google OAuth
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const callbackUrl = this.configService.get<string>('GOOGLE_CALLBACK_URL') || 'http://localhost:3001/auth/google/callback';
-    const scope = encodeURIComponent('email profile');
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
-
-    return res.redirect(googleAuthUrl);
+    // GoogleAuthGuard will handle the redirect to Google
   }
 
   @Get('google/callback')

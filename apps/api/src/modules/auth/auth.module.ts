@@ -6,7 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
-import { GoogleStrategy } from './strategies/google.strategy';
+import { GoogleOAuthStrategy } from './strategies/google.strategy';
 import { EmailModule } from '../emails/email.module';
 
 @Module({
@@ -25,7 +25,7 @@ import { EmailModule } from '../emails/email.module';
     EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, LocalStrategy, GoogleOAuthStrategy],
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy, VerifyCallback, Profile } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 export interface GoogleUser {
   googleId: string;
@@ -13,14 +14,14 @@ export interface GoogleUser {
 }
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
-  private readonly logger = new Logger(GoogleStrategy.name);
+export class GoogleOAuthStrategy extends PassportStrategy(GoogleStrategy, 'google') {
+  private readonly logger = new Logger(GoogleOAuthStrategy.name);
 
   constructor(private configService: ConfigService) {
     super({
-      clientID: configService.get<string>('google.clientId') || configService.get<string>('GOOGLE_CLIENT_ID'),
-      clientSecret: configService.get<string>('google.clientSecret') || configService.get<string>('GOOGLE_CLIENT_SECRET'),
-      callbackURL: configService.get<string>('google.callbackUrl') || configService.get<string>('GOOGLE_CALLBACK_URL'),
+      clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
+      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET'),
+      callbackURL: configService.get<string>('GOOGLE_CALLBACK_URL'),
       scope: ['email', 'profile'],
     });
   }
@@ -28,9 +29,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   async validate(
     accessToken: string,
     refreshToken: string,
-    profile: Profile,
-    done: VerifyCallback,
-  ): Promise<void> {
+    profile: any,
+  ): Promise<GoogleUser> {
     this.logger.debug(`Google OAuth validate called for: ${profile.emails?.[0]?.value}`);
 
     const { id, name, emails, photos } = profile;
@@ -44,6 +44,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       accessToken,
     };
 
-    done(null, user);
+    return user;
   }
 }
