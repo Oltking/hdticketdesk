@@ -4,21 +4,30 @@ import {
   Body,
   Get,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { Request } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { Request, Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly logger = new Logger(AuthController.name);
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // ==================== REGISTER ====================
   @Post('register')
@@ -214,5 +223,89 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Returns whether email exists' })
   async checkEmail(@Body() body: { email: string }) {
     return this.authService.checkEmailExists(body.email);
+  }
+
+  // ==================== GOOGLE OAUTH ====================
+  @Get('google')
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
+  async googleAuth(@Req() req: Request, @Res() res: Response) {
+    // Store intended role in a cookie before redirecting to Google
+    const role = req.query.role as string;
+    if (role === 'organizer') {
+      res.cookie('oauth_intended_role', 'organizer', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 10 * 60 * 1000, // 10 minutes
+        sameSite: 'lax',
+      });
+    }
+
+    // Manually redirect to Google OAuth
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const callbackUrl = this.configService.get<string>('GOOGLE_CALLBACK_URL') || 'http://localhost:3001/auth/google/callback';
+    const scope = encodeURIComponent('email profile');
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
+
+    return res.redirect(googleAuthUrl);
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @ApiExcludeEndpoint() // Hide from Swagger as it's a callback
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    const ip = req.ip || req.connection.remoteAddress || '';
+    const userAgent = req.headers['user-agent'] || '';
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    // Get intended role from cookie
+    const intendedRole = (req.cookies?.oauth_intended_role as string) || null;
+
+    // Clear the cookie
+    res.clearCookie('oauth_intended_role');
+
+    try {
+      const googleUser = req.user as any;
+      const result = await this.authService.googleLogin(googleUser, ip, userAgent, intendedRole);
+
+      // Check if this is a new organizer who needs to complete profile
+      if (result.needsOrganizerSetup) {
+        const params = new URLSearchParams({
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          userId: result.user.id,
+          setupRequired: 'organizer',
+        });
+        this.logger.log(`Google OAuth: New organizer needs setup: ${result.user.email}`);
+        return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+      }
+
+      // Normal login - redirect with tokens
+      const params = new URLSearchParams({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        userId: result.user.id,
+      });
+
+      this.logger.log(`Google OAuth successful for: ${result.user.email}`);
+      return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+    } catch (error) {
+      this.logger.error('Google OAuth callback error:', error);
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+  }
+
+  @Post('complete-organizer-setup')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete organizer profile setup after OAuth signup' })
+  @ApiResponse({ status: 200, description: 'Organizer profile created successfully' })
+  async completeOrganizerSetup(
+    @Req() req: Request,
+    @Body() body: { organizationName: string },
+  ) {
+    const userId = (req.user as any).id;
+    return this.authService.completeOrganizerSetup(userId, body.organizationName);
   }
 }

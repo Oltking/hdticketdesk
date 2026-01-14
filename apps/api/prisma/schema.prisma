@@ -14,11 +14,12 @@ model User {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   email                   String            @unique
-  password                String
+  password                String?           // Nullable for social-only accounts
   role                    UserRole          @default(BUYER)
   firstName               String?
   lastName                String?
   phone                   String?
+  avatarUrl               String?           // Profile picture from social providers
   emailVerified           Boolean           @default(false)
   emailVerifiedAt         DateTime?
   verificationToken       String?
@@ -31,6 +32,8 @@ model User {
   lockedUntil             DateTime?
   lastLoginAt             DateTime?
   lastLoginIp             String?
+  // OAuth provider IDs
+  googleId                String?           @unique
   organizerProfile        OrganizerProfile?
   payments                Payment[]
   refreshTokens           RefreshToken[]
@@ -38,6 +41,7 @@ model User {
   tickets                 Ticket[]
 
   @@index([email])
+  @@index([googleId])
 }
 
 model OrganizerProfile {

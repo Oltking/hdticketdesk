@@ -149,6 +149,21 @@ class ApiClient {
     });
   }
 
+  // Get Google OAuth URL - redirects to Google consent screen
+  // Pass role='organizer' for organizer signups to collect organization name after OAuth
+  getGoogleAuthUrl(role?: string): string {
+    const params = role ? `?role=${role}` : '';
+    return `${API_BASE}/auth/google${params}`;
+  }
+
+  // Complete organizer profile setup (after Google OAuth signup)
+  async completeOrganizerSetup(organizationName: string) {
+    return this.request<{ message: string; user: any }>('/auth/complete-organizer-setup', {
+      method: 'POST',
+      body: JSON.stringify({ organizationName }),
+    });
+  }
+
   async forgotPassword(email: string) {
     return this.request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',

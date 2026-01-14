@@ -12,6 +12,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../emails/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleUser } from './strategies/google.strategy';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -128,6 +129,13 @@ export class AuthService {
       const minutesRemaining = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
       throw new ForbiddenException(
         `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`
+      );
+    }
+
+    // Check if user has a password (social-only accounts don't)
+    if (!user.password) {
+      throw new BadRequestException(
+        'This account uses Google sign-in. Please click "Continue with Google" to log in.'
       );
     }
 
@@ -653,6 +661,174 @@ export class AuthService {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  // ==================== GOOGLE OAUTH ====================
+  async googleLogin(googleUser: GoogleUser, ip: string, userAgent: string, intendedRole?: string | null) {
+    this.logger.log(`Google login attempt for: ${googleUser.email}, intended role: ${intendedRole || 'none'}`);
+
+    let isNewUser = false;
+    let needsOrganizerSetup = false;
+
+    // First, try to find user by Google ID
+    let user = await this.prisma.user.findFirst({
+      where: { googleId: googleUser.googleId },
+      include: { organizerProfile: true },
+    });
+
+    if (!user) {
+      // Try to find by email (auto-link existing accounts)
+      user = await this.prisma.user.findUnique({
+        where: { email: googleUser.email.toLowerCase() },
+        include: { organizerProfile: true },
+      });
+
+      if (user) {
+        // Link Google ID to existing account
+        this.logger.log(`Linking Google account to existing user: ${user.email}`);
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: googleUser.googleId,
+            avatarUrl: user.avatarUrl || googleUser.avatarUrl,
+            // If email wasn't verified before, verify it now (Google verified it)
+            emailVerified: true,
+            emailVerifiedAt: user.emailVerifiedAt || new Date(),
+          },
+          include: { organizerProfile: true },
+        });
+      } else {
+        // Create new user from Google data
+        isNewUser = true;
+        const isOrganizer = intendedRole === 'organizer';
+
+        this.logger.log(`Creating new user from Google: ${googleUser.email}, role: ${isOrganizer ? 'ORGANIZER' : 'BUYER'}`);
+        user = await this.prisma.user.create({
+          data: {
+            email: googleUser.email.toLowerCase(),
+            googleId: googleUser.googleId,
+            firstName: googleUser.firstName,
+            lastName: googleUser.lastName,
+            avatarUrl: googleUser.avatarUrl,
+            emailVerified: true, // Google has already verified the email
+            emailVerifiedAt: new Date(),
+            role: isOrganizer ? 'ORGANIZER' : 'BUYER',
+          },
+          include: { organizerProfile: true },
+        });
+
+        // If organizer, they need to complete setup (provide organization name)
+        if (isOrganizer) {
+          needsOrganizerSetup = true;
+        }
+
+        // Send welcome email (best-effort)
+        try {
+          const welcomeResult = await this.emailService.sendWelcomeEmail(
+            user.email,
+            user.firstName ?? '',
+            user.role as any,
+          );
+          if (!welcomeResult.success) {
+            this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
+          }
+        } catch (e) {
+          this.logger.error('Error sending welcome email', e);
+        }
+      }
+    } else {
+      // User found by Google ID - update profile pic if changed
+      if (googleUser.avatarUrl && googleUser.avatarUrl !== user.avatarUrl) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { avatarUrl: googleUser.avatarUrl },
+          include: { organizerProfile: true },
+        });
+      }
+    }
+
+    // Generate tokens
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
+
+    // Update last login info
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date(), lastLoginIp: ip },
+    });
+
+    const {
+      password,
+      verificationToken,
+      verificationTokenExpiry,
+      loginOtp,
+      loginOtpExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = user;
+
+    return {
+      user: userWithoutSensitive,
+      needsOrganizerSetup,
+      ...tokens,
+    };
+  }
+
+  // Complete organizer profile setup after OAuth signup
+  async completeOrganizerSetup(userId: string, organizationName: string) {
+    this.logger.log(`Completing organizer setup for user: ${userId}`);
+
+    if (!organizationName || organizationName.trim().length < 2) {
+      throw new BadRequestException('Organization name must be at least 2 characters');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organizerProfile: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (user.role !== 'ORGANIZER') {
+      throw new BadRequestException('User is not an organizer');
+    }
+
+    if (user.organizerProfile) {
+      throw new BadRequestException('Organizer profile already exists');
+    }
+
+    // Create organizer profile
+    const organizerProfile = await this.prisma.organizerProfile.create({
+      data: {
+        userId: user.id,
+        title: organizationName.trim(),
+      },
+    });
+
+    // Return updated user
+    const updatedUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organizerProfile: true },
+    });
+
+    const {
+      password,
+      verificationToken,
+      verificationTokenExpiry,
+      loginOtp,
+      loginOtpExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = updatedUser!;
+
+    return {
+      message: 'Organizer profile created successfully',
+      user: userWithoutSensitive,
+    };
   }
 
   // ==================== HELPERS ====================
