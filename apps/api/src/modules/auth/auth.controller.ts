@@ -227,23 +227,17 @@ export class AuthController {
   }
 
   // ==================== GOOGLE OAUTH ====================
+  // Note: More specific routes (/google/callback, /google/test) must come BEFORE /google
+  
   @Get('google/test')
   @ApiOperation({ summary: 'Test Google OAuth routes are registered' })
   async googleTest() {
+    this.logger.log('Google test endpoint hit');
     return { 
       message: 'Google OAuth routes are registered',
       callbackUrl: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
       frontendUrl: this.configService.get<string>('FRONTEND_URL'),
     };
-  }
-
-  @Get('google')
-  @UseGuards(GoogleAuthGuard)
-  @ApiOperation({ summary: 'Initiate Google OAuth login' })
-  @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
-  async googleAuth() {
-    // GoogleAuthGuard handles the redirect to Google automatically
-    // This method body is never reached
   }
 
   @Get('google/callback')
@@ -293,6 +287,15 @@ export class AuthController {
       this.logger.error('Google OAuth callback error:', error);
       return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
     }
+  }
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: 'Initiate Google OAuth login' })
+  @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
+  async googleAuth() {
+    // GoogleAuthGuard handles the redirect to Google automatically
+    // This method body is never reached
   }
 
   @Post('complete-organizer-setup')
