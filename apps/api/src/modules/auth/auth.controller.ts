@@ -231,37 +231,32 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
   @ApiResponse({ status: 302, description: 'Redirects to Google OAuth consent screen' })
-  async googleAuth(@Req() req: Request, @Res() res: Response) {
-    // Store intended role in a cookie before redirecting to Google
-    const role = req.query.role as string;
-    if (role === 'organizer') {
-      res.cookie('oauth_intended_role', 'organizer', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 10 * 60 * 1000, // 10 minutes
-        sameSite: 'lax',
-      });
-    }
-    // GoogleAuthGuard will handle the redirect to Google
+  async googleAuth() {
+    // GoogleAuthGuard handles the redirect to Google automatically
+    // This method body is never reached
   }
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiExcludeEndpoint() // Hide from Swagger as it's a callback
   async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    this.logger.log('Google OAuth callback received');
+    
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
 
-    // Get intended role from cookie
-    const intendedRole = (req.cookies?.oauth_intended_role as string) || null;
-
-    // Clear the cookie
-    res.clearCookie('oauth_intended_role');
-
     try {
       const googleUser = req.user as any;
-      const result = await this.authService.googleLogin(googleUser, ip, userAgent, intendedRole);
+      
+      if (!googleUser) {
+        this.logger.error('No Google user data received');
+        return res.redirect(`${frontendUrl}/login?error=no_user_data`);
+      }
+
+      this.logger.log(`Google user received: ${googleUser.email}`);
+      
+      const result = await this.authService.googleLogin(googleUser, ip, userAgent, null);
 
       // Check if this is a new organizer who needs to complete profile
       if (result.needsOrganizerSetup) {
