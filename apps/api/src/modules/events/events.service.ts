@@ -389,10 +389,16 @@ export class EventsService {
   }
 
   async findByOrganizer(organizerId: string) {
+    // Return empty array if no organizerId provided
+    if (!organizerId) {
+      return [];
+    }
+
     const events = await this.prisma.event.findMany({
       where: { organizerId },
       orderBy: { createdAt: 'desc' },
       include: {
+        organizer: { select: { id: true, title: true } },
         tiers: {
           select: {
             id: true,

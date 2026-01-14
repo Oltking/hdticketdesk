@@ -7,19 +7,73 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 
-@Catch(HttpException)
+@Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: HttpException, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
-    const exceptionResponse = exception.getResponse();
 
-    const isObjectResponse = typeof exceptionResponse === 'object' && exceptionResponse !== null;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = 'Internal server error';
+    let errors: any = undefined;
+    let data: any = undefined;
+
+    // Handle HttpException
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const exceptionResponse = exception.getResponse();
+      const isObjectResponse = typeof exceptionResponse === 'object' && exceptionResponse !== null;
+
+      message =
+        typeof exceptionResponse === 'string'
+          ? exceptionResponse
+          : (exceptionResponse as any).message || 'An error occurred';
+      errors =
+        isObjectResponse && (exceptionResponse as any).errors
+          ? (exceptionResponse as any).errors
+          : undefined;
+      data = isObjectResponse ? { ...(exceptionResponse as any) } : undefined;
+    }
+    // Handle Prisma known request errors
+    else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      switch (exception.code) {
+        case 'P2002':
+          // Unique constraint violation
+          status = HttpStatus.CONFLICT;
+          message = 'A record with this value already exists';
+          break;
+        case 'P2025':
+          // Record not found
+          status = HttpStatus.NOT_FOUND;
+          message = 'Record not found';
+          break;
+        case 'P2003':
+          // Foreign key constraint failed
+          status = HttpStatus.BAD_REQUEST;
+          message = 'Related record not found';
+          break;
+        default:
+          status = HttpStatus.BAD_REQUEST;
+          message = `Database error: ${exception.message}`;
+      }
+      this.logger.error(`Prisma error [${exception.code}]: ${exception.message}`, exception.stack);
+    }
+    // Handle Prisma validation errors
+    else if (exception instanceof Prisma.PrismaClientValidationError) {
+      status = HttpStatus.BAD_REQUEST;
+      message = 'Invalid data provided to database';
+      this.logger.error(`Prisma validation error: ${exception.message}`, exception.stack);
+    }
+    // Handle other errors
+    else if (exception instanceof Error) {
+      message = exception.message || 'Internal server error';
+      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
+    }
 
     const errorResponse = {
       success: false,
@@ -27,16 +81,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      message:
-        typeof exceptionResponse === 'string'
-          ? exceptionResponse
-          : (exceptionResponse as any).message || 'An error occurred',
-      errors:
-        isObjectResponse && (exceptionResponse as any).errors
-          ? (exceptionResponse as any).errors
-          : undefined,
-      // Include additional payload (e.g., userId, code) so clients can act on it
-      data: isObjectResponse ? { ...(exceptionResponse as any) } : undefined,
+      message,
+      errors,
+      data,
     };
 
     // Log error details
