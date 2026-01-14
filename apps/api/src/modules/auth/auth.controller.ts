@@ -227,6 +227,16 @@ export class AuthController {
   }
 
   // ==================== GOOGLE OAUTH ====================
+  @Get('google/test')
+  @ApiOperation({ summary: 'Test Google OAuth routes are registered' })
+  async googleTest() {
+    return { 
+      message: 'Google OAuth routes are registered',
+      callbackUrl: this.configService.get<string>('GOOGLE_CALLBACK_URL'),
+      frontendUrl: this.configService.get<string>('FRONTEND_URL'),
+    };
+  }
+
   @Get('google')
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Initiate Google OAuth login' })
