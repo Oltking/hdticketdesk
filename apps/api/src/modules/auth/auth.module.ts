@@ -28,4 +28,8 @@ import { EmailModule } from '../emails/email.module';
   providers: [AuthService, JwtStrategy, LocalStrategy, GoogleOAuthStrategy],
   exports: [AuthService, JwtModule],
 })
-export class AuthModule {}
+export class AuthModule {
+  constructor() {
+    console.log('🔧 AuthModule initialized with Google OAuth support');
+  }
+}
