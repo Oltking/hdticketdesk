@@ -12,7 +12,15 @@ import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../emails/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { GoogleUser } from './strategies/google.strategy';
+// GoogleUser interface defined here to avoid circular dependency issues
+export interface GoogleUser {
+  googleId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string;
+  accessToken: string;
+}
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 

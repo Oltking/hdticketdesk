@@ -4,7 +4,8 @@ import { ConfigService } from '@nestjs/config';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-export interface GoogleUser {
+// GoogleUser interface is defined in auth.service.ts to avoid circular imports
+interface GoogleUser {
   googleId: string;
   email: string;
   firstName: string;
