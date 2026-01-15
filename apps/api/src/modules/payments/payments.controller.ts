@@ -28,6 +28,14 @@ export class PaymentsController {
     return this.paymentsService.initializePayment(eventId, tierId, userId, email);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('check-pending')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Check and verify pending payments for current user' })
+  async checkPending(@CurrentUser('id') userId: string) {
+    return this.paymentsService.checkPendingPayments(userId);
+  }
+
   @Public()
   @Get('verify/:reference')
   @ApiOperation({ summary: 'Verify payment' })

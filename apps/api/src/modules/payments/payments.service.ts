@@ -368,6 +368,59 @@ export class PaymentsService {
     });
   }
 
+  async checkPendingPayments(userId: string) {
+    // Find all pending payments for this user
+    const pendingPayments = await this.prisma.payment.findMany({
+      where: {
+        buyerId: userId,
+        status: 'PENDING',
+      },
+      include: {
+        event: true,
+        tier: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (pendingPayments.length === 0) {
+      return { pendingPayments: [] };
+    }
+
+    // Verify each pending payment with Paystack
+    const verificationResults = [];
+    for (const payment of pendingPayments) {
+      try {
+        const paystackData = await this.paystackService.verifyTransaction(payment.reference);
+
+        if (paystackData.status === 'success') {
+          // Process the payment
+          await this.handleSuccessfulPayment(paystackData);
+          verificationResults.push({
+            reference: payment.reference,
+            status: 'verified',
+            eventTitle: payment.event?.title,
+          });
+        }
+      } catch (error) {
+        this.logger.warn(`Could not verify payment ${payment.reference}:`, error);
+        // Continue to next payment
+      }
+    }
+
+    return {
+      pendingPayments: pendingPayments.map(p => ({
+        reference: p.reference,
+        eventId: p.eventId,
+        eventTitle: p.event?.title,
+        amount: p.amount,
+        createdAt: p.createdAt,
+      })),
+      verified: verificationResults,
+    };
+  }
+
   async verifyPayment(reference: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { reference },
@@ -377,19 +430,64 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found');
     }
 
-    // Fetch event and tier separately
-    const event = await this.prisma.event.findUnique({
-      where: { id: payment.eventId },
+    // If payment is still pending, verify with Paystack and process it
+    if (payment.status === 'PENDING') {
+      try {
+        // Verify transaction with Paystack
+        const paystackData = await this.paystackService.verifyTransaction(reference);
+
+        // Check if payment was successful on Paystack
+        if (paystackData.status === 'success') {
+          // Process the payment using the same logic as webhook
+          await this.handleSuccessfulPayment(paystackData);
+
+          // Refetch payment to get updated status
+          const updatedPayment = await this.prisma.payment.findUnique({
+            where: { reference },
+          });
+
+          // Get the created ticket
+          const ticket = await this.prisma.ticket.findFirst({
+            where: { paymentId: payment.id },
+            include: {
+              event: true,
+              tier: true,
+            },
+          });
+
+          return {
+            message: 'Payment verified successfully!',
+            payment: updatedPayment,
+            ticket,
+          };
+        } else {
+          // Payment not successful on Paystack
+          throw new BadRequestException(`Payment verification failed: ${paystackData.gateway_response || 'Payment not completed'}`);
+        }
+      } catch (error) {
+        // If verification fails, log and rethrow
+        this.logger.error(`Failed to verify payment ${reference}:`, error);
+        throw new BadRequestException('Unable to verify payment with Paystack. Please try again or contact support.');
+      }
+    }
+
+    // Payment already processed, fetch ticket
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { paymentId: payment.id },
+      include: {
+        event: true,
+        tier: true,
+      },
     });
 
-    const tier = await this.prisma.ticketTier.findUnique({
-      where: { id: payment.tierId },
-    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found for this payment');
+    }
 
     return {
-      ...payment,
-      event,
-      tier,
+      message: 'Payment already verified',
+      payment,
+      ticket,
     };
   }
 }

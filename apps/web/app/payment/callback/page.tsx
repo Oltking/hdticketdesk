@@ -36,7 +36,13 @@ function PaymentCallbackContent() {
         }, 3000);
       } catch (err: any) {
         setStatus('error');
-        setMessage(err.message || 'Payment verification failed. Please contact support if you were charged.');
+        // If verification failed but they were charged, they should check their tickets page
+        const errorMessage = err.message || 'Payment verification failed.';
+        setMessage(
+          errorMessage.includes('charged') || errorMessage.includes('payment')
+            ? `${errorMessage} Please check your tickets page or contact support.`
+            : errorMessage
+        );
       }
     };
 

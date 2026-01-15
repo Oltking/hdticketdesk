@@ -11,27 +11,57 @@ import { Footer } from '@/components/layouts/footer';
 import { BuyerNav } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/utils';
 import { Calendar, MapPin, QrCode, Ticket } from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
 
 export default function MyTicketsPage() {
   const { isLoading: authLoading } = useAuth(true, ['BUYER']);
+  const { success, error } = useToast();
   const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingPayments, setCheckingPayments] = useState(false);
+
+  const fetchTickets = async () => {
+    try {
+      const data = await api.getMyTickets();
+      setTickets(data);
+    } catch {
+      // Silent fail - empty tickets will be shown
+    }
+  };
 
   useEffect(() => {
-    const fetchTickets = async () => {
+    const checkPendingAndFetch = async () => {
+      setLoading(true);
+
+      // First check for any pending payments
+      setCheckingPayments(true);
       try {
-        const data = await api.getMyTickets();
-        setTickets(data);
-      } catch {
-        // Silent fail - empty tickets will be shown
+        const result = await api.checkPendingPayments();
+
+        // Show notification for each verified payment
+        if (result.verified && result.verified.length > 0) {
+          for (const verified of result.verified) {
+            success(`Payment verified for "${verified.eventTitle}"! Your ticket is now available.`);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check pending payments:', err);
+        // Don't show error to user, just log it
       } finally {
-        setLoading(false);
+        setCheckingPayments(false);
       }
+
+      // Then fetch tickets
+      await fetchTickets();
+      setLoading(false);
     };
-    if (!authLoading) fetchTickets();
+
+    if (!authLoading) {
+      checkPendingAndFetch();
+    }
   }, [authLoading]);
 
   return (
