@@ -115,7 +115,7 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="mailto:enterprise@hdticketdesk.com" className="block">
+                <Link href="mailto:support@hdticketdesk.com" className="block">
                   <button className="w-full py-3 px-4 rounded-xl border border-border hover:bg-muted transition-colors font-medium">
                     Contact Sales
                   </button>

@@ -177,11 +177,11 @@ export default function PrivacyPage() {
                       please don&apos;t hesitate to reach out.
                     </p>
                     <a 
-                      href="mailto:privacy@hdticketdesk.com" 
+                      href="mailto:support@hdticketdesk.com" 
                       className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
                     >
                       <Mail className="w-4 h-4" />
-                      privacy@hdticketdesk.com
+                      support@hdticketdesk.com
                     </a>
                   </div>
                 </div>
