@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   // Environment variable NEXT_PUBLIC_APP_URL can override this in production
   metadataBase: new URL('https://hdticketdesk.com'),
   title: {
-    default: 'hdticketdesk - Africa\'s Premier Event Ticketing Platform',
+    default: 'HDTicketDesk - Africa\'s Premier Event Ticketing Platform',
     template: '%s | hdticketdesk',
   },
   description: 'Discover and book tickets for the hottest events in Africa. Create, manage, and sell tickets for your events with ease. Secure payments, QR check-in, and instant payouts.',
@@ -34,21 +34,21 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_NG',
     url: 'https://hdticketdesk.com',
-    siteName: 'hdticketdesk',
-    title: 'hdticketdesk - Africa\'s Premier Event Ticketing Platform',
+    siteName: 'HDTicketDesk',
+    title: 'HDTicketDesk - Africa\'s Premier Event Ticketing Platform',
     description: 'Discover and book tickets for the hottest events in Africa.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'hdticketdesk - Event Ticketing',
+        alt: 'HDTicketDesk - Event Ticketing',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'hdticketdesk - Africa\'s Premier Event Ticketing Platform',
+    title: 'HDTicketDesk - Africa\'s Premier Event Ticketing Platform',
     description: 'Discover and book tickets for the hottest events in Africa.',
     images: ['/og-image.png'],
     creator: '@hdticketdesk',
@@ -65,7 +65,7 @@ export const metadata: Metadata = {
     },
   },
   verification: {
-    google: 'your-google-verification-code',
+    google: 'bwbJmFQWk21XTCidr6oTQEM3Y55XfP9LM_L9-TuRFnc',
   },
 };
 
