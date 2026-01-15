@@ -350,8 +350,15 @@ class ApiClient {
     });
   }
 
+  async checkPendingPayments() {
+    return this.request<{
+      pendingPayments: any[];
+      verified: { reference: string; status: string; eventTitle: string }[];
+    }>('/payments/check-pending');
+  }
+
   async verifyPayment(reference: string) {
-    return this.request<{ ticket: any; message: string }>(`/payments/verify/${reference}`);
+    return this.request<{ ticket: any; message: string; payment?: any }>(`/payments/verify/${reference}`);
   }
 
   async getMyTickets(): Promise<any[]> {
