@@ -59,6 +59,14 @@ export class CreateEventDto {
   @MaxLength(500)
   location?: string;
 
+  @IsNumber()
+  @IsOptional()
+  latitude?: number;
+
+  @IsNumber()
+  @IsOptional()
+  longitude?: number;
+
   @IsBoolean()
   @IsOptional()
   isLocationPublic?: boolean; // If false, location is only sent via email after ticket purchase
