@@ -13,7 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info } from 'lucide-react';
+import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info, MapPin } from 'lucide-react';
+import { MapPicker } from '@/components/ui/map-picker';
 
 export default function EditEventPage() {
   const { slug } = useParams();
@@ -353,9 +354,30 @@ export default function EditEventPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Map Picker for Location */}
                     <div className="space-y-2">
-                      <Label>Location</Label>
-                      <Input {...register('location')} />
+                      <Label className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Event Location
+                      </Label>
+                      <MapPicker
+                        value={watch('latitude') && watch('longitude') ? {
+                          lat: watch('latitude'),
+                          lng: watch('longitude'),
+                          address: watch('location')
+                        } : undefined}
+                        onChange={(location) => {
+                          if (location) {
+                            setValue('location', location.address);
+                            setValue('latitude', location.lat);
+                            setValue('longitude', location.lng);
+                          } else {
+                            setValue('location', '');
+                            setValue('latitude', undefined);
+                            setValue('longitude', undefined);
+                          }
+                        }}
+                      />
                     </div>
                     
                     {/* Location Visibility Toggle */}

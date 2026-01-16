@@ -173,6 +173,8 @@ export class EmailService {
       eventTitle: string;
       eventDate: Date;
       eventLocation: string;
+      eventLatitude?: number | null;
+      eventLongitude?: number | null;
       tierName: string;
       buyerName: string;
       qrCodeUrl: string;
@@ -188,6 +190,19 @@ export class EmailService {
       hour: 'numeric',
       minute: '2-digit',
     });
+
+    // Generate Google Maps URL
+    const getGoogleMapsUrl = () => {
+      if (data.eventLatitude && data.eventLongitude) {
+        return `https://www.google.com/maps/search/?api=1&query=${data.eventLatitude},${data.eventLongitude}`;
+      }
+      if (data.eventLocation) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.eventLocation)}`;
+      }
+      return null;
+    };
+
+    const googleMapsUrl = !data.isOnline ? getGoogleMapsUrl() : null;
 
     const html = this.getEmailTemplate({
       title: 'Your Ticket is Confirmed! 🎉',
@@ -219,6 +234,14 @@ export class EmailService {
             </tr>
           </table>
         </div>
+        
+        ${googleMapsUrl ? `
+        <div style="text-align: center; margin-bottom: 24px;">
+          <a href="${googleMapsUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4285f4; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px;">
+            📍 View Location on Google Maps
+          </a>
+        </div>
+        ` : ''}
         
         <div style="text-align: center; background: #f9fafb; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
           <p style="color: #6b7280; font-size: 14px; margin: 0 0 16px 0;">Scan this QR code at the venue</p>

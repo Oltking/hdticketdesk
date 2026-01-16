@@ -41,6 +41,8 @@ export interface Event {
   startDate: string;
   endDate: string | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   isLocationPublic: boolean;
   isOnline: boolean;
   onlineLink: string | null;

@@ -63,6 +63,8 @@ export class TicketsService {
       eventTitle: ticket.event.title,
       eventDate: ticket.event.startDate,
       eventLocation: ticket.event.location || 'TBA',
+      eventLatitude: ticket.event.latitude,
+      eventLongitude: ticket.event.longitude,
       tierName: ticket.tier.name,
       buyerName: `${data.buyerFirstName || ''} ${data.buyerLastName || ''}`.trim() || 'Guest',
       qrCodeUrl: qrCodeUrl, // Use the hosted Cloudinary URL for email
