@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/auth-store';
 
 export function useAuth(requireAuth = false, allowedRoles?: string[]) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading, refreshUser } = useAuthStore();
 
   useEffect(() => {
     if (isLoading) return;
@@ -28,5 +28,5 @@ export function useAuth(requireAuth = false, allowedRoles?: string[]) {
     }
   }, [isAuthenticated, isLoading, user, requireAuth, allowedRoles, router]);
 
-  return { user, isAuthenticated, isLoading };
+  return { user, isAuthenticated, isLoading, refreshUser };
 }

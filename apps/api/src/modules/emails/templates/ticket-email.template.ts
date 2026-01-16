@@ -4,6 +4,8 @@ export interface TicketEmailData {
   eventDate: Date;
   eventEndDate?: Date;
   eventLocation: string;
+  eventLatitude?: number | null;
+  eventLongitude?: number | null;
   tierName: string;
   tierPrice: number;
   buyerName: string;
@@ -47,6 +49,19 @@ export function getTicketEmailTemplate(data: TicketEmailData): string {
     currency: 'NGN' 
   }).format(data.tierPrice * (data.quantity || 1));
 
+  // Generate Google Maps URL
+  const getGoogleMapsUrl = () => {
+    if (data.eventLatitude && data.eventLongitude) {
+      return `https://www.google.com/maps/search/?api=1&query=${data.eventLatitude},${data.eventLongitude}`;
+    }
+    if (data.eventLocation) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.eventLocation)}`;
+    }
+    return null;
+  };
+
+  const googleMapsUrl = getGoogleMapsUrl();
+
   const locationSection = data.isOnline 
     ? `<tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
@@ -64,6 +79,7 @@ export function getTicketEmailTemplate(data: TicketEmailData): string {
         <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
           <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Venue</p>
           <p style="margin: 0; font-size: 15px; color: #1a1a1a; font-weight: 500;">📍 ${data.eventLocation}</p>
+          ${googleMapsUrl ? `<p style="margin: 8px 0 0 0;"><a href="${googleMapsUrl}" style="display: inline-block; padding: 8px 16px; background-color: #4285f4; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 500; border-radius: 6px;">📍 View on Google Maps</a></p>` : ''}
         </td>
       </tr>`;
 

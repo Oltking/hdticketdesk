@@ -443,6 +443,8 @@ export class EventsService {
         startDate: new Date(dto.startDate),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         location: dto.location,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
         isOnline: dto.isOnline || false,
         onlineLink: dto.onlineLink,
@@ -509,6 +511,8 @@ export class EventsService {
     }
     
     if (dto.location !== undefined) updateData.location = dto.location;
+    if (dto.latitude !== undefined) updateData.latitude = dto.latitude;
+    if (dto.longitude !== undefined) updateData.longitude = dto.longitude;
     if (dto.isLocationPublic !== undefined) updateData.isLocationPublic = dto.isLocationPublic;
     if (dto.isOnline !== undefined) updateData.isOnline = dto.isOnline;
     if (dto.onlineLink !== undefined) updateData.onlineLink = dto.onlineLink;

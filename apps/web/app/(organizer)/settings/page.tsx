@@ -4,28 +4,33 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { Building2, User, CreditCard } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
+  const { user, isLoading: authLoading, refreshUser } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [banks, setBanks] = useState<any[]>([]);
   const [selectedBank, setSelectedBank] = useState('');
   const [verifying, setVerifying] = useState(false);
 
   const profileForm = useForm();
+  const organizationForm = useForm();
   const bankForm = useForm();
 
   useEffect(() => {
     if (user) {
       profileForm.reset({ firstName: user.firstName, lastName: user.lastName, phone: user.phone });
       if (user.organizerProfile) {
+        organizationForm.reset({
+          organizationName: user.organizerProfile.title || '',
+        });
         bankForm.reset({
           bankCode: user.organizerProfile.bankCode,
           accountNumber: user.organizerProfile.accountNumber,
@@ -54,6 +59,20 @@ export default function SettingsPage() {
       success('Profile updated!');
     } catch (err: any) {
       error(err.message || 'Failed to update');
+    }
+  };
+
+  const onOrganizationSubmit = async (data: any) => {
+    try {
+      if (!data.organizationName || data.organizationName.trim().length < 2) {
+        error('Organization name must be at least 2 characters');
+        return;
+      }
+      await api.updateOrganizerProfile({ title: data.organizationName.trim() });
+      success('Organization name updated!');
+      refreshUser?.();
+    } catch (err: any) {
+      error(err.message || 'Failed to update organization name');
     }
   };
 
@@ -112,28 +131,90 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold mb-6">Settings</h1>
 
         <div className="max-w-2xl space-y-6">
+          {/* Organization Name Card */}
           <Card>
-            <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Organization</CardTitle>
+                  <CardDescription>Your organization name appears on events and tickets</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={organizationForm.handleSubmit(onOrganizationSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="organizationName">Organization Name</Label>
+                  <Input 
+                    id="organizationName"
+                    placeholder="Your company or brand name"
+                    {...organizationForm.register('organizationName')} 
+                  />
+                  <p className="text-xs text-muted-foreground">This will be displayed on your events and tickets</p>
+                </div>
+                <Button type="submit" loading={organizationForm.formState.isSubmitting}>
+                  Save Organization Name
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Profile Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <User className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <CardTitle>Personal Profile</CardTitle>
+                  <CardDescription>Your personal details</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
             <CardContent>
               <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2"><Label>First Name</Label><Input {...profileForm.register('firstName')} /></div>
-                  <div className="space-y-2"><Label>Last Name</Label><Input {...profileForm.register('lastName')} /></div>
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" {...profileForm.register('firstName')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" {...profileForm.register('lastName')} />
+                  </div>
                 </div>
-                <div className="space-y-2"><Label>Phone</Label><Input {...profileForm.register('phone')} /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input id="phone" {...profileForm.register('phone')} placeholder="Enter your phone number" />
+                </div>
                 <Button type="submit" loading={profileForm.formState.isSubmitting}>Save Profile</Button>
               </form>
             </CardContent>
           </Card>
 
+          {/* Bank Account Card */}
           <Card>
-            <CardHeader><CardTitle>Bank Account</CardTitle></CardHeader>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <CreditCard className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <CardTitle>Bank Account</CardTitle>
+                  <CardDescription>Your withdrawal account details</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
             <CardContent>
               <form onSubmit={bankForm.handleSubmit(onBankSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Bank</Label>
                   <Select value={selectedBank} onValueChange={setSelectedBank}>
-                    <SelectTrigger><SelectValue placeholder="Select bank" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select your bank" /></SelectTrigger>
                     <SelectContent>{banks.map(bank => <SelectItem key={bank.code} value={bank.code}>{bank.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -145,8 +226,12 @@ export default function SettingsPage() {
                       {verifying ? 'Verifying...' : 'Verify'}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">Click verify to confirm your account details</p>
                 </div>
-                <div className="space-y-2"><Label>Account Name</Label><Input {...bankForm.register('accountName')} readOnly className="bg-bg" /></div>
+                <div className="space-y-2">
+                  <Label>Account Name</Label>
+                  <Input {...bankForm.register('accountName')} readOnly className="bg-muted" placeholder="Account name will appear after verification" />
+                </div>
                 <Button type="submit" loading={bankForm.formState.isSubmitting}>Save Bank Details</Button>
               </form>
             </CardContent>

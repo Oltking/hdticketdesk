@@ -8,12 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info } from 'lucide-react';
+import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink } from 'lucide-react';
+import { MapPreviewDialog } from '@/components/ui/map-preview-dialog';
 import type { Event } from '@/types';
 
 interface Props {
@@ -28,6 +29,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
   const [event, setEvent] = useState<Event | null>(initialEvent);
   const [loading, setLoading] = useState(!initialEvent);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [showMapDialog, setShowMapDialog] = useState(false);
   const [checkoutDialog, setCheckoutDialog] = useState<{
     open: boolean;
     tierId: string;
@@ -239,7 +241,19 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                     ) : (
                       <div className="flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-primary" />
-                        <span>{event.isLocationPublic === false ? 'Location revealed after purchase' : (event.location || 'TBA')}</span>
+                        {event.isLocationPublic === false ? (
+                          <span>Location revealed after purchase</span>
+                        ) : event.location ? (
+                          <button 
+                            onClick={() => setShowMapDialog(true)}
+                            className="text-left hover:text-primary hover:underline transition-colors flex items-center gap-1"
+                          >
+                            <span className="line-clamp-1">{event.location}</span>
+                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                          </button>
+                        ) : (
+                          <span>TBA</span>
+                        )}
                       </div>
                     )}
                     {(event.totalTicketsSold || 0) > 0 && (
@@ -378,12 +392,15 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
 
       {/* Checkout Confirmation Dialog */}
       <Dialog open={checkoutDialog?.open || false} onOpenChange={(open) => !open && handleCancelCheckout()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Ticket className="w-5 h-5" />
               Confirm Your Purchase
             </DialogTitle>
+            <DialogDescription>
+              Review your ticket details and price breakdown before proceeding to payment.
+            </DialogDescription>
           </DialogHeader>
           
           {checkoutDialog && (
@@ -439,6 +456,18 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Map Preview Dialog */}
+      {event && !event.isOnline && event.isLocationPublic !== false && event.location && (
+        <MapPreviewDialog
+          open={showMapDialog}
+          onOpenChange={setShowMapDialog}
+          location={event.location}
+          latitude={event.latitude}
+          longitude={event.longitude}
+          eventTitle={event.title}
+        />
+      )}
     </>
   );
 }

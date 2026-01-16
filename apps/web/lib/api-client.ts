@@ -164,6 +164,14 @@ class ApiClient {
     });
   }
 
+  // Update organizer profile (title/organization name)
+  async updateOrganizerProfile(data: { title?: string; description?: string }) {
+    return this.request<{ message: string; organizerProfile: any }>('/users/organizer-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async forgotPassword(email: string) {
     return this.request<{ message: string }>('/auth/forgot-password', {
       method: 'POST',

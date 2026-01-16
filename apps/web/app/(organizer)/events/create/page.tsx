@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,10 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sidebar } from '@/components/layouts/sidebar';
+import { OrganizationNameDialog, useOrganizationNameCheck } from '@/components/ui/organization-name-dialog';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe, Info, Percent } from 'lucide-react';
+import { MapPicker } from '@/components/ui/map-picker';
 
 const tierSchema = z.object({
   name: z.string().min(1, 'Required'),
@@ -32,6 +34,8 @@ const schema = z.object({
   endDate: z.string().optional(),
   isOnline: z.boolean().default(false),
   location: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   isLocationPublic: z.boolean().default(true),
   onlineLink: z.string().optional(),
   tiers: z.array(tierSchema).min(1, 'At least one ticket tier is required'),
@@ -42,13 +46,24 @@ type FormData = z.infer<typeof schema>;
 
 export default function CreateEventPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
+  const { user, isLoading: authLoading, refreshUser } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [publishing, setPublishing] = useState(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOrgNameDialog, setShowOrgNameDialog] = useState(false);
+  
+  // Check if organization name is needed
+  const { needsOrganizationName } = useOrganizationNameCheck(user);
+  
+  // Show organization name dialog if needed
+  useEffect(() => {
+    if (!authLoading && needsOrganizationName) {
+      setShowOrgNameDialog(true);
+    }
+  }, [authLoading, needsOrganizationName]);
 
   const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -134,8 +149,10 @@ export default function CreateEventPage() {
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : undefined,
-        // Only include location if not online and has value
+        // Only include location fields if not online and has value
         location: !data.isOnline && data.location ? data.location : undefined,
+        latitude: !data.isOnline && data.latitude ? data.latitude : undefined,
+        longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
         // Only include onlineLink if online and has value
         onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
@@ -304,9 +321,30 @@ export default function CreateEventPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Map Picker for Location */}
                     <div className="space-y-2">
-                      <Label>Location</Label>
-                      <Input {...register('location')} placeholder="Event venue address" />
+                      <Label className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Event Location
+                      </Label>
+                      <MapPicker
+                        value={watch('latitude') && watch('longitude') ? {
+                          lat: watch('latitude')!,
+                          lng: watch('longitude')!,
+                          address: watch('location')
+                        } : undefined}
+                        onChange={(location) => {
+                          if (location) {
+                            setValue('location', location.address);
+                            setValue('latitude', location.lat);
+                            setValue('longitude', location.lng);
+                          } else {
+                            setValue('location', '');
+                            setValue('latitude', undefined);
+                            setValue('longitude', undefined);
+                          }
+                        }}
+                      />
                     </div>
                     
                     {/* Location Visibility Toggle */}
@@ -461,6 +499,15 @@ export default function CreateEventPage() {
             </div>
           </form>
         </div>
+
+        {/* Organization Name Dialog */}
+        <OrganizationNameDialog
+          open={showOrgNameDialog}
+          onSuccess={() => {
+            setShowOrgNameDialog(false);
+            refreshUser?.();
+          }}
+        />
       </main>
     </div>
   );

@@ -21,6 +21,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (data: { email: string; password: string; firstName: string; lastName: string; role?: string }) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -59,5 +60,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     api.logout();
     set({ user: null, isAuthenticated: false });
+  },
+
+  refreshUser: async () => {
+    try {
+      const freshUser = await api.getMe();
+      if (freshUser) {
+        set({ user: freshUser });
+      }
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+    }
   },
 }));

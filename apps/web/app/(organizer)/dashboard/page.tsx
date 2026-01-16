@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
+import { OrganizationNameDialog, useOrganizationNameCheck } from '@/components/ui/organization-name-dialog';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +16,7 @@ import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Tras
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
-  const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
+  const { user, isLoading: authLoading, refreshUser } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [events, setEvents] = useState<Event[]>([]);
   const [balance, setBalance] = useState({ pending: 0, available: 0, withdrawn: 0 });
@@ -25,6 +26,17 @@ export default function DashboardPage() {
   const [showUnpublishConfirm, setShowUnpublishConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showPublishConfirm, setShowPublishConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showAttendTip, setShowAttendTip] = useState(true);
+  const [showOrgNameDialog, setShowOrgNameDialog] = useState(false);
+  
+  // Check if organization name is needed
+  const { needsOrganizationName } = useOrganizationNameCheck(user);
+  
+  // Show organization name dialog if needed
+  useEffect(() => {
+    if (!authLoading && needsOrganizationName) {
+      setShowOrgNameDialog(true);
+    }
+  }, [authLoading, needsOrganizationName]);
 
   // Check if tip was previously dismissed
   useEffect(() => {
@@ -319,6 +331,15 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Organization Name Dialog */}
+        <OrganizationNameDialog
+          open={showOrgNameDialog}
+          onSuccess={() => {
+            setShowOrgNameDialog(false);
+            refreshUser?.();
+          }}
+        />
       </main>
     </div>
   );

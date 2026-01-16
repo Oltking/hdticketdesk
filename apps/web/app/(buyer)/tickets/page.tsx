@@ -13,7 +13,20 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate } from '@/lib/utils';
-import { Calendar, MapPin, QrCode, Ticket } from 'lucide-react';
+import { 
+  Calendar, 
+  MapPin, 
+  QrCode, 
+  Ticket, 
+  Clock, 
+  ChevronRight, 
+  Sparkles, 
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Share2,
+  ExternalLink
+} from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
 
 export default function MyTicketsPage() {
@@ -64,76 +77,259 @@ export default function MyTicketsPage() {
     }
   }, [authLoading]);
 
+  // Separate tickets into upcoming and past
+  const now = new Date();
+  const upcomingTickets = tickets.filter(t => new Date(t.event?.startDate || 0) >= now);
+  const pastTickets = tickets.filter(t => new Date(t.event?.startDate || 0) < now);
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return { variant: 'success' as const, icon: CheckCircle2, label: 'Active', color: 'text-green-600' };
+      case 'CHECKED_IN':
+        return { variant: 'default' as const, icon: CheckCircle2, label: 'Checked In', color: 'text-blue-600' };
+      case 'CANCELLED':
+        return { variant: 'destructive' as const, icon: AlertCircle, label: 'Cancelled', color: 'text-red-600' };
+      default:
+        return { variant: 'secondary' as const, icon: Clock, label: status, color: 'text-muted-foreground' };
+    }
+  };
+
   return (
     <>
       <Header />
       <main className="flex-1 container py-8">
+        {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold">My Tickets</h1>
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Ticket className="h-6 w-6 text-primary" />
+              My Tickets
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              {tickets.length > 0 
+                ? `You have ${tickets.length} ticket${tickets.length > 1 ? 's' : ''}`
+                : 'Your purchased tickets will appear here'}
+            </p>
+          </div>
+          {tickets.length > 0 && (
+            <Link href="/events">
+              <Button variant="outline" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                Find More Events
+              </Button>
+            </Link>
+          )}
         </div>
         
         <BuyerNav />
 
         {loading ? (
-          <div className="space-y-4">{[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}</div>
-        ) : tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="relative w-24 h-24 mb-6 opacity-20">
-              <Image
-                src="/icon.svg"
-                alt="hdticketdesk"
-                fill
-                className="object-contain"
-              />
-            </div>
-            <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
-            <h2 className="text-xl font-semibold mb-2 text-foreground">No tickets yet</h2>
-            <p className="text-muted-foreground mb-6 text-center max-w-sm">
-              Discover amazing events and get your first ticket to start your journey
-            </p>
-            <Link href="/events">
-              <Button size="lg" className="gap-2">
-                <Ticket className="h-4 w-4" />
-                Browse Events
-              </Button>
-            </Link>
-          </div>
-        ) : (
           <div className="space-y-4">
-            {tickets.map((ticket) => (
-              <Card key={ticket.id} className="overflow-hidden">
+            {[1, 2, 3].map(i => (
+              <Card key={i} className="overflow-hidden">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row">
-                    <div className="flex-1 p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="font-semibold text-lg">{ticket.event?.title}</h3>
-                          <p className="text-text-muted">{ticket.tier?.name}</p>
-                        </div>
-                        <Badge variant={ticket.status === 'ACTIVE' ? 'success' : ticket.status === 'CHECKED_IN' ? 'default' : 'secondary'}>
-                          {ticket.status}
-                        </Badge>
+                    <div className="flex-1 p-6 space-y-4">
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <div className="flex gap-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-32" />
                       </div>
-                      <div className="flex flex-wrap gap-4 text-sm text-text-muted">
-                        <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{formatDate(ticket.event?.startDate || new Date())}</span>
-                        <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{ticket.event?.isOnline ? 'Online' : ticket.event?.location}</span>
-                      </div>
-                      <p className="mt-4 text-sm text-text-muted">Ticket #{ticket.ticketNumber}</p>
                     </div>
-                    <div className="w-full md:w-48 p-6 bg-bg flex flex-col items-center justify-center border-t md:border-t-0 md:border-l border-border">
-                      {ticket.qrCodeUrl ? (
-                        <img src={ticket.qrCodeUrl} alt="QR Code" className="w-32 h-32 mb-2" />
-                      ) : (
-                        <div className="w-32 h-32 bg-white rounded-lg flex items-center justify-center mb-2">
-                          <QrCode className="h-12 w-12 text-text-muted" />
-                        </div>
-                      )}
-                      <p className="text-xs text-text-muted">Show at entrance</p>
+                    <div className="w-full md:w-48 p-6 bg-muted/30 flex items-center justify-center">
+                      <Skeleton className="h-32 w-32" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+        ) : tickets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="relative w-32 h-32 mb-6">
+              <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse" />
+              <div className="absolute inset-4 bg-primary/20 rounded-full flex items-center justify-center">
+                <Ticket className="h-12 w-12 text-primary/60" />
+              </div>
+            </div>
+            <div className="w-20 h-1 bg-gradient-to-r from-transparent via-primary/40 to-transparent mb-6 rounded-full" />
+            <h2 className="text-2xl font-bold mb-2 text-foreground">No tickets yet</h2>
+            <p className="text-muted-foreground mb-8 text-center max-w-md">
+              Your ticket collection is empty. Discover amazing events happening near you and start your journey!
+            </p>
+            <Link href="/events">
+              <Button size="lg" className="gap-2 px-8">
+                <Sparkles className="h-4 w-4" />
+                Explore Events
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Upcoming Events Section */}
+            {upcomingTickets.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-green-500/10">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                  </div>
+                  <h2 className="font-semibold text-lg">Upcoming Events</h2>
+                  <Badge variant="success" className="ml-2">{upcomingTickets.length}</Badge>
+                </div>
+                <div className="space-y-4">
+                  {upcomingTickets.map((ticket) => {
+                    const statusConfig = getStatusConfig(ticket.status);
+                    const StatusIcon = statusConfig.icon;
+                    return (
+                      <Card key={ticket.id} className="overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-l-primary">
+                        <CardContent className="p-0">
+                          <div className="flex flex-col lg:flex-row">
+                            {/* Main Content */}
+                            <div className="flex-1 p-6">
+                              <div className="flex items-start justify-between gap-4 mb-4">
+                                <div className="flex-1 min-w-0">
+                                  <Link 
+                                    href={`/events/${ticket.event?.slug}`}
+                                    className="group"
+                                  >
+                                    <h3 className="font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">
+                                      {ticket.event?.title}
+                                    </h3>
+                                  </Link>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="outline" className="font-normal">
+                                      {ticket.tier?.name}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">•</span>
+                                    <span className="text-sm text-muted-foreground">
+                                      Ticket #{ticket.ticketNumber}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Badge variant={statusConfig.variant} className="flex items-center gap-1 whitespace-nowrap">
+                                  <StatusIcon className="h-3 w-3" />
+                                  {statusConfig.label}
+                                </Badge>
+                              </div>
+                              
+                              {/* Event Details */}
+                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Calendar className="h-4 w-4 text-primary" />
+                                  <span>{formatDate(ticket.event?.startDate || new Date())}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <MapPin className="h-4 w-4 text-primary" />
+                                  <span>{ticket.event?.isOnline ? 'Online Event' : ticket.event?.location || 'Venue TBA'}</span>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+                                <Link href={`/events/${ticket.event?.slug}`}>
+                                  <Button variant="outline" size="sm" className="gap-1.5">
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    View Event
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
+
+                            {/* QR Code Section */}
+                            <div className="w-full lg:w-56 p-6 bg-gradient-to-br from-muted/50 to-muted/30 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-border">
+                              <div className="relative">
+                                {ticket.qrCodeUrl ? (
+                                  <div className="bg-white p-2 rounded-xl shadow-sm">
+                                    <img src={ticket.qrCodeUrl} alt="QR Code" className="w-32 h-32 rounded-lg" />
+                                  </div>
+                                ) : (
+                                  <div className="w-36 h-36 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                    <QrCode className="h-16 w-16 text-muted-foreground/40" />
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-3 text-center font-medium">
+                                Show QR at entrance
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Past Events Section */}
+            {pastTickets.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 rounded-lg bg-muted">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <h2 className="font-semibold text-lg text-muted-foreground">Past Events</h2>
+                  <Badge variant="secondary" className="ml-2">{pastTickets.length}</Badge>
+                </div>
+                <div className="space-y-3">
+                  {pastTickets.map((ticket) => {
+                    const statusConfig = getStatusConfig(ticket.status);
+                    return (
+                      <Card key={ticket.id} className="overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <Ticket className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-sm line-clamp-1">{ticket.event?.title}</h3>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                <Calendar className="h-3 w-3" />
+                                <span>{formatDate(ticket.event?.startDate || new Date())}</span>
+                                <span>•</span>
+                                <span>{ticket.tier?.name}</span>
+                              </div>
+                            </div>
+                            <Badge variant={statusConfig.variant} className="text-xs">
+                              {statusConfig.label}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Browse More Events CTA */}
+            <section className="mt-12">
+              <Card className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-primary/20">
+                <CardContent className="p-8">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-full bg-primary/10">
+                        <Sparkles className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Discover More Events</h3>
+                        <p className="text-muted-foreground text-sm">
+                          Find your next unforgettable experience
+                        </p>
+                      </div>
+                    </div>
+                    <Link href="/events">
+                      <Button size="lg" className="gap-2 whitespace-nowrap">
+                        Browse Events
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
           </div>
         )}
       </main>

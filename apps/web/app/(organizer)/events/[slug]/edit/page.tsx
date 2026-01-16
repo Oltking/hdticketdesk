@@ -13,7 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info } from 'lucide-react';
+import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info, MapPin } from 'lucide-react';
+import { MapPicker } from '@/components/ui/map-picker';
 
 export default function EditEventPage() {
   const { slug } = useParams();
@@ -86,6 +87,8 @@ export default function EditEventPage() {
           endDate: formatDateForInput(event.endDate),
           isOnline: event.isOnline || false,
           location: event.location || '',
+          latitude: event.latitude ?? undefined,
+          longitude: event.longitude ?? undefined,
           isLocationPublic: event.isLocationPublic ?? true,
           onlineLink: event.onlineLink || '',
           passFeeTobuyer: event.passFeeTobuyer || false,
@@ -161,8 +164,10 @@ export default function EditEventPage() {
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
-        // Only include location if not online and has value
+        // Only include location fields if not online and has value
         location: !data.isOnline && data.location ? data.location : undefined,
+        latitude: !data.isOnline && data.latitude ? data.latitude : undefined,
+        longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
         // Only include onlineLink if online and has value
         onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
@@ -353,9 +358,30 @@ export default function EditEventPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {/* Map Picker for Location */}
                     <div className="space-y-2">
-                      <Label>Location</Label>
-                      <Input {...register('location')} />
+                      <Label className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Event Location
+                      </Label>
+                      <MapPicker
+                        value={watch('latitude') && watch('longitude') ? {
+                          lat: watch('latitude'),
+                          lng: watch('longitude'),
+                          address: watch('location')
+                        } : undefined}
+                        onChange={(location) => {
+                          if (location) {
+                            setValue('location', location.address);
+                            setValue('latitude', location.lat);
+                            setValue('longitude', location.lng);
+                          } else {
+                            setValue('location', '');
+                            setValue('latitude', undefined);
+                            setValue('longitude', undefined);
+                          }
+                        }}
+                      />
                     </div>
                     
                     {/* Location Visibility Toggle */}
