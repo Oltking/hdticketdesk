@@ -445,6 +445,11 @@ class ApiClient {
     }
   }
 
+  // Get organizer payment history
+  async getPaymentHistory() {
+    return this.request<{ entries: any[] }>('/payments/history');
+  }
+
   async resolveAccount(accountNumber: string, bankCode: string) {
     return this.request<{ accountName: string; accountNumber: string }>('/payments/resolve-account', {
       method: 'POST',

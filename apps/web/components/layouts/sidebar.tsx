@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Logo } from '@/components/ui/logo';
 import { 
   LayoutDashboard, Calendar, Plus, DollarSign, Settings, 
-  Users, BarChart3, BookOpen, Menu, X, LogOut, Ticket, RotateCcw
+  Users, BarChart3, BookOpen, Menu, X, LogOut, Ticket, RotateCcw, Receipt
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -57,6 +57,7 @@ export function Sidebar({ type }: SidebarProps) {
   const organizerLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/events/create', label: 'Create Event', icon: Plus },
+    { href: '/payments', label: 'Payment History', icon: Receipt },
     { href: '/payouts', label: 'Payouts', icon: DollarSign },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];

@@ -1,9 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sidebar } from '@/components/layouts/sidebar';
@@ -12,7 +11,27 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye, Info, X } from 'lucide-react';
+import { 
+  Plus, 
+  TrendingUp, 
+  Calendar, 
+  DollarSign, 
+  QrCode, 
+  BarChart3, 
+  EyeOff, 
+  Trash2, 
+  AlertCircle, 
+  Eye, 
+  Info, 
+  X,
+  Ticket,
+  Clock,
+  CheckCircle2,
+  RefreshCw,
+  ArrowRight,
+  Sparkles,
+  Users
+} from 'lucide-react';
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
@@ -109,33 +128,62 @@ export default function DashboardPage() {
     }
   };
 
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Skeleton className="h-8 w-32" /></div>;
+  if (authLoading) return (
+    <div className="flex min-h-screen">
+      <Sidebar type="organizer" />
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+          <Skeleton className="h-96" />
+        </div>
+      </main>
+    </div>
+  );
 
   const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
   const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
+  const publishedEvents = events.filter(e => e.status === 'PUBLISHED').length;
+  const draftEvents = events.filter(e => e.status === 'DRAFT').length;
 
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <div className="flex justify-between items-center mb-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-text-muted">Welcome back, {user?.firstName || 'Organizer'}!</p>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-primary" />
+              Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back, <span className="font-medium text-foreground">{user?.firstName || 'Organizer'}</span>! Here's your overview.
+            </p>
           </div>
-          <Link href="/events/create"><Button className="bg-primary text-white"><Plus className="h-4 w-4 mr-2" />Create Event</Button></Link>
+          <Link href="/events/create">
+            <Button className="bg-primary text-white gap-2 h-11 px-6">
+              <Plus className="h-4 w-4" />
+              Create Event
+            </Button>
+          </Link>
         </div>
 
         {/* Tip for organizers about buying tickets */}
         {showAttendTip && (
-          <div className="flex items-start gap-3 p-3 mb-8 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-sm">
-            <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-            <p className="text-blue-700 dark:text-blue-300 flex-1">
-              <span className="font-medium">Tip:</span> Want to attend events? Organizer accounts cannot purchase tickets. Please create a separate attendee account to buy or claim tickets for events.
-            </p>
+          <div className="flex items-start gap-3 p-4 mb-6 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium text-blue-800 dark:text-blue-200 text-sm">Tip for Organizers</p>
+              <p className="text-blue-700 dark:text-blue-300 text-sm mt-1">
+                Want to attend events? Organizer accounts cannot purchase tickets. Please create a separate attendee account to buy or claim tickets for events.
+              </p>
+            </div>
             <button
               onClick={dismissAttendTip}
-              className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 p-0.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+              className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 p-1 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
               aria-label="Dismiss tip"
             >
               <X className="h-4 w-4" />
@@ -143,60 +191,250 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <StatCard icon={<Calendar className="h-6 w-6" />} label="Total Events" value={events.length} loading={loading} />
-          <StatCard icon={<QrCode className="h-6 w-6" />} label="Tickets Sold" value={totalSold} loading={loading} />
-          <StatCard icon={<TrendingUp className="h-6 w-6" />} label="Total Revenue" value={formatCurrency(totalRevenue)} loading={loading} />
-          <StatCard icon={<DollarSign className="h-6 w-6" />} label="Available Balance" value={formatCurrency(balance.available)} loading={loading} />
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <Card className="border-l-4 border-l-primary">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Events</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold">{events.length}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-full bg-primary/10">
+                  <Calendar className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+              {!loading && (
+                <div className="flex gap-3 mt-3 text-xs">
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {publishedEvents} Published
+                  </span>
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {draftEvents} Draft
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Tickets Sold</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-16 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold">{totalSold}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-full bg-blue-500/10">
+                  <Ticket className="h-6 w-6 text-blue-500" />
+                </div>
+              </div>
+              {!loading && totalSold > 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Across all your events
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-24 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-full bg-green-500/10">
+                  <TrendingUp className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-yellow-500">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Available Balance</p>
+                  {loading ? (
+                    <Skeleton className="h-8 w-24 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold">{formatCurrency(balance.available)}</p>
+                  )}
+                </div>
+                <div className="p-3 rounded-full bg-yellow-500/10">
+                  <DollarSign className="h-6 w-6 text-yellow-500" />
+                </div>
+              </div>
+              {!loading && balance.pending > 0 && (
+                <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatCurrency(balance.pending)} pending
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Quick Actions */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Link href="/payments" className="block">
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Payment History</p>
+                  <p className="text-xs text-muted-foreground">View all transactions</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/payouts" className="block">
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Payouts</p>
+                  <p className="text-xs text-muted-foreground">Withdraw your earnings</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/settings" className="block">
+            <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Users className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Settings</p>
+                  <p className="text-xs text-muted-foreground">Manage your profile</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Events List */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Your Events</CardTitle>
-            <Link href="/events/create"><Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />New</Button></Link>
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Your Events
+              </CardTitle>
+              <CardDescription className="mt-1">Manage and track your events</CardDescription>
+            </div>
+            <Link href="/events/create">
+              <Button variant="outline" size="sm" className="gap-1">
+                <Plus className="h-4 w-4" />
+                New Event
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+              <div className="space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>
             ) : events.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="relative w-20 h-20 mb-6 opacity-20">
-                  <Image
-                    src="/icon.svg"
-                    alt="hdticketdesk"
-                    fill
-                    className="object-contain"
-                  />
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="relative w-20 h-20 mb-4">
+                  <div className="absolute inset-0 bg-primary/10 rounded-full" />
+                  <div className="absolute inset-4 bg-primary/20 rounded-full flex items-center justify-center">
+                    <Calendar className="h-8 w-8 text-primary/60" />
+                  </div>
                 </div>
-                <div className="w-16 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent mb-6 rounded-full" />
-                <h3 className="text-lg font-semibold mb-2">No events yet</h3>
-                <p className="text-text-muted mb-6 text-center max-w-sm">
-                  Create your first event and start selling tickets
+                <h3 className="text-lg font-semibold mb-1">No events yet</h3>
+                <p className="text-muted-foreground text-sm mb-6 text-center max-w-sm">
+                  Create your first event and start selling tickets to your audience
                 </p>
-                <Link href="/events/create"><Button className="gap-2"><Plus className="h-4 w-4" />Create Your First Event</Button></Link>
+                <Link href="/events/create">
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create Your First Event
+                  </Button>
+                </Link>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {events.map((event) => (
-                  <div key={event.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-border rounded-lg hover:bg-bg/50 transition gap-4">
-                    <div className="flex-1">
+                  <div 
+                    key={event.id} 
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors gap-4"
+                  >
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold">{event.title}</h3>
-                        <Badge variant={event.status === 'PUBLISHED' ? 'success' : 'secondary'}>{event.status}</Badge>
+                        <h3 className="font-semibold truncate">{event.title}</h3>
+                        <Badge 
+                          variant={event.status === 'PUBLISHED' ? 'success' : 'secondary'}
+                          className="flex-shrink-0"
+                        >
+                          {event.status === 'PUBLISHED' ? (
+                            <><CheckCircle2 className="h-3 w-3 mr-1" />{event.status}</>
+                          ) : (
+                            <><Clock className="h-3 w-3 mr-1" />{event.status}</>
+                          )}
+                        </Badge>
                       </div>
-                      <p className="text-sm text-text-muted">{formatDate(event.startDate)} • {event.totalTicketsSold || 0} sold</p>
+                      <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {formatDate(event.startDate)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Ticket className="h-3.5 w-3.5" />
+                          {event.totalTicketsSold || 0} sold
+                        </span>
+                        {(event.totalRevenue || 0) > 0 && (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <TrendingUp className="h-3.5 w-3.5" />
+                            {formatCurrency(event.totalRevenue || 0)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/events/${event.slug}/scan`}><Button variant="outline" size="sm" title="Scan tickets"><QrCode className="h-4 w-4" /></Button></Link>
-                      <Link href={`/events/${event.slug}/analytics`}><Button variant="outline" size="sm" title="Analytics"><BarChart3 className="h-4 w-4" /></Button></Link>
-                      <Link href={`/events/${event.slug}/edit`}><Button variant="outline" size="sm">Edit</Button></Link>
+                      <Link href={`/events/${event.slug}/scan`}>
+                        <Button variant="outline" size="sm" title="Scan tickets" className="gap-1.5">
+                          <QrCode className="h-4 w-4" />
+                          <span className="hidden sm:inline">Scan</span>
+                        </Button>
+                      </Link>
+                      <Link href={`/events/${event.slug}/analytics`}>
+                        <Button variant="outline" size="sm" title="Analytics" className="gap-1.5">
+                          <BarChart3 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Stats</span>
+                        </Button>
+                      </Link>
+                      <Link href={`/events/${event.slug}/edit`}>
+                        <Button variant="outline" size="sm">Edit</Button>
+                      </Link>
                       
                       {/* Unpublish button - only for published events with no sales */}
                       {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) === 0 && (
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="border-warning text-warning hover:bg-warning/10"
+                          className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10"
                           title="Unpublish event"
                           onClick={() => setShowUnpublishConfirm({ id: event.id, title: event.title })}
                         >
@@ -216,7 +454,7 @@ export default function DashboardPage() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="border-primary text-primary hover:bg-primary/10"
+                          className="border-green-500 text-green-600 hover:bg-green-500/10"
                           title="Publish event"
                           onClick={() => setShowPublishConfirm({ id: event.id, title: event.title })}
                         >
@@ -229,7 +467,7 @@ export default function DashboardPage() {
                         <Button 
                           variant="outline" 
                           size="sm" 
-                          className="border-destructive text-destructive hover:bg-destructive/10"
+                          className="border-red-500 text-red-600 hover:bg-red-500/10"
                           title="Delete event"
                           onClick={() => setShowDeleteConfirm({ id: event.id, title: event.title })}
                         >
@@ -342,23 +580,5 @@ export default function DashboardPage() {
         />
       </main>
     </div>
-  );
-}
-
-function StatCard({ icon, label, value, loading }: { icon: React.ReactNode; label: string; value: string | number; loading: boolean }) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-lg bg-primary/10 text-primary">
-            {icon}
-          </div>
-          <div>
-            <p className="text-sm text-text-muted">{label}</p>
-            {loading ? <Skeleton className="h-7 w-20" /> : <p className="text-2xl font-bold">{value}</p>}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

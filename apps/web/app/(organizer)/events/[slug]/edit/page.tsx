@@ -1,19 +1,41 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useForm, useFieldArray } from 'react-hook-form';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, X, ImageIcon, AlertCircle, CheckCircle2, Globe, Lock, Percent, Info, MapPin } from 'lucide-react';
+import { 
+  Plus, 
+  Trash2, 
+  X, 
+  ImageIcon, 
+  AlertCircle, 
+  CheckCircle2, 
+  Globe, 
+  Lock, 
+  Percent, 
+  Info, 
+  MapPin,
+  ArrowLeft,
+  Calendar,
+  Edit3,
+  Eye,
+  EyeOff,
+  QrCode,
+  BarChart3,
+  Ticket
+} from 'lucide-react';
 import { MapPicker } from '@/components/ui/map-picker';
 
 export default function EditEventPage() {
@@ -225,7 +247,15 @@ export default function EditEventPage() {
     return (
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
-        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg"><Skeleton className="h-8 w-48 mb-6" /><Skeleton className="h-64 w-full" /></main>
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
+          <Skeleton className="h-10 w-32 mb-2" />
+          <Skeleton className="h-6 w-48 mb-6" />
+          <div className="max-w-3xl space-y-6">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-96 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </main>
       </div>
     );
   }
@@ -235,11 +265,67 @@ export default function EditEventPage() {
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <div className="max-w-3xl">
-          <h1 className="text-2xl font-bold mb-6">Edit Event</h1>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+            <div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="mb-2 -ml-2 gap-1 text-muted-foreground"
+                onClick={() => router.push('/dashboard')}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Edit3 className="h-6 w-6 text-primary" />
+                Edit Event
+              </h1>
+              <div className="flex items-center gap-2 mt-2">
+                <Badge 
+                  variant={eventStatus === 'PUBLISHED' ? 'success' : 'secondary'}
+                  className="gap-1"
+                >
+                  {eventStatus === 'PUBLISHED' ? (
+                    <><CheckCircle2 className="h-3 w-3" />Published</>
+                  ) : (
+                    <><Calendar className="h-3 w-3" />Draft</>
+                  )}
+                </Badge>
+                {ticketsSold > 0 && (
+                  <Badge variant="default" className="gap-1">
+                    <Ticket className="h-3 w-3" />
+                    {ticketsSold} sold
+                  </Badge>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Link href={`/events/${slug}/analytics`}>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </Button>
+              </Link>
+              <Link href={`/events/${slug}/scan`}>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <QrCode className="h-4 w-4" />
+                  Scan
+                </Button>
+              </Link>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit((d) => onSubmit(d, false))} className="space-y-6">
             {/* Banner/Cover Image Upload */}
             <Card>
-              <CardHeader><CardTitle>Event Banner</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-primary" />
+                  Event Banner
+                </CardTitle>
+                <CardDescription>Upload an eye-catching banner image for your event</CardDescription>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {coverImage ? (
@@ -339,7 +425,13 @@ export default function EditEventPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Event Details</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Event Details
+                </CardTitle>
+                <CardDescription>Basic information about your event</CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2"><Label>Title</Label><Input {...register('title')} /></div>
                 <div className="space-y-2"><Label>Description</Label><Textarea {...register('description')} /></div>
@@ -463,8 +555,17 @@ export default function EditEventPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Ticket Tiers</CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })}><Plus className="h-4 w-4 mr-1" />Add</Button>
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Ticket className="h-5 w-5 text-primary" />
+                    Ticket Tiers
+                  </CardTitle>
+                  <CardDescription className="mt-1">Create different ticket types with varying prices</CardDescription>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })} className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  Add Tier
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => {
@@ -517,48 +618,57 @@ export default function EditEventPage() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-wrap gap-4">
-              <Button type="submit" variant="outline" loading={isSubmitting && !publishing}>
-                Save Changes
-              </Button>
-              {eventStatus === 'DRAFT' && (
-                <Button 
-                  type="button" 
-                  className="bg-primary text-white" 
-                  loading={publishing}
-                  onClick={handleSubmit((d) => onSubmit(d, true))}
-                >
-                  Save & Publish
-                </Button>
-              )}
-              {eventStatus === 'PUBLISHED' && ticketsSold === 0 && (
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  className="border-warning text-warning hover:bg-warning/10"
-                  loading={unpublishing}
-                  onClick={handleUnpublish}
-                >
-                  Unpublish Event
-                </Button>
-              )}
-              {eventStatus === 'PUBLISHED' && ticketsSold > 0 && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg text-sm text-muted-foreground">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>To unpublish, contact <a href="mailto:support@hdticketdesk.com" className="text-primary underline">support</a></span>
+            {/* Action Buttons */}
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" variant="outline" loading={isSubmitting && !publishing} className="gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Save Changes
+                  </Button>
+                  {eventStatus === 'DRAFT' && (
+                    <Button 
+                      type="button" 
+                      className="bg-primary text-white gap-2" 
+                      loading={publishing}
+                      onClick={handleSubmit((d) => onSubmit(d, true))}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Save & Publish
+                    </Button>
+                  )}
+                  {eventStatus === 'PUBLISHED' && ticketsSold === 0 && (
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10 gap-2"
+                      loading={unpublishing}
+                      onClick={handleUnpublish}
+                    >
+                      <EyeOff className="h-4 w-4" />
+                      Unpublish Event
+                    </Button>
+                  )}
+                  {eventStatus === 'PUBLISHED' && ticketsSold > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-700 dark:text-yellow-300">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>To unpublish, contact <a href="mailto:support@hdticketdesk.com" className="font-medium underline">support</a></span>
+                    </div>
+                  )}
+                  {eventStatus === 'DRAFT' && (
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="border-red-500 text-red-600 hover:bg-red-500/10 gap-2 ml-auto"
+                      onClick={() => setShowDeleteConfirm(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Event
+                    </Button>
+                  )}
                 </div>
-              )}
-              {eventStatus === 'DRAFT' && (
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  className="border-destructive text-destructive hover:bg-destructive/10"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  Delete Event
-                </Button>
-              )}
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Delete Confirmation Dialog */}
             {showDeleteConfirm && (

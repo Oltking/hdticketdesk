@@ -1,18 +1,35 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layouts/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, CheckCircle, XCircle, Search, Loader2, ScanLine } from 'lucide-react';
+import { 
+  Camera, 
+  CheckCircle, 
+  XCircle, 
+  Search, 
+  Loader2, 
+  ScanLine, 
+  QrCode, 
+  ArrowLeft, 
+  UserCheck, 
+  Clock, 
+  Ticket,
+  BarChart3,
+  Users
+} from 'lucide-react';
 
 export default function ScanPage() {
   const { slug } = useParams();
+  const router = useRouter();
   const { isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [scanning, setScanning] = useState(false);
@@ -21,6 +38,8 @@ export default function ScanPage() {
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string; ticket?: any } | null>(null);
   const [recentScans, setRecentScans] = useState<any[]>([]);
   const [eventId, setEventId] = useState<string | null>(null);
+  const [eventTitle, setEventTitle] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   const scannerRef = useRef<any>(null);
   const lastScannedRef = useRef<string | null>(null);
 
@@ -30,8 +49,11 @@ export default function ScanPage() {
       try {
         const event = await api.getEventBySlug(slug as string);
         setEventId(event.id || event.data?.id);
+        setEventTitle(event.title || event.data?.title || '');
       } catch (err) {
         console.error('Failed to fetch event:', err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchEvent();
@@ -130,17 +152,112 @@ export default function ScanPage() {
     setManualCode('');
   };
 
-  if (authLoading) return null;
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar type="organizer" />
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
+          <Skeleton className="h-10 w-32 mb-2" />
+          <Skeleton className="h-6 w-48 mb-6" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton className="h-[500px]" />
+            <div className="space-y-6">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-48" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <h1 className="text-2xl font-bold mb-6">QR Scanner</h1>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="mb-2 -ml-2 gap-1 text-muted-foreground"
+              onClick={() => router.push('/dashboard')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <QrCode className="h-6 w-6 text-primary" />
+              QR Scanner
+            </h1>
+            {eventTitle && (
+              <p className="text-muted-foreground mt-1">{eventTitle}</p>
+            )}
+          </div>
+          <Link href={`/events/${slug}/analytics`}>
+            <Button variant="outline" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              View Analytics
+            </Button>
+          </Link>
+        </div>
+
+        {/* Stats Summary */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card className="border-l-4 border-l-green-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <UserCheck className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Checked In Today</p>
+                  <p className="text-2xl font-bold text-green-600">{recentScans.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-500/10">
+                  <Users className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">This Session</p>
+                  <p className="text-2xl font-bold">{recentScans.length}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={`border-l-4 ${scanning ? 'border-l-green-500' : 'border-l-yellow-500'}`}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-full ${scanning ? 'bg-green-500/10' : 'bg-yellow-500/10'}`}>
+                  <Camera className={`h-5 w-5 ${scanning ? 'text-green-500' : 'text-yellow-500'}`} />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Scanner Status</p>
+                  <p className={`text-lg font-bold ${scanning ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {scanning ? 'Active' : 'Inactive'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* Camera Scanner */}
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2"><Camera className="h-5 w-5" />Camera Scanner</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Camera className="h-5 w-5 text-primary" />
+                Camera Scanner
+              </CardTitle>
+              <CardDescription>Point your camera at a ticket QR code to check in</CardDescription>
+            </CardHeader>
             <CardContent>
               <div className="relative w-full aspect-square bg-black/5 rounded-lg overflow-hidden mb-4">
                 <div id="scanner" className="w-full h-full" />
@@ -148,60 +265,111 @@ export default function ScanPage() {
                 {!scanning && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50">
                     <div className="relative">
-                      <ScanLine className="h-24 w-24 text-primary/40" strokeWidth={1} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 border-2 border-dashed border-primary/40 rounded-lg" />
+                      <div className="w-32 h-32 border-4 border-primary/30 rounded-2xl flex items-center justify-center">
+                        <QrCode className="h-16 w-16 text-primary/40" />
                       </div>
+                      <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                      <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                      <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg" />
                     </div>
-                    <p className="mt-4 text-sm text-muted-foreground text-center px-4">
-                      Click "Start Scanner" to open camera and scan QR codes
+                    <p className="mt-6 text-sm text-muted-foreground text-center px-4">
+                      Click the button below to start scanning
                     </p>
                   </div>
                 )}
               </div>
-              <Button onClick={scanning ? stopScanner : startScanner} className="w-full" variant={scanning ? 'destructive' : 'default'}>
-                {scanning ? 'Stop Scanner' : 'Start Scanner'}
+              <Button 
+                onClick={scanning ? stopScanner : startScanner} 
+                className={`w-full h-12 text-base gap-2 ${scanning ? '' : 'bg-primary'}`}
+                variant={scanning ? 'destructive' : 'default'}
+              >
+                {scanning ? (
+                  <>
+                    <XCircle className="h-5 w-5" />
+                    Stop Scanner
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-5 w-5" />
+                    Start Scanner
+                  </>
+                )}
               </Button>
             </CardContent>
           </Card>
 
           <div className="space-y-6">
+            {/* Manual Entry */}
             <Card>
-              <CardHeader><CardTitle>Manual Entry</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Search className="h-5 w-5 text-primary" />
+                  Manual Entry
+                </CardTitle>
+                <CardDescription>Enter a ticket code manually to check in</CardDescription>
+              </CardHeader>
               <CardContent>
                 <form onSubmit={handleManualSubmit} className="flex gap-2">
-                  <Input value={manualCode} onChange={(e) => setManualCode(e.target.value)} placeholder="Enter ticket code" />
-                  <Button type="submit"><Search className="h-4 w-4" /></Button>
+                  <Input 
+                    value={manualCode} 
+                    onChange={(e) => setManualCode(e.target.value)} 
+                    placeholder="Enter ticket number or QR code" 
+                    className="h-11"
+                  />
+                  <Button type="submit" className="h-11 px-6">
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </form>
               </CardContent>
             </Card>
 
+            {/* Processing State */}
             {isProcessing && (
-              <Card className="border-primary">
+              <Card className="border-2 border-primary bg-primary/5">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                    <div className="p-3 rounded-full bg-primary/10">
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                    </div>
                     <div>
                       <p className="font-bold text-lg">Processing...</p>
-                      <p className="text-text-muted">Validating ticket</p>
+                      <p className="text-muted-foreground">Validating ticket</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
+            {/* Result Display */}
             {lastResult && !isProcessing && (
-              <Card className={lastResult.success ? 'border-success border-2' : 'border-danger border-2'}>
+              <Card className={`border-2 ${lastResult.success ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-red-500 bg-red-50 dark:bg-red-950/20'}`}>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    {lastResult.success ? <CheckCircle className="h-12 w-12 text-success" /> : <XCircle className="h-12 w-12 text-danger" />}
+                    <div className={`p-3 rounded-full ${lastResult.success ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                      {lastResult.success ? (
+                        <CheckCircle className="h-8 w-8 text-green-600" />
+                      ) : (
+                        <XCircle className="h-8 w-8 text-red-600" />
+                      )}
+                    </div>
                     <div className="flex-1">
-                      <p className="font-bold text-lg">{lastResult.message}</p>
-                      {lastResult.ticket && <p className="text-text-muted">{lastResult.ticket.buyerFirstName} {lastResult.ticket.buyerLastName} - {lastResult.ticket.tier?.name}</p>}
+                      <p className={`font-bold text-lg ${lastResult.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                        {lastResult.message}
+                      </p>
+                      {lastResult.ticket && (
+                        <p className="text-muted-foreground">
+                          {lastResult.ticket.buyerFirstName} {lastResult.ticket.buyerLastName} 
+                          {lastResult.ticket.tier?.name && ` • ${lastResult.ticket.tier.name}`}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">Auto-dismissing in 5 seconds...</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Auto-dismissing in 5 seconds...
+                    </p>
                     {scanning && (
                       <Button onClick={resetForNextScan} size="sm" variant="outline">
                         Scan Next
@@ -212,20 +380,45 @@ export default function ScanPage() {
               </Card>
             )}
 
+            {/* Recent Scans */}
             <Card>
-              <CardHeader><CardTitle>Recent Scans</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-primary" />
+                  Recent Check-ins
+                </CardTitle>
+                <CardDescription>Latest attendees checked in this session</CardDescription>
+              </CardHeader>
               <CardContent>
                 {recentScans.length === 0 ? (
-                  <p className="text-text-muted text-center py-4">No scans yet</p>
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="p-3 rounded-full bg-muted mb-3">
+                      <Ticket className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground text-sm text-center">
+                      No check-ins yet. Start scanning to see recent activity.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {recentScans.map((scan, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 bg-bg rounded-lg">
-                        <div>
-                          <p className="font-medium">{scan.buyerFirstName} {scan.buyerLastName}</p>
-                          <p className="text-sm text-text-muted">{scan.tier?.name}</p>
+                      <div 
+                        key={i} 
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <UserCheck className="h-4 w-4 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{scan.buyerFirstName} {scan.buyerLastName}</p>
+                            <p className="text-xs text-muted-foreground">{scan.tier?.name}</p>
+                          </div>
                         </div>
-                        <Badge variant="success">Checked In</Badge>
+                        <Badge variant="success" className="gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Checked In
+                        </Badge>
                       </div>
                     ))}
                   </div>

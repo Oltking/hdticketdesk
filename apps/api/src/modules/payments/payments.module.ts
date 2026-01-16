@@ -5,9 +5,10 @@ import { PaystackService } from './paystack.service';
 import { WebhooksController } from './webhooks.controller';
 import { TicketsModule } from '../tickets/tickets.module';
 import { LedgerModule } from '../ledger/ledger.module';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
-  imports: [TicketsModule, LedgerModule],
+  imports: [TicketsModule, LedgerModule, TasksModule],
   controllers: [PaymentsController, WebhooksController],
   providers: [PaymentsService, PaystackService],
   exports: [PaymentsService, PaystackService],

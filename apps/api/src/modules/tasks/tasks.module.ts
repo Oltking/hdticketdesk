@@ -6,5 +6,6 @@ import { PrismaModule } from '../../database/prisma.module';
 @Module({
   imports: [ScheduleModule.forRoot(), PrismaModule],
   providers: [TasksService],
+  exports: [TasksService],
 })
 export class TasksModule {}
