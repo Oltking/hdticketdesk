@@ -37,7 +37,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const schema = z.object({
+const baseSchema = z.object({
   firstName: z.string().min(1, 'First name is required').min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(1, 'Last name is required').min(2, 'Last name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
@@ -50,7 +50,16 @@ const schema = z.object({
   organizerTitle: z.string().optional(),
 });
 
-type FormData = z.infer<typeof schema>;
+// Schema with required organizerTitle for organizers
+const organizerSchema = baseSchema.extend({
+  organizerTitle: z
+    .string()
+    .min(1, 'Organization name is required')
+    .min(2, 'Organization name must be at least 2 characters')
+    .max(100, 'Organization name must be less than 100 characters'),
+});
+
+type FormData = z.infer<typeof baseSchema>;
 
 // Error message mapping for user-friendly messages
 const getErrorMessage = (error: string): { message: string; action?: string; actionType?: 'login' | 'resend' } => {
@@ -114,6 +123,9 @@ function SignupContent() {
   const { success, error: showError } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [errorState, setErrorState] = useState<{ message: string; action?: string; actionType?: string } | null>(null);
+  
+  // Use different schema based on role
+  const schema = isOrganizer ? organizerSchema : baseSchema;
   
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({ 
     resolver: zodResolver(schema),
@@ -371,13 +383,20 @@ function SignupContent() {
             
             {isOrganizer && (
               <div className="space-y-1.5">
-                <Label htmlFor="organizerTitle">Organization Name</Label>
+                <Label htmlFor="organizerTitle">
+                  Organization Name <span className="text-red-500">*</span>
+                </Label>
                 <Input 
                   id="organizerTitle"
                   placeholder="Your company or brand name"
                   {...register('organizerTitle')} 
+                  className={errors.organizerTitle ? 'border-red-500' : ''}
                 />
-                <p className="text-xs text-gray-500">This will be displayed on your events</p>
+                {errors.organizerTitle ? (
+                  <p className="text-xs text-red-500">{errors.organizerTitle.message}</p>
+                ) : (
+                  <p className="text-xs text-gray-500">This will be displayed on your events and tickets</p>
+                )}
               </div>
             )}
             

@@ -63,4 +63,25 @@ export class UsersService {
       withdrawnBalance: Number(profile.withdrawnBalance),
     };
   }
+
+  async updateOrganizerProfile(userId: string, dto: { title?: string; description?: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organizerProfile: true },
+    });
+    if (!user?.organizerProfile) throw new BadRequestException('Organizer profile not found');
+
+    const updatedProfile = await this.prisma.organizerProfile.update({
+      where: { id: user.organizerProfile.id },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.description !== undefined && { description: dto.description }),
+      },
+    });
+
+    return { 
+      message: 'Organizer profile updated successfully',
+      organizerProfile: updatedProfile,
+    };
+  }
 }

@@ -42,4 +42,15 @@ export class UsersController {
   async getBalance(@CurrentUser('id') userId: string) {
     return this.usersService.getOrganizerBalance(userId);
   }
+
+  @Put('organizer-profile')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Update organizer profile (title/description)' })
+  async updateOrganizerProfile(
+    @CurrentUser('id') userId: string,
+    @Body() dto: { title?: string; description?: string },
+  ) {
+    return this.usersService.updateOrganizerProfile(userId, dto);
+  }
 }

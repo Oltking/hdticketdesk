@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sidebar } from '@/components/layouts/sidebar';
+import { OrganizationNameDialog, useOrganizationNameCheck } from '@/components/ui/organization-name-dialog';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -42,13 +43,24 @@ type FormData = z.infer<typeof schema>;
 
 export default function CreateEventPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth(true, ['ORGANIZER']);
+  const { user, isLoading: authLoading, refreshUser } = useAuth(true, ['ORGANIZER']);
   const { success, error } = useToast();
   const [publishing, setPublishing] = useState(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOrgNameDialog, setShowOrgNameDialog] = useState(false);
+  
+  // Check if organization name is needed
+  const { needsOrganizationName } = useOrganizationNameCheck(user);
+  
+  // Show organization name dialog if needed
+  useEffect(() => {
+    if (!authLoading && needsOrganizationName) {
+      setShowOrgNameDialog(true);
+    }
+  }, [authLoading, needsOrganizationName]);
 
   const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -461,6 +473,15 @@ export default function CreateEventPage() {
             </div>
           </form>
         </div>
+
+        {/* Organization Name Dialog */}
+        <OrganizationNameDialog
+          open={showOrgNameDialog}
+          onSuccess={() => {
+            setShowOrgNameDialog(false);
+            refreshUser?.();
+          }}
+        />
       </main>
     </div>
   );
