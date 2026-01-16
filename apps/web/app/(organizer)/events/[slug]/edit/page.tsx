@@ -87,6 +87,8 @@ export default function EditEventPage() {
           endDate: formatDateForInput(event.endDate),
           isOnline: event.isOnline || false,
           location: event.location || '',
+          latitude: event.latitude ?? undefined,
+          longitude: event.longitude ?? undefined,
           isLocationPublic: event.isLocationPublic ?? true,
           onlineLink: event.onlineLink || '',
           passFeeTobuyer: event.passFeeTobuyer || false,
@@ -162,8 +164,10 @@ export default function EditEventPage() {
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
-        // Only include location if not online and has value
+        // Only include location fields if not online and has value
         location: !data.isOnline && data.location ? data.location : undefined,
+        latitude: !data.isOnline && data.latitude ? data.latitude : undefined,
+        longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
         // Only include onlineLink if online and has value
         onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
