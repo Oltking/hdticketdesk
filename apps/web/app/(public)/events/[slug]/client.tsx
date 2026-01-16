@@ -378,7 +378,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
 
       {/* Checkout Confirmation Dialog */}
       <Dialog open={checkoutDialog?.open || false} onOpenChange={(open) => !open && handleCancelCheckout()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Ticket className="w-5 h-5" />
