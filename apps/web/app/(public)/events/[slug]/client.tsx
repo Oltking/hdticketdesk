@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
@@ -384,6 +384,9 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
               <Ticket className="w-5 h-5" />
               Confirm Your Purchase
             </DialogTitle>
+            <DialogDescription>
+              Review your ticket details and price breakdown before proceeding to payment.
+            </DialogDescription>
           </DialogHeader>
           
           {checkoutDialog && (
