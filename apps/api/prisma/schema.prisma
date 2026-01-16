@@ -82,6 +82,8 @@ model Event {
   startDate          DateTime
   endDate            DateTime?
   location           String?
+  latitude           Float?
+  longitude          Float?
   isLocationPublic   Boolean          @default(true)
   isOnline           Boolean          @default(false)
   onlineLink         String?
