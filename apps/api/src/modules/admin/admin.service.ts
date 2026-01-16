@@ -119,13 +119,35 @@ export class AdminService {
               tickets: true,
             },
           },
+          payments: {
+            where: { status: 'SUCCESS' },
+            select: { amount: true },
+          },
         },
       }),
       this.prisma.event.count(),
     ]);
 
+    // Calculate total revenue for each event from successful payments
+    const eventsWithRevenue = events.map(event => {
+      const totalRevenue = event.payments.reduce((sum, payment) => {
+        const amount = payment.amount instanceof Decimal 
+          ? payment.amount.toNumber() 
+          : Number(payment.amount) || 0;
+        return sum + amount;
+      }, 0);
+      
+      // Remove payments array from response (we only needed it for calculation)
+      const { payments, ...eventWithoutPayments } = event;
+      
+      return {
+        ...eventWithoutPayments,
+        totalRevenue,
+      };
+    });
+
     return {
-      events,
+      events: eventsWithRevenue,
       total,
       page,
       totalPages: Math.ceil(total / limit),
