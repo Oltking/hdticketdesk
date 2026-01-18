@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -40,6 +42,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     authorizationUrl: string;
   } | null>(null);
   const [processingCheckout, setProcessingCheckout] = useState(false);
+  const [guestEmailDialog, setGuestEmailDialog] = useState<{ tierId: string; tierName: string } | null>(null);
+  const [guestEmail, setGuestEmail] = useState('');
 
   useEffect(() => {
     if (!initialEvent) {
@@ -66,14 +70,17 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     }
   };
 
-  const handlePurchase = async (tierId: string) => {
-    if (!isAuthenticated) {
-      router.push(`/login?redirect=/events/${slug}`);
+  const handlePurchase = async (tierId: string, email?: string) => {
+    // For guests, show email dialog first
+    if (!isAuthenticated && !email) {
+      const tier = event!.tiers?.find(t => t.id === tierId);
+      setGuestEmailDialog({ tierId, tierName: tier?.name || 'Ticket' });
       return;
     }
+
     setPurchasing(tierId);
     try {
-      const response = await api.initializePayment(event!.id, tierId);
+      const response = await api.initializePayment(event!.id, tierId, email);
       
       // Handle free tickets - no payment gateway needed
       if (response.isFree) {
@@ -112,6 +119,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
       }
     } catch (err: any) {
       error(err.message || 'Failed to initialize payment');
+      // Close the dialog if it was open
+      setCheckoutDialog(null);
     } finally {
       setPurchasing(null);
     }
@@ -452,6 +461,66 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
               ) : (
                 'Proceed to Payment'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Guest Email Dialog */}
+      <Dialog open={!!guestEmailDialog} onOpenChange={(open) => !open && setGuestEmailDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ticket className="w-5 h-5" />
+              Enter Your Email
+            </DialogTitle>
+          </DialogHeader>
+
+          {guestEmailDialog && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <p className="font-medium">{guestEmailDialog.tierName}</p>
+                <p className="text-sm text-muted-foreground">{event?.title}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="guest-email">Email Address</Label>
+                <Input
+                  id="guest-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  We'll send your ticket to this email. You can create an account later to manage your tickets.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Already have an account? <button onClick={() => router.push(`/login?redirect=/events/${slug}`)} className="underline font-medium">Sign in</button>
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGuestEmailDialog(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (guestEmail && guestEmailDialog) {
+                  setGuestEmailDialog(null);
+                  handlePurchase(guestEmailDialog.tierId, guestEmail);
+                }
+              }}
+              disabled={!guestEmail || !/\S+@\S+\.\S+/.test(guestEmail)}
+            >
+              Continue to Payment
             </Button>
           </DialogFooter>
         </DialogContent>

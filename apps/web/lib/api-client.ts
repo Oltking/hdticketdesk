@@ -336,10 +336,10 @@ class ApiClient {
   }
 
   // ==================== TICKETS ====================
-  async initializePayment(eventId: string, tierId: string, quantity = 1) {
-    return this.request<{ 
+  async initializePayment(eventId: string, tierId: string, guestEmail?: string, quantity = 1) {
+    return this.request<{
       // For paid tickets
-      authorizationUrl?: string; 
+      authorizationUrl?: string;
       reference: string;
       paymentId: string;
       // Price breakdown (for service fee display)
@@ -354,7 +354,7 @@ class ApiClient {
       message?: string;
     }>('/payments/initialize', {
       method: 'POST',
-      body: JSON.stringify({ eventId, tierId, quantity }),
+      body: JSON.stringify({ eventId, tierId, quantity, guestEmail }),
     });
   }
 

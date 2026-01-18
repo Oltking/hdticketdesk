@@ -12,7 +12,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye, Info, X } from 'lucide-react';
+import { Plus, TrendingUp, Calendar, DollarSign, QrCode, BarChart3, EyeOff, Trash2, AlertCircle, Eye, Info, X, Share2, Copy, Download } from 'lucide-react';
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [showPublishConfirm, setShowPublishConfirm] = useState<{ id: string; title: string } | null>(null);
   const [showAttendTip, setShowAttendTip] = useState(true);
   const [showOrgNameDialog, setShowOrgNameDialog] = useState(false);
+  const [shareDialog, setShareDialog] = useState<{ slug: string; title: string } | null>(null);
   
   // Check if organization name is needed
   const { needsOrganizationName } = useOrganizationNameCheck(user);
@@ -109,6 +110,52 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCopyLink = (slug: string) => {
+    const eventUrl = `https://hdticketdesk.com/events/${slug}`;
+    navigator.clipboard.writeText(eventUrl);
+    success('Event link copied to clipboard!');
+  };
+
+  const handleDownloadQR = (slug: string, title: string) => {
+    const eventUrl = `https://hdticketdesk.com/events/${slug}`;
+    const canvas = document.createElement('canvas');
+    const size = 512;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    if (ctx) {
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+
+      // Generate QR code using a simple library-free approach
+      // For production, you'd want to use a proper QR code library like 'qrcode'
+      // For now, we'll use a QR code API
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(eventUrl)}`;
+
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, size, size);
+
+        // Download
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qr.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            success('QR code downloaded!');
+          }
+        });
+      };
+      img.src = qrApiUrl;
+    }
+  };
+
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Skeleton className="h-8 w-32" /></div>;
 
   const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
@@ -187,6 +234,14 @@ export default function DashboardPage() {
                       <p className="text-sm text-text-muted">{formatDate(event.startDate)} • {event.totalTicketsSold || 0} sold</p>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        title="Share event"
+                        onClick={() => setShareDialog({ slug: event.slug, title: event.title })}
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </Button>
                       <Link href={`/events/${event.slug}/scan`}><Button variant="outline" size="sm" title="Scan tickets"><QrCode className="h-4 w-4" /></Button></Link>
                       <Link href={`/events/${event.slug}/analytics`}><Button variant="outline" size="sm" title="Analytics"><BarChart3 className="h-4 w-4" /></Button></Link>
                       <Link href={`/events/${event.slug}/edit`}><Button variant="outline" size="sm">Edit</Button></Link>
@@ -327,6 +382,76 @@ export default function DashboardPage() {
                 >
                   Delete Event
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Event Dialog */}
+        {shareDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card p-6 rounded-lg shadow-lg max-w-md w-full">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-lg font-semibold">Share Event</h3>
+                <button
+                  onClick={() => setShareDialog(null)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Event Title */}
+                <div>
+                  <p className="text-sm font-medium mb-1">Event</p>
+                  <p className="text-sm text-muted-foreground">{shareDialog.title}</p>
+                </div>
+
+                {/* Event URL */}
+                <div>
+                  <p className="text-sm font-medium mb-2">Event Link</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={`https://hdticketdesk.com/events/${shareDialog.slug}`}
+                      className="flex-1 px-3 py-2 text-sm border rounded-md bg-muted"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleCopyLink(shareDialog.slug)}
+                      title="Copy link"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* QR Code */}
+                <div>
+                  <p className="text-sm font-medium mb-2">QR Code</p>
+                  <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-white">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`https://hdticketdesk.com/events/${shareDialog.slug}`)}`}
+                      alt="Event QR Code"
+                      className="w-48 h-48"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleDownloadQR(shareDialog.slug, shareDialog.title)}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download QR Code
+                    </Button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Share this link or QR code to promote your event
+                </p>
               </div>
             </div>
           </div>
