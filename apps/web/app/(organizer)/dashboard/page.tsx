@@ -11,18 +11,18 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { 
-  Plus, 
-  TrendingUp, 
-  Calendar, 
-  DollarSign, 
-  QrCode, 
-  BarChart3, 
-  EyeOff, 
-  Trash2, 
-  AlertCircle, 
-  Eye, 
-  Info, 
+import {
+  Plus,
+  TrendingUp,
+  Calendar,
+  DollarSign,
+  QrCode,
+  BarChart3,
+  EyeOff,
+  Trash2,
+  AlertCircle,
+  Eye,
+  Info,
   X,
   Ticket,
   Clock,
@@ -30,7 +30,10 @@ import {
   RefreshCw,
   ArrowRight,
   Sparkles,
-  Users
+  Users,
+  Copy,
+  Download,
+  Share2
 } from 'lucide-react';
 import type { Event } from '@/types';
 
@@ -126,6 +129,50 @@ export default function DashboardPage() {
       error(err.message || 'Failed to publish event');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleCopyLink = (slug: string) => {
+    const eventUrl = `https://hdticketdesk.com/events/${slug}`;
+    navigator.clipboard.writeText(eventUrl);
+    success('Event link copied to clipboard!');
+  };
+
+  const handleDownloadQR = (slug: string, title: string) => {
+    const eventUrl = `https://hdticketdesk.com/events/${slug}`;
+    const canvas = document.createElement('canvas');
+    const size = 512;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    if (ctx) {
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+
+      // Generate QR code using external API
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(eventUrl)}`;
+
+      const img = new window.Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, size, size);
+
+        // Download
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qr.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            success('QR code downloaded!');
+          }
+        });
+      };
+      img.src = qrApiUrl;
     }
   };
 
