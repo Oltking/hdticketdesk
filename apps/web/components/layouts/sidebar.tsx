@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/auth-store';
 // Buyer navigation items - used in buyer pages
 const buyerNavItems = [
   { href: '/tickets', label: 'My Tickets', icon: Ticket },
-  { href: '/refunds', label: 'Refunds', icon: RotateCcw },
+  { href: '/my-refunds', label: 'Refunds', icon: RotateCcw },
   { href: '/account', label: 'Settings', icon: Settings },
 ];
 
