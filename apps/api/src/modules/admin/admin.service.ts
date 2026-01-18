@@ -576,4 +576,231 @@ export class AdminService {
       refund: updatedRefund,
     };
   }
+
+  // Get individual organizer earnings and stats
+  async getOrganizerEarnings(organizerId: string) {
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!organizer) {
+      throw new NotFoundException('Organizer not found');
+    }
+
+    // Get total earnings from ledger
+    const ticketSales = await this.prisma.ledgerEntry.findMany({
+      where: {
+        organizerId,
+        type: 'TICKET_SALE',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const withdrawals = await this.prisma.withdrawal.findMany({
+      where: {
+        organizerId,
+        status: 'COMPLETED',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const refunds = await this.prisma.refund.findMany({
+      where: {
+        ticket: {
+          event: {
+            organizerId,
+          },
+        },
+        status: 'PROCESSED',
+      },
+      include: {
+        ticket: {
+          select: {
+            ticketNumber: true,
+            event: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { processedAt: 'desc' },
+    });
+
+    // Calculate totals
+    const totalSales = ticketSales.reduce((sum, entry) => {
+      const amount = entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
+      return sum + amount;
+    }, 0);
+
+    const totalWithdrawn = withdrawals.reduce((sum, w) => {
+      const amount = w.amount instanceof Decimal ? w.amount.toNumber() : Number(w.amount);
+      return sum + amount;
+    }, 0);
+
+    const totalRefunded = refunds.reduce((sum, r) => {
+      const amount = r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
+      return sum + amount;
+    }, 0);
+
+    const pendingBalance = organizer.pendingBalance instanceof Decimal
+      ? organizer.pendingBalance.toNumber()
+      : Number(organizer.pendingBalance);
+
+    const availableBalance = organizer.availableBalance instanceof Decimal
+      ? organizer.availableBalance.toNumber()
+      : Number(organizer.availableBalance);
+
+    const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
+      ? organizer.withdrawnBalance.toNumber()
+      : Number(organizer.withdrawnBalance);
+
+    return {
+      organizer: {
+        id: organizer.id,
+        title: organizer.title,
+        user: organizer.user,
+      },
+      balances: {
+        pending: pendingBalance,
+        available: availableBalance,
+        withdrawn: withdrawnBalance,
+      },
+      stats: {
+        totalSales,
+        totalWithdrawn,
+        totalRefunded,
+        netEarnings: totalSales - totalRefunded,
+      },
+      recentSales: ticketSales.slice(0, 10).map(sale => ({
+        id: sale.id,
+        amount: sale.amount instanceof Decimal ? sale.amount.toNumber() : Number(sale.amount),
+        description: sale.description,
+        createdAt: sale.createdAt,
+      })),
+      recentWithdrawals: withdrawals.slice(0, 10).map(w => ({
+        id: w.id,
+        amount: w.amount instanceof Decimal ? w.amount.toNumber() : Number(w.amount),
+        status: w.status,
+        createdAt: w.createdAt,
+        processedAt: w.processedAt,
+      })),
+      recentRefunds: refunds.slice(0, 10).map(r => ({
+        id: r.id,
+        amount: r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
+        ticketNumber: r.ticket.ticketNumber,
+        eventTitle: r.ticket.event.title,
+        processedAt: r.processedAt,
+      })),
+    };
+  }
+
+  // Get all organizers with their earnings summary
+  async getAllOrganizersEarnings(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [organizers, total] = await Promise.all([
+      this.prisma.organizerProfile.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+      this.prisma.organizerProfile.count(),
+    ]);
+
+    // Calculate earnings for each organizer
+    const organizersWithEarnings = await Promise.all(
+      organizers.map(async (organizer) => {
+        // Get total sales from ledger
+        const salesSum = await this.prisma.ledgerEntry.aggregate({
+          where: {
+            organizerId: organizer.id,
+            type: 'TICKET_SALE',
+          },
+          _sum: {
+            amount: true,
+          },
+        });
+
+        // Get total refunds
+        const refundsSum = await this.prisma.refund.aggregate({
+          where: {
+            ticket: {
+              event: {
+                organizerId: organizer.id,
+              },
+            },
+            status: 'PROCESSED',
+          },
+          _sum: {
+            refundAmount: true,
+          },
+        });
+
+        const totalSales = salesSum._sum.amount
+          ? (salesSum._sum.amount instanceof Decimal ? salesSum._sum.amount.toNumber() : Number(salesSum._sum.amount))
+          : 0;
+
+        const totalRefunded = refundsSum._sum.refundAmount
+          ? (refundsSum._sum.refundAmount instanceof Decimal ? refundsSum._sum.refundAmount.toNumber() : Number(refundsSum._sum.refundAmount))
+          : 0;
+
+        const pendingBalance = organizer.pendingBalance instanceof Decimal
+          ? organizer.pendingBalance.toNumber()
+          : Number(organizer.pendingBalance);
+
+        const availableBalance = organizer.availableBalance instanceof Decimal
+          ? organizer.availableBalance.toNumber()
+          : Number(organizer.availableBalance);
+
+        const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
+          ? organizer.withdrawnBalance.toNumber()
+          : Number(organizer.withdrawnBalance);
+
+        return {
+          id: organizer.id,
+          title: organizer.title,
+          user: organizer.user,
+          balances: {
+            pending: pendingBalance,
+            available: availableBalance,
+            withdrawn: withdrawnBalance,
+          },
+          earnings: {
+            totalSales,
+            totalRefunded,
+            netEarnings: totalSales - totalRefunded,
+          },
+        };
+      })
+    );
+
+    return {
+      organizers: organizersWithEarnings,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }

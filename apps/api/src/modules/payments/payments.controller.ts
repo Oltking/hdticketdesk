@@ -1,10 +1,11 @@
-import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -14,16 +15,24 @@ export class PaymentsController {
     private readonly paystackService: PaystackService,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post('initialize')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Initialize payment' })
+  @ApiOperation({ summary: 'Initialize payment (supports guest checkout with email)' })
   async initialize(
-    @CurrentUser('id') userId: string,
-    @CurrentUser('email') email: string,
+    @Request() req: any,
     @Body('eventId') eventId: string,
     @Body('tierId') tierId: string,
+    @Body('guestEmail') guestEmail?: string,
   ) {
+    // For authenticated users, use their ID and email
+    // For guests, use the provided guestEmail
+    const userId = req.user?.id || req.user?.sub || null;
+    const email = req.user?.email || guestEmail;
+
+    if (!email) {
+      throw new Error('Email is required for payment initialization');
+    }
+
     // Service expects: (eventId, tierId, userId, email)
     return this.paymentsService.initializePayment(eventId, tierId, userId, email);
   }

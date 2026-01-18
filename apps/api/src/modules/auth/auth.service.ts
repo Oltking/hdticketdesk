@@ -129,7 +129,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('No account found with this email. Please sign up first.');
     }
 
     // Check if account is locked

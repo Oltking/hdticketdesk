@@ -90,4 +90,16 @@ export class AdminController {
   async processRefund(@Param('id') id: string) {
     return this.adminService.processRefund(id);
   }
+
+  @Get('organizers/earnings')
+  @ApiOperation({ summary: 'Get all organizers with earnings summary' })
+  async getAllOrganizersEarnings(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.adminService.getAllOrganizersEarnings(+page, +limit);
+  }
+
+  @Get('organizers/:id/earnings')
+  @ApiOperation({ summary: 'Get detailed earnings for a specific organizer' })
+  async getOrganizerEarnings(@Param('id') id: string) {
+    return this.adminService.getOrganizerEarnings(id);
+  }
 }

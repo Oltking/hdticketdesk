@@ -52,6 +52,7 @@ export default function PayoutsPage() {
       success('OTP sent to your email');
     } catch (err: any) {
       error(err.message || 'Failed to request withdrawal');
+      setShowWithdraw(false);
     }
   };
 
@@ -66,6 +67,8 @@ export default function PayoutsPage() {
       setHistory(historyData);
     } catch (err: any) {
       error(err.message || 'Verification failed');
+      setShowOtp(false);
+      setOtp('');
     }
   };
 
