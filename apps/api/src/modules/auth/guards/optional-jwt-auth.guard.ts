@@ -23,10 +23,13 @@ export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
   }
 
   // Override canActivate to not throw on missing token
-  canActivate(context: ExecutionContext) {
-    return super.canActivate(context).catch(() => {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    try {
+      const result = await super.canActivate(context);
+      return result as boolean;
+    } catch (err) {
       // If authentication fails, just return true to allow the request through
       return true;
-    }) as boolean | Promise<boolean>;
+    }
   }
 }
