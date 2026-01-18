@@ -450,4 +450,130 @@ export class AdminService {
       user: adminUser,
     };
   }
+
+  /**
+   * Get all refund requests with pagination
+   */
+  async getAllRefunds(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [refunds, total] = await Promise.all([
+      this.prisma.refund.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          ticket: {
+            include: {
+              event: {
+                include: {
+                  organizer: {
+                    select: {
+                      title: true,
+                    },
+                  },
+                },
+              },
+              tier: true,
+            },
+          },
+          requester: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      }),
+      this.prisma.refund.count(),
+    ]);
+
+    return {
+      refunds,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Process an approved refund (initiate actual refund)
+   */
+  async processRefund(refundId: string) {
+    // Find the refund
+    const refund = await this.prisma.refund.findUnique({
+      where: { id: refundId },
+      include: {
+        ticket: {
+          include: {
+            event: {
+              include: {
+                organizer: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund not found');
+    }
+
+    if (refund.status !== 'APPROVED') {
+      throw new ForbiddenException('Only approved refunds can be processed');
+    }
+
+    // Update refund status to PROCESSED
+    const updatedRefund = await this.prisma.refund.update({
+      where: { id: refundId },
+      data: {
+        status: 'PROCESSED',
+        processedAt: new Date(),
+        processedBy: 'ADMIN',
+      },
+    });
+
+    // Update ticket status to REFUNDED
+    await this.prisma.ticket.update({
+      where: { id: refund.ticketId },
+      data: {
+        status: 'REFUNDED',
+      },
+    });
+
+    // Create ledger entry for the refund (negative amount)
+    const refundAmountDecimal = new Decimal(refund.refundAmount.toString());
+
+    await this.prisma.ledgerEntry.create({
+      data: {
+        organizerId: refund.ticket.event.organizerId,
+        type: 'REFUND',
+        amount: refundAmountDecimal.negated(),
+        description: `Refund for ticket #${refund.ticket.ticketNumber}`,
+        ticketId: refund.ticketId,
+        pendingBalanceAfter: new Decimal(0),
+        availableBalanceAfter: new Decimal(0),
+      },
+    });
+
+    // Update organizer balance (deduct refund amount)
+    await this.prisma.organizerProfile.update({
+      where: { id: refund.ticket.event.organizerId },
+      data: {
+        availableBalance: {
+          decrement: refundAmountDecimal,
+        },
+      },
+    });
+
+    this.logger.log(`Refund processed: ${refundId} for ticket ${refund.ticket.ticketNumber}`);
+
+    return {
+      message: 'Refund processed successfully',
+      refund: updatedRefund,
+    };
+  }
 }

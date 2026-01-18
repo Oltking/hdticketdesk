@@ -42,11 +42,11 @@ export class RefundsController {
 
   /**
    * POST /refunds/:id/approve
-   * Organizer approves a refund request
+   * Organizer or Admin approves a refund request
    */
   @Post(':id/approve')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORGANIZER)
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   async approveRefund(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -56,11 +56,11 @@ export class RefundsController {
 
   /**
    * POST /refunds/:id/reject
-   * Organizer rejects a refund request
+   * Organizer or Admin rejects a refund request
    */
   @Post(':id/reject')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ORGANIZER)
+  @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   async rejectRefund(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,

@@ -78,4 +78,16 @@ export class AdminController {
   async createAdminUser(@Body() dto: CreateAdminDto) {
     return this.adminService.createAdminUser(dto);
   }
+
+  @Get('refunds')
+  @ApiOperation({ summary: 'Get all refund requests' })
+  async getRefunds(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.adminService.getAllRefunds(+page, +limit);
+  }
+
+  @Post('refunds/:id/process')
+  @ApiOperation({ summary: 'Process an approved refund' })
+  async processRefund(@Param('id') id: string) {
+    return this.adminService.processRefund(id);
+  }
 }

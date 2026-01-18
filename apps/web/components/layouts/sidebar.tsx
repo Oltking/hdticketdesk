@@ -57,6 +57,7 @@ export function Sidebar({ type }: SidebarProps) {
   const organizerLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/events/create', label: 'Create Event', icon: Plus },
+    { href: '/refunds', label: 'Refunds', icon: RotateCcw },
     { href: '/payouts', label: 'Payouts', icon: DollarSign },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
@@ -65,6 +66,7 @@ export function Sidebar({ type }: SidebarProps) {
     { href: '/admin/overview', label: 'Overview', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/events', label: 'Events', icon: Calendar },
+    { href: '/admin/refunds', label: 'Refunds', icon: RotateCcw },
     { href: '/admin/ledger', label: 'Ledger', icon: BookOpen },
   ];
 
