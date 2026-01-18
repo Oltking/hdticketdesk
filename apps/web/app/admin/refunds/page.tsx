@@ -114,10 +114,7 @@ export default function AdminRefundsPage() {
 
     try {
       setActionLoading(processDialog.id);
-      // Process refund endpoint
-      await api.request(`/admin/refunds/${processDialog.id}/process`, {
-        method: 'POST',
-      });
+      await api.processRefund(processDialog.id);
       success('Refund processed successfully!');
       setProcessDialog(null);
       await fetchRefunds();

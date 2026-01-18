@@ -67,9 +67,7 @@ export default function OrganizerDetailsPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const result = await api.request(`/admin/organizers/${params.id}/earnings`, {
-          method: 'GET',
-        });
+        const result = await api.getOrganizerEarnings(params.id as string);
         setData(result);
       } catch (err) {
         console.error('Failed to fetch organizer earnings:', err);

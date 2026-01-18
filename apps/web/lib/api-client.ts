@@ -635,11 +635,30 @@ class ApiClient {
   }
 
   async adminDeleteEvent(id: string) {
-    return this.request<{ 
-      message: string; 
+    return this.request<{
+      message: string;
       deletedRecords: { tickets: number; payments: number; tiers: number };
       organizer: string;
     }>(`/admin/events/${id}/delete`, {
+      method: 'POST',
+    });
+  }
+
+  async getAllOrganizersEarnings(page = 1, limit = 20) {
+    return this.request<{
+      organizers: any[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`/admin/organizers/earnings?page=${page}&limit=${limit}`);
+  }
+
+  async getOrganizerEarnings(organizerId: string) {
+    return this.request<any>(`/admin/organizers/${organizerId}/earnings`);
+  }
+
+  async processRefund(refundId: string) {
+    return this.request<{ message: string; refund: any }>(`/admin/refunds/${refundId}/process`, {
       method: 'POST',
     });
   }

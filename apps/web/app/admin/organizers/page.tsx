@@ -44,9 +44,7 @@ export default function AdminOrganizersPage() {
     const fetchOrganizers = async () => {
       try {
         setLoading(true);
-        const data = await api.request('/admin/organizers/earnings?page=' + page + '&limit=20', {
-          method: 'GET',
-        });
+        const data = await api.getAllOrganizersEarnings(page, 20);
         setOrganizers(data.organizers);
         setTotalPages(data.totalPages);
       } catch (err) {
