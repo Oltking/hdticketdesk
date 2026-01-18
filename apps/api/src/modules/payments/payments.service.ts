@@ -86,7 +86,28 @@ export class PaymentsService {
         );
       }
     } else {
-      // For guest checkout, check by email instead
+      // For guest checkout, first check if this email belongs to an organizer account
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: email.toLowerCase() },
+        select: { role: true, emailVerified: true },
+      });
+
+      if (existingUser) {
+        if (existingUser.role === 'ORGANIZER') {
+          throw new BadRequestException(
+            'This email is registered as an organizer account. Organizers cannot purchase tickets. Please use a different email or create an attendee account.',
+          );
+        }
+
+        // If the email belongs to a buyer account, suggest logging in
+        if (existingUser.emailVerified) {
+          throw new BadRequestException(
+            'This email is already registered. Please log in to purchase tickets.',
+          );
+        }
+      }
+
+      // Check if email already has a ticket for this event
       const existingTicket = await this.prisma.ticket.findFirst({
         where: {
           eventId,
