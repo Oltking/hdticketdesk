@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
@@ -30,7 +30,7 @@ export class PaymentsController {
     const email = req.user?.email || guestEmail;
 
     if (!email) {
-      throw new Error('Email is required for payment initialization');
+      throw new BadRequestException('Email is required for payment initialization');
     }
 
     // Service expects: (eventId, tierId, userId, email)
