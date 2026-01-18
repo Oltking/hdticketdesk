@@ -11,7 +11,7 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, User, CreditCard } from 'lucide-react';
+import { Building2, User, CreditCard, Settings, CheckCircle2, AlertCircle, RefreshCw, Shield } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user, isLoading: authLoading, refreshUser } = useAuth(true, ['ORGANIZER']);
@@ -128,7 +128,16 @@ export default function SettingsPage() {
     <div className="flex min-h-screen">
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <h1 className="text-2xl font-bold mb-6">Settings</h1>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Settings className="h-6 w-6 text-primary" />
+            Settings
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your profile and account settings
+          </p>
+        </div>
 
         <div className="max-w-2xl space-y-6">
           {/* Organization Name Card */}

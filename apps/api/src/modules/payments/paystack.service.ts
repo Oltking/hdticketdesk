@@ -117,7 +117,9 @@ export class PaystackService {
     amount: number,
     recipientCode: string,
     reason: string,
-  ) {
+  ): Promise<{ reference: string; transfer_code: string; status: string }> {
+    const amountInKobo = Math.round(amount * 100); // Convert to kobo and ensure it's an integer
+    
     const response = await fetch(`${this.baseUrl}/transfer`, {
       method: 'POST',
       headers: {
@@ -126,7 +128,7 @@ export class PaystackService {
       },
       body: JSON.stringify({
         source: 'balance',
-        amount: amount * 100, // Convert to kobo
+        amount: amountInKobo,
         recipient: recipientCode,
         reason,
       }),
@@ -135,7 +137,10 @@ export class PaystackService {
     const data = await response.json();
 
     if (!data.status) {
-      throw new Error(data.message || 'Failed to initiate transfer');
+      // Include more details in error message for debugging
+      const errorMsg = data.message || 'Failed to initiate transfer';
+      console.error('Paystack transfer error:', JSON.stringify(data));
+      throw new Error(errorMsg);
     }
 
     return data.data;

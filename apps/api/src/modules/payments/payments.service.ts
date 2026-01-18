@@ -9,6 +9,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { PaystackService } from './paystack.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { LedgerService } from '../ledger/ledger.service';
+import { TasksService } from '../tasks/tasks.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class PaymentsService {
     private paystackService: PaystackService,
     private ticketsService: TicketsService,
     private ledgerService: LedgerService,
+    private tasksService: TasksService,
   ) {}
 
   async initializePayment(
@@ -386,6 +388,15 @@ export class PaymentsService {
       where: { id: payment.tierId },
       data: { sold: { increment: 1 } },
     });
+
+    // Process any pending balance that should now be available
+    // This ensures immediate balance update if 24 hours have passed since first sale
+    try {
+      await this.tasksService.processOrganizerPendingBalance(event.organizerId);
+    } catch (error) {
+      // Log but don't fail the payment process
+      this.logger.warn(`Failed to process pending balance for organizer ${event.organizerId}:`, error);
+    }
   }
 
   async checkPendingPayments(userId: string) {

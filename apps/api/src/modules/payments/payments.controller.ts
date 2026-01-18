@@ -1,11 +1,14 @@
-import { Controller, Post, Get, Body, Param, UseGuards, Request, BadRequestException } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
+import { LedgerService } from '../ledger/ledger.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -13,6 +16,7 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly paystackService: PaystackService,
+    private readonly ledgerService: LedgerService,
   ) {}
 
   @UseGuards(OptionalJwtAuthGuard)
@@ -65,5 +69,18 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Resolve bank account' })
   async resolveAccount(@Body('accountNumber') accountNumber: string, @Body('bankCode') bankCode: string) {
     return this.paystackService.resolveAccountNumber(accountNumber, bankCode);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @Get('history')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get payment history for organizer' })
+  async getPaymentHistory(@CurrentUser('organizerProfile') organizerProfile: { id: string }) {
+    if (!organizerProfile?.id) {
+      return { entries: [] };
+    }
+    const entries = await this.ledgerService.getOrganizerLedger(organizerProfile.id);
+    return { entries };
   }
 }

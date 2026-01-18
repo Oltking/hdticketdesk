@@ -193,6 +193,7 @@ export class WithdrawalsService {
       let recipientCode = withdrawal.organizer.paystackRecipientCode;
 
       if (!recipientCode) {
+        this.logger.log(`Creating transfer recipient for organizer ${withdrawal.organizerId}`);
         const recipient = await this.paystackService.createTransferRecipient(
           withdrawal.accountName,
           withdrawal.accountNumber,
@@ -205,6 +206,7 @@ export class WithdrawalsService {
           where: { id: withdrawal.organizerId },
           data: { paystackRecipientCode: recipientCode },
         });
+        this.logger.log(`Created recipient code: ${recipientCode}`);
       }
 
       // Ensure recipientCode is not null before transfer
@@ -217,16 +219,25 @@ export class WithdrawalsService {
         ? withdrawal.amount.toNumber() 
         : Number(withdrawal.amount);
 
-      await this.paystackService.initiateTransfer(
+      this.logger.log(`Initiating transfer of ${withdrawalAmount} to ${recipientCode}`);
+      
+      const transferResult = await this.paystackService.initiateTransfer(
         withdrawalAmount,
         recipientCode,
         `Withdrawal for ${withdrawal.organizer.title}`,
       );
 
-      // Update withdrawal status
+      this.logger.log(`Transfer initiated: ${JSON.stringify(transferResult)}`);
+
+      // Update withdrawal status and save transfer reference
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
-        data: { status: 'COMPLETED', processedAt: new Date() },
+        data: { 
+          status: 'COMPLETED', 
+          processedAt: new Date(),
+          paystackTransferRef: transferResult?.reference || null,
+          paystackTransferCode: transferResult?.transfer_code || null,
+        },
       });
 
       // Update organizer balance
@@ -252,13 +263,17 @@ export class WithdrawalsService {
         accountNumber: withdrawal.accountNumber,
         status: 'success',
       });
+
+      this.logger.log(`Withdrawal ${withdrawalId} completed successfully`);
     } catch (error: any) {
+      this.logger.error(`Withdrawal ${withdrawalId} failed:`, error);
+      
       // Update withdrawal status to failed
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
         data: {
           status: 'FAILED',
-          failureReason: error.message,
+          failureReason: error.message || 'Transfer failed',
         },
       });
 
@@ -272,7 +287,7 @@ export class WithdrawalsService {
         bankName: withdrawal.bankName,
         accountNumber: withdrawal.accountNumber,
         status: 'failed',
-        reason: error.message,
+        reason: error.message || 'Transfer failed',
       });
     }
   }
