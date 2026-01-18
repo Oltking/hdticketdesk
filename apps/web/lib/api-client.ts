@@ -336,10 +336,10 @@ class ApiClient {
   }
 
   // ==================== TICKETS ====================
-  async initializePayment(eventId: string, tierId: string, quantity = 1) {
-    return this.request<{ 
+  async initializePayment(eventId: string, tierId: string, guestEmail?: string, quantity = 1) {
+    return this.request<{
       // For paid tickets
-      authorizationUrl?: string; 
+      authorizationUrl?: string;
       reference: string;
       paymentId: string;
       // Price breakdown (for service fee display)
@@ -354,7 +354,7 @@ class ApiClient {
       message?: string;
     }>('/payments/initialize', {
       method: 'POST',
-      body: JSON.stringify({ eventId, tierId, quantity }),
+      body: JSON.stringify({ eventId, tierId, quantity, guestEmail }),
     });
   }
 
@@ -640,11 +640,30 @@ class ApiClient {
   }
 
   async adminDeleteEvent(id: string) {
-    return this.request<{ 
-      message: string; 
+    return this.request<{
+      message: string;
       deletedRecords: { tickets: number; payments: number; tiers: number };
       organizer: string;
     }>(`/admin/events/${id}/delete`, {
+      method: 'POST',
+    });
+  }
+
+  async getAllOrganizersEarnings(page = 1, limit = 20) {
+    return this.request<{
+      organizers: any[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`/admin/organizers/earnings?page=${page}&limit=${limit}`);
+  }
+
+  async getOrganizerEarnings(organizerId: string) {
+    return this.request<any>(`/admin/organizers/${organizerId}/earnings`);
+  }
+
+  async processRefund(refundId: string) {
+    return this.request<{ message: string; refund: any }>(`/admin/refunds/${refundId}/process`, {
       method: 'POST',
     });
   }

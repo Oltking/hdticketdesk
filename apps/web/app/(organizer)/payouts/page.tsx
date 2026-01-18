@@ -67,6 +67,7 @@ export default function PayoutsPage() {
       router.push(`/payouts/verify?id=${result.withdrawalId}&amount=${amount}`);
     } catch (err: any) {
       error(err.message || 'Failed to request withdrawal');
+      setShowWithdraw(false);
     }
   };
 

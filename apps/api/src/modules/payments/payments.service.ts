@@ -28,7 +28,7 @@ export class PaymentsService {
   async initializePayment(
     eventId: string,
     tierId: string,
-    userId: string,
+    userId: string | null,
     email: string,
   ) {
     // Get event and tier
@@ -55,33 +55,53 @@ export class PaymentsService {
       throw new BadRequestException('Tickets sold out');
     }
 
-    // Check if user is an organizer - organizers cannot buy tickets
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
+    // Only check user restrictions if authenticated
+    if (userId) {
+      // Check if user is an organizer - organizers cannot buy tickets
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
 
-    if (user?.role === 'ORGANIZER') {
-      throw new BadRequestException(
-        'Organizer accounts cannot purchase tickets. Please create or login with an attendee account to buy tickets.',
-      );
-    }
+      if (user?.role === 'ORGANIZER') {
+        throw new BadRequestException(
+          'Organizer accounts cannot purchase tickets. Please create or login with an attendee account to buy tickets.',
+        );
+      }
 
-    // Check if user already has a ticket for this event (any tier)
-    const existingTicket = await this.prisma.ticket.findFirst({
-      where: {
-        eventId,
-        buyerId: userId,
-        status: {
-          in: ['ACTIVE', 'CHECKED_IN'], // Only count valid tickets, not cancelled/refunded
+      // Check if user already has a ticket for this event (any tier)
+      const existingTicket = await this.prisma.ticket.findFirst({
+        where: {
+          eventId,
+          buyerId: userId,
+          status: {
+            in: ['ACTIVE', 'CHECKED_IN'], // Only count valid tickets, not cancelled/refunded
+          },
         },
-      },
-    });
+      });
 
-    if (existingTicket) {
-      throw new BadRequestException(
-        'You already have a ticket for this event. Each user can only purchase one ticket per event.',
-      );
+      if (existingTicket) {
+        throw new BadRequestException(
+          'You already have a ticket for this event. Each user can only purchase one ticket per event.',
+        );
+      }
+    } else {
+      // For guest checkout, check by email instead
+      const existingTicket = await this.prisma.ticket.findFirst({
+        where: {
+          eventId,
+          buyerEmail: email,
+          status: {
+            in: ['ACTIVE', 'CHECKED_IN'],
+          },
+        },
+      });
+
+      if (existingTicket) {
+        throw new BadRequestException(
+          'This email already has a ticket for this event. Please sign in or use a different email.',
+        );
+      }
     }
 
     // Calculate amount
@@ -98,8 +118,8 @@ export class PaymentsService {
 
     // Handle FREE tickets (price = 0) - skip payment gateway
     if (tierPrice === 0) {
-      // Get user info
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      // Get user info if authenticated
+      const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
 
       // Create payment record as SUCCESS immediately for free tickets
       const payment = await this.prisma.payment.create({
@@ -109,7 +129,7 @@ export class PaymentsService {
           status: 'SUCCESS',
           eventId,
           tierId,
-          buyerId: userId,
+          buyerId: userId || null,
           buyerEmail: email,
         },
       });
@@ -118,7 +138,7 @@ export class PaymentsService {
       const ticket = await this.ticketsService.createTicket({
         eventId,
         tierId,
-        buyerId: userId,
+        buyerId: userId || '',
         buyerEmail: email,
         buyerFirstName: user?.firstName || undefined,
         buyerLastName: user?.lastName || undefined,
@@ -154,7 +174,7 @@ export class PaymentsService {
         status: 'PENDING',
         eventId,
         tierId,
-        buyerId: userId,
+        buyerId: userId || null,
         buyerEmail: email,
       },
     });

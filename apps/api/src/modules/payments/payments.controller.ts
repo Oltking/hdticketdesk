@@ -19,16 +19,24 @@ export class PaymentsController {
     private readonly ledgerService: LedgerService,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   @Post('initialize')
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Initialize payment' })
+  @ApiOperation({ summary: 'Initialize payment (supports guest checkout with email)' })
   async initialize(
-    @CurrentUser('id') userId: string,
-    @CurrentUser('email') email: string,
+    @Request() req: any,
     @Body('eventId') eventId: string,
     @Body('tierId') tierId: string,
+    @Body('guestEmail') guestEmail?: string,
   ) {
+    // For authenticated users, use their ID and email
+    // For guests, use the provided guestEmail
+    const userId = req.user?.id || req.user?.sub || null;
+    const email = req.user?.email || guestEmail;
+
+    if (!email) {
+      throw new BadRequestException('Email is required for payment initialization');
+    }
+
     // Service expects: (eventId, tierId, userId, email)
     return this.paymentsService.initializePayment(eventId, tierId, userId, email);
   }

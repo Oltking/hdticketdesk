@@ -78,4 +78,28 @@ export class AdminController {
   async createAdminUser(@Body() dto: CreateAdminDto) {
     return this.adminService.createAdminUser(dto);
   }
+
+  @Get('refunds')
+  @ApiOperation({ summary: 'Get all refund requests' })
+  async getRefunds(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.adminService.getAllRefunds(+page, +limit);
+  }
+
+  @Post('refunds/:id/process')
+  @ApiOperation({ summary: 'Process an approved refund' })
+  async processRefund(@Param('id') id: string) {
+    return this.adminService.processRefund(id);
+  }
+
+  @Get('organizers/earnings')
+  @ApiOperation({ summary: 'Get all organizers with earnings summary' })
+  async getAllOrganizersEarnings(@Query('page') page = 1, @Query('limit') limit = 20) {
+    return this.adminService.getAllOrganizersEarnings(+page, +limit);
+  }
+
+  @Get('organizers/:id/earnings')
+  @ApiOperation({ summary: 'Get detailed earnings for a specific organizer' })
+  async getOrganizerEarnings(@Param('id') id: string) {
+    return this.adminService.getOrganizerEarnings(id);
+  }
 }
