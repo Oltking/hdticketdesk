@@ -19,19 +19,19 @@ import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, 
 import { MapPicker } from '@/components/ui/map-picker';
 
 const tierSchema = z.object({
-  name: z.string().min(1, 'Required'),
+  name: z.string().min(1, 'Tier name is required'),
   isFree: z.boolean().default(false),
-  price: z.number().min(0),
-  capacity: z.number().min(1),
+  price: z.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price cannot be negative'),
+  capacity: z.number({ invalid_type_error: 'Capacity must be a number' }).min(1, 'Capacity must be at least 1'),
   description: z.string().optional(),
   refundEnabled: z.boolean().default(false),
   saleEndDate: z.string().optional(), // Date and time when ticket sales end
 });
 
 const schema = z.object({
-  title: z.string().min(1, 'Title is required'),
+  title: z.string().min(1, 'Event title is required'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
-  startDate: z.string().min(1, 'Start date is required'),
+  startDate: z.string().min(1, 'Start date and time is required'),
   endDate: z.string().optional(),
   isOnline: z.boolean().default(false),
   location: z.string().optional(),
@@ -296,16 +296,16 @@ export default function CreateEventPage() {
               <CardHeader><CardTitle>Event Details</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Event Title</Label>
+                  <Label>Event Title <span className="text-red-500">*</span></Label>
                   <Input {...register('title')} error={errors.title?.message} placeholder="e.g., Tech Conference 2025" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea {...register('description')} error={errors.description?.message} placeholder="Tell people about your event..." />
+                  <Label>Description <span className="text-red-500">*</span></Label>
+                  <Textarea {...register('description')} error={errors.description?.message} placeholder="Tell people about your event... (minimum 10 characters)" />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Start Date & Time</Label>
+                    <Label>Start Date & Time <span className="text-red-500">*</span></Label>
                     <Input type="datetime-local" {...register('startDate')} error={errors.startDate?.message} />
                   </div>
                   <div className="space-y-2">
@@ -429,12 +429,18 @@ export default function CreateEventPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Ticket Tiers</CardTitle>
+                <CardTitle>Ticket Tiers <span className="text-red-500">*</span></CardTitle>
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })}>
                   <Plus className="h-4 w-4 mr-1" />Add Tier
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
+                {errors.tiers?.message && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{errors.tiers.message}</span>
+                  </div>
+                )}
                 {fields.map((field, index) => {
                   const isFree = watch(`tiers.${index}.isFree`);
                   return (
@@ -447,11 +453,15 @@ export default function CreateEventPage() {
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
                         <div className="space-y-2">
-                          <Label>Tier Name</Label>
-                          <Input {...register(`tiers.${index}.name`)} placeholder="e.g., VIP, General" />
+                          <Label>Tier Name <span className="text-red-500">*</span></Label>
+                          <Input 
+                            {...register(`tiers.${index}.name`)} 
+                            placeholder="e.g., VIP, General" 
+                            error={errors.tiers?.[index]?.name?.message}
+                          />
                         </div>
                         <div className="space-y-2">
-                          <Label>Price (₦)</Label>
+                          <Label>Price (₦) <span className="text-red-500">*</span></Label>
                           <div className="space-y-2">
                             <Input 
                               type="number" 
@@ -460,6 +470,7 @@ export default function CreateEventPage() {
                               disabled={isFree}
                               className={isFree ? 'bg-muted text-muted-foreground' : ''}
                               value={isFree ? 0 : undefined}
+                              error={errors.tiers?.[index]?.price?.message}
                             />
                             <div className="flex items-center gap-2">
                               <input 
@@ -480,8 +491,13 @@ export default function CreateEventPage() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Capacity</Label>
-                          <Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} />
+                          <Label>Capacity <span className="text-red-500">*</span></Label>
+                          <Input 
+                            type="number" 
+                            {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} 
+                            min={1} 
+                            error={errors.tiers?.[index]?.capacity?.message}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">

@@ -57,6 +57,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
           status = HttpStatus.BAD_REQUEST;
           message = 'Related record not found';
           break;
+        case 'P2000':
+          // Value too long for column
+          status = HttpStatus.BAD_REQUEST;
+          message = 'One of the provided values is too long. Please shorten your input.';
+          break;
+        case 'P2005':
+        case 'P2006':
+          // Invalid value for field type
+          status = HttpStatus.BAD_REQUEST;
+          message = 'Invalid data format provided. Please check your input values.';
+          break;
         default:
           // SECURITY: Don't expose internal database error details to clients
           status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -68,7 +79,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Handle Prisma validation errors
     else if (exception instanceof Prisma.PrismaClientValidationError) {
       status = HttpStatus.BAD_REQUEST;
-      message = 'Invalid data provided to database';
+      message = 'Invalid data provided. Please check all required fields are filled correctly.';
       this.logger.error(`Prisma validation error: ${exception.message}`, exception.stack);
     }
     // Handle other errors

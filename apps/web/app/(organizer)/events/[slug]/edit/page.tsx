@@ -436,11 +436,11 @@ export default function EditEventPage() {
                 <CardDescription>Basic information about your event</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2"><Label>Title</Label><Input {...register('title')} /></div>
-                <div className="space-y-2"><Label>Description</Label><Textarea {...register('description')} /></div>
+                <div className="space-y-2"><Label>Event Title <span className="text-red-500">*</span></Label><Input {...register('title', { required: 'Event title is required' })} placeholder="e.g., Tech Conference 2025" /></div>
+                <div className="space-y-2"><Label>Description <span className="text-red-500">*</span></Label><Textarea {...register('description', { required: 'Description is required', minLength: { value: 10, message: 'Description must be at least 10 characters' } })} placeholder="Tell people about your event... (minimum 10 characters)" /></div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2"><Label>Start Date</Label><Input type="datetime-local" {...register('startDate')} /></div>
-                  <div className="space-y-2"><Label>End Date</Label><Input type="datetime-local" {...register('endDate')} /></div>
+                  <div className="space-y-2"><Label>Start Date & Time <span className="text-red-500">*</span></Label><Input type="datetime-local" {...register('startDate', { required: 'Start date is required' })} /></div>
+                  <div className="space-y-2"><Label>End Date & Time (Optional)</Label><Input type="datetime-local" {...register('endDate')} /></div>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" {...register('isOnline')} className="rounded" />
@@ -561,9 +561,9 @@ export default function EditEventPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Ticket className="h-5 w-5 text-primary" />
-                    Ticket Tiers
+                    Ticket Tiers <span className="text-red-500">*</span>
                   </CardTitle>
-                  <CardDescription className="mt-1">Create different ticket types with varying prices</CardDescription>
+                  <CardDescription className="mt-1">Create different ticket types with varying prices (at least one required)</CardDescription>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })} className="gap-1">
                   <Plus className="h-4 w-4" />
@@ -580,13 +580,13 @@ export default function EditEventPage() {
                         {fields.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>}
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
-                        <div className="space-y-2"><Label>Name</Label><Input {...register(`tiers.${index}.name`)} /></div>
+                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" /></div>
                         <div className="space-y-2">
-                          <Label>Price (₦)</Label>
+                          <Label>Price (₦) <span className="text-red-500">*</span></Label>
                           <div className="space-y-2">
                             <Input 
                               type="number" 
-                              {...register(`tiers.${index}.price`, { valueAsNumber: true })} 
+                              {...register(`tiers.${index}.price`, { valueAsNumber: true, min: { value: 0, message: 'Price cannot be negative' } })} 
                               min={0}
                               disabled={isFree}
                               className={isFree ? 'bg-muted text-muted-foreground' : ''}
@@ -609,7 +609,7 @@ export default function EditEventPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="space-y-2"><Label>Capacity</Label><Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} /></div>
+                        <div className="space-y-2"><Label>Capacity <span className="text-red-500">*</span></Label><Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true, min: { value: 1, message: 'Capacity must be at least 1' } })} min={1} /></div>
                       </div>
                       <div className="space-y-2">
                         <Label>Sale End Date & Time (Optional)</Label>
