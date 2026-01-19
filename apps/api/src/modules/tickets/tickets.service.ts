@@ -11,7 +11,7 @@ interface CreateTicketData {
   buyerFirstName?: string;
   buyerLastName?: string;
   paymentId: string;
-  paystackRef: string;
+  paymentRef: string;
   amountPaid: number;
 }
 
@@ -48,7 +48,7 @@ export class TicketsService {
         buyerFirstName: data.buyerFirstName,
         buyerLastName: data.buyerLastName,
         paymentId: data.paymentId,
-        paystackRef: data.paystackRef,
+        paymentRef: data.paymentRef,
         amountPaid: data.amountPaid,
       },
       include: {

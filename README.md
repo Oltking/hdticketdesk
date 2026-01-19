@@ -29,7 +29,7 @@
 
 **hdticketdesk** is a production-ready, mobile-first ticketing platform built for the African market. It enables organizers to create events, sell tickets, and manage attendance while providing buyers with a seamless purchase experience.
 
-Built with performance and low-bandwidth environments in mind, hdticketdesk works reliably across Africa with Paystack payment integration.
+Built with performance and low-bandwidth environments in mind, hdticketdesk works reliably across Africa with Monnify payment integration.
 
 ---
 
@@ -45,7 +45,7 @@ Built with performance and low-bandwidth environments in mind, hdticketdesk work
 
 ### For Buyers
 - 🎫 Browse and discover events
-- 💳 Secure payments via Paystack
+- 💳 Secure payments via Monnify
 - 📧 Instant email tickets with QR codes
 - 📱 Mobile-friendly ticket viewing
 - 🔄 Request refunds (when enabled)
@@ -68,7 +68,7 @@ Built with performance and low-bandwidth environments in mind, hdticketdesk work
 | [NestJS](https://nestjs.com/) | Node.js framework |
 | [PostgreSQL](https://www.postgresql.org/) | Database |
 | [Prisma](https://www.prisma.io/) | ORM |
-| [Paystack](https://paystack.com/) | Payment processing |
+| [Monnify](https://monnify.com/) | Payment processing |
 | [Mailgun](https://www.mailgun.com/) | Transactional emails |
 | [Cloudinary](https://cloudinary.com/) | Image storage & CDN |
 
@@ -115,7 +115,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ## Acknowledgments
 
-- [Paystack](https://paystack.com/) for payment processing
+- [Monnify](https://monnify.com/) for payment processing
 - [Vercel](https://vercel.com/) for frontend hosting
 - [Railway](https://railway.app/) for backend hosting
 

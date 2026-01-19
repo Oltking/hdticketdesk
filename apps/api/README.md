@@ -36,7 +36,7 @@ Visit `http://localhost:3001/docs` for Swagger documentation.
 ## Features
 - JWT Authentication with refresh tokens
 - Email verification & OTP
-- Paystack payments integration
+- Monnify payments integration
 - QR ticket generation
 - Refund management
 - Organizer withdrawals

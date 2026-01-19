@@ -1,0 +1,10 @@
+import { registerAs } from '@nestjs/config';
+
+// Monnify configuration for payment processing
+export default registerAs('monnify', () => ({
+  apiKey: process.env.MONNIFY_API_KEY,
+  secretKey: process.env.MONNIFY_SECRET_KEY,
+  contractCode: process.env.MONNIFY_CONTRACT_CODE,
+  baseUrl: process.env.MONNIFY_BASE_URL || 'https://api.monnify.com', // Use sandbox.monnify.com for testing
+  walletAccountNumber: process.env.MONNIFY_WALLET_ACCOUNT_NUMBER, // Main wallet for platform fees
+}));

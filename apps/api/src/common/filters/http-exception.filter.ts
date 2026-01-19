@@ -58,9 +58,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
           message = 'Related record not found';
           break;
         default:
-          status = HttpStatus.BAD_REQUEST;
-          message = `Database error: ${exception.message}`;
+          // SECURITY: Don't expose internal database error details to clients
+          status = HttpStatus.INTERNAL_SERVER_ERROR;
+          message = 'A database error occurred. Please try again later.';
       }
+      // Log full error details for debugging (server-side only)
       this.logger.error(`Prisma error [${exception.code}]: ${exception.message}`, exception.stack);
     }
     // Handle Prisma validation errors
@@ -71,7 +73,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
     // Handle other errors
     else if (exception instanceof Error) {
-      message = exception.message || 'Internal server error';
+      // SECURITY: In production, don't expose internal error details
+      const isProduction = process.env.NODE_ENV === 'production';
+      message = isProduction ? 'Internal server error' : (exception.message || 'Internal server error');
       this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
     }
 

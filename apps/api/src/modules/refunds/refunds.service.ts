@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { PaystackService } from '../payments/paystack.service';
+import { MonnifyService } from '../payments/monnify.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { EmailService } from '../emails/email.service';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -14,7 +14,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class RefundsService {
   constructor(
     private prisma: PrismaService,
-    private paystackService: PaystackService,
+    private monnifyService: MonnifyService,
     private ledgerService: LedgerService,
     private emailService: EmailService,
   ) {}
@@ -108,16 +108,16 @@ export class RefundsService {
       },
     });
 
-    // Process refund via Paystack
+    // Process refund via Monnify
     try {
-      if (refund.ticket.paystackRef) {
-        const refundAmountKobo = refund.refundAmount instanceof Decimal
-          ? refund.refundAmount.toNumber() * 100
-          : Number(refund.refundAmount) * 100;
+      if (refund.ticket.paymentRef) {
+        const refundAmount = refund.refundAmount instanceof Decimal
+          ? refund.refundAmount.toNumber()
+          : Number(refund.refundAmount);
           
-        await this.paystackService.refundTransaction(
-          refund.ticket.paystackRef,
-          refundAmountKobo,
+        await this.monnifyService.refundTransaction(
+          refund.ticket.paymentRef,
+          refundAmount,
         );
       }
 

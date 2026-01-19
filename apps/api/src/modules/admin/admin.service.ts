@@ -590,6 +590,7 @@ export class AdminService {
             lastName: true,
           },
         },
+        virtualAccount: true, // Include virtual account for admin view
       },
     });
 
@@ -671,6 +672,7 @@ export class AdminService {
         id: organizer.id,
         title: organizer.title,
         user: organizer.user,
+        virtualAccount: organizer.virtualAccount, // Include VA for admin view
       },
       balances: {
         pending: pendingBalance,

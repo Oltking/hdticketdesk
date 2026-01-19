@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
-import { PaystackService } from './paystack.service';
+import { MonnifyService } from './monnify.service';
 import { TicketsService } from '../tickets/tickets.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { TasksService } from '../tasks/tasks.service';
@@ -19,7 +19,7 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private paystackService: PaystackService,
+    private monnifyService: MonnifyService,
     private ticketsService: TicketsService,
     private ledgerService: LedgerService,
     private tasksService: TasksService,
@@ -53,6 +53,11 @@ export class PaymentsService {
     // Check availability
     if (tier.sold >= tier.capacity) {
       throw new BadRequestException('Tickets sold out');
+    }
+
+    // Check if ticket sales have ended for this tier
+    if (tier.saleEndDate && new Date(tier.saleEndDate) < new Date()) {
+      throw new BadRequestException('Ticket sales have ended for this tier');
     }
 
     // Only check user restrictions if authenticated
@@ -164,7 +169,7 @@ export class PaymentsService {
         buyerFirstName: user?.firstName || undefined,
         buyerLastName: user?.lastName || undefined,
         paymentId: payment.id,
-        paystackRef: reference,
+        paymentRef: reference,
         amountPaid: 0,
       });
 
@@ -186,7 +191,7 @@ export class PaymentsService {
       };
     }
 
-    // For paid tickets, proceed with Paystack payment
+    // For paid tickets, proceed with Monnify payment
     // Store the tier price in payment record (what organizer receives before platform fee)
     const payment = await this.prisma.payment.create({
       data: {
@@ -197,28 +202,45 @@ export class PaymentsService {
         tierId,
         buyerId: userId || null,
         buyerEmail: email,
+        organizerId: event.organizerId, // Track organizer for reconciliation
       },
     });
 
-    // Initialize Paystack transaction with total amount (including service fee if passed to buyer)
-    const paystackResponse = await this.paystackService.initializeTransaction(
+    // Get user info for customer name
+    const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
+    const customerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer' : 'Customer';
+
+    // Initialize Monnify transaction with total amount (including service fee if passed to buyer)
+    const monnifyResponse = await this.monnifyService.initializeTransaction(
       email,
-      totalAmountForBuyer * 100, // Paystack expects kobo - includes service fee if applicable
+      totalAmountForBuyer, // Monnify expects Naira (not kobo)
       reference,
       {
         eventId,
         tierId,
         paymentId: payment.id,
-        serviceFee: serviceFee.toString(), // Track the service fee in metadata (as string)
+        organizerId: event.organizerId,
+        serviceFee: serviceFee.toString(),
         passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
+        customerName,
+        description: `Ticket for ${event.title}`,
       },
     );
 
+    // Update payment with Monnify transaction reference
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        monnifyTransactionRef: monnifyResponse.transactionReference,
+      },
+    });
+
     return {
       isFree: false,
-      authorizationUrl: paystackResponse.authorization_url,
+      authorizationUrl: monnifyResponse.checkoutUrl, // Monnify checkout URL
       reference,
       paymentId: payment.id,
+      transactionReference: monnifyResponse.transactionReference,
       // Return breakdown for frontend display if needed
       tierPrice,
       serviceFee,
@@ -226,24 +248,167 @@ export class PaymentsService {
     };
   }
 
-  async handleWebhook(payload: any, signature: string) {
-    // Verify webhook signature
-    const isValid = this.paystackService.verifyWebhookSignature(
-      JSON.stringify(payload),
-      signature,
-    );
+  /**
+   * Handle successful payment webhook from Monnify
+   */
+  async handleMonnifyPaymentSuccess(eventData: any) {
+    const { paymentReference, transactionReference, amountPaid, paidOn } = eventData;
 
-    if (!isValid) {
-      throw new BadRequestException('Invalid webhook signature');
+    // Find payment record by reference
+    const payment = await this.prisma.payment.findUnique({
+      where: { reference: paymentReference },
+    });
+
+    if (!payment) {
+      this.logger.error(`Payment not found for reference: ${paymentReference}`);
+      return;
     }
 
-    const { event, data } = payload;
-
-    if (event === 'charge.success') {
-      await this.handleSuccessfulPayment(data);
+    if (payment.status !== 'PENDING') {
+      this.logger.log(`Payment already processed: ${paymentReference}`);
+      return;
     }
 
-    return { received: true };
+    // Process the successful payment
+    await this.handleSuccessfulPayment({
+      reference: paymentReference,
+      amount: amountPaid,
+      id: transactionReference,
+      paid_at: paidOn,
+    });
+  }
+
+  /**
+   * Handle failed payment webhook from Monnify
+   */
+  async handleMonnifyPaymentFailed(eventData: any) {
+    const { paymentReference, transactionReference } = eventData;
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { reference: paymentReference },
+    });
+
+    if (!payment) {
+      this.logger.error(`Payment not found for reference: ${paymentReference}`);
+      return;
+    }
+
+    // Mark payment as failed
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'FAILED',
+        monnifyTransactionRef: transactionReference,
+      },
+    });
+
+    this.logger.log(`Payment marked as failed: ${paymentReference}`);
+  }
+
+  /**
+   * Handle successful transfer/disbursement webhook from Monnify
+   */
+  async handleMonnifyTransferSuccess(eventData: any) {
+    const { reference, amount, status } = eventData;
+
+    // Find withdrawal by transfer reference
+    const withdrawal = await this.prisma.withdrawal.findFirst({
+      where: { monnifyTransferRef: reference },
+    });
+
+    if (!withdrawal) {
+      this.logger.error(`Withdrawal not found for transfer reference: ${reference}`);
+      return;
+    }
+
+    // Update withdrawal status
+    await this.prisma.withdrawal.update({
+      where: { id: withdrawal.id },
+      data: {
+        status: 'COMPLETED',
+        monnifyTransferStatus: status,
+        processedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Withdrawal completed: ${withdrawal.id}`);
+  }
+
+  /**
+   * Handle failed transfer/disbursement webhook from Monnify
+   */
+  async handleMonnifyTransferFailed(eventData: any) {
+    const { reference, status, responseMessage } = eventData;
+
+    const withdrawal = await this.prisma.withdrawal.findFirst({
+      where: { monnifyTransferRef: reference },
+    });
+
+    if (!withdrawal) {
+      this.logger.error(`Withdrawal not found for transfer reference: ${reference}`);
+      return;
+    }
+
+    // Update withdrawal status to failed and restore balance
+    await this.prisma.$transaction(async (tx) => {
+      await tx.withdrawal.update({
+        where: { id: withdrawal.id },
+        data: {
+          status: 'FAILED',
+          monnifyTransferStatus: status,
+          failureReason: responseMessage || 'Transfer failed',
+        },
+      });
+
+      // Restore the available balance since transfer failed
+      await tx.organizerProfile.update({
+        where: { id: withdrawal.organizerId },
+        data: {
+          availableBalance: { increment: withdrawal.amount },
+        },
+      });
+    });
+
+    this.logger.warn(`Withdrawal failed: ${withdrawal.id} - ${responseMessage}`);
+  }
+
+  /**
+   * Handle reversed transfer webhook from Monnify
+   */
+  async handleMonnifyTransferReversed(eventData: any) {
+    const { reference, responseMessage } = eventData;
+
+    const withdrawal = await this.prisma.withdrawal.findFirst({
+      where: { monnifyTransferRef: reference },
+    });
+
+    if (!withdrawal) {
+      this.logger.error(`Withdrawal not found for transfer reference: ${reference}`);
+      return;
+    }
+
+    // Handle reversal - restore organizer balance
+    await this.prisma.$transaction(async (tx) => {
+      await tx.withdrawal.update({
+        where: { id: withdrawal.id },
+        data: {
+          status: 'FAILED',
+          monnifyTransferStatus: 'REVERSED',
+          failureReason: responseMessage || 'Transfer reversed',
+        },
+      });
+
+      // Restore both balances
+      await tx.organizerProfile.update({
+        where: { id: withdrawal.organizerId },
+        data: {
+          availableBalance: { increment: withdrawal.amount },
+          withdrawnBalance: { decrement: withdrawal.amount },
+        },
+      });
+    });
+
+    this.logger.warn(`Withdrawal reversed: ${withdrawal.id}`);
   }
 
   private async handleSuccessfulPayment(data: any) {
@@ -313,7 +478,7 @@ export class PaymentsService {
       buyerFirstName: user?.firstName || undefined,
       buyerLastName: user?.lastName || undefined,
       paymentId: payment.id,
-      paystackRef: reference,
+      paymentRef: reference,
       amountPaid: payment.amount instanceof Decimal 
         ? payment.amount.toNumber() 
         : Number(payment.amount),
@@ -339,52 +504,12 @@ export class PaymentsService {
       organizerAmount = paymentAmount - platformFee;
     }
 
-    // Check if 24 hours have passed since first paid sale
-    // If yes, new sales go directly to availableBalance
-    // If no, sales go to pendingBalance
-    const firstPaidSale = await this.prisma.ledgerEntry.findFirst({
-      where: {
-        organizerId: event.organizerId,
-        type: 'TICKET_SALE',
-        amount: { gt: 0 },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const hoursSinceFirstSale = firstPaidSale 
-      ? (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60)
-      : 0;
-    
-    const isAfter24Hours = firstPaidSale && hoursSinceFirstSale >= 24;
-
-    // Get current organizer profile for pending balance check
-    const organizerProfile = await this.prisma.organizerProfile.findUnique({
-      where: { id: event.organizerId },
-    });
-
-    // If 24 hours have passed and there's still pending balance, move it to available first
-    if (isAfter24Hours && organizerProfile) {
-      const currentPending = organizerProfile.pendingBalance instanceof Decimal
-        ? organizerProfile.pendingBalance.toNumber()
-        : Number(organizerProfile.pendingBalance);
-      
-      if (currentPending > 0) {
-        await this.prisma.organizerProfile.update({
-          where: { id: event.organizerId },
-          data: {
-            pendingBalance: { decrement: currentPending },
-            availableBalance: { increment: currentPending },
-          },
-        });
-      }
-    }
-
-    // Update organizer balance - go to availableBalance if after 24h, otherwise pendingBalance
+    // All new payments go to pendingBalance first
+    // The cron job (tasks.service.ts) handles moving funds to availableBalance 
+    // after 24 hours based on each individual ledger entry's createdAt timestamp
     await this.prisma.organizerProfile.update({
       where: { id: event.organizerId },
-      data: isAfter24Hours
-        ? { availableBalance: { increment: organizerAmount } }
-        : { pendingBalance: { increment: organizerAmount } },
+      data: { pendingBalance: { increment: organizerAmount } },
     });
 
     // Record in ledger
@@ -400,7 +525,8 @@ export class PaymentsService {
       where: { id: payment.id },
       data: {
         status: 'SUCCESS',
-        paystackRef: data.id?.toString(),
+        monnifyTransactionRef: data.id?.toString(),
+        paidAt: data.paid_at ? new Date(data.paid_at) : new Date(),
       },
     });
 
@@ -411,7 +537,7 @@ export class PaymentsService {
     });
 
     // Process any pending balance that should now be available
-    // This ensures immediate balance update if 24 hours have passed since first sale
+    // This moves any matured funds (older than 24 hours) from pending to available
     try {
       await this.tasksService.processOrganizerPendingBalance(event.organizerId);
     } catch (error) {
@@ -420,12 +546,19 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Check and recover pending payments for a user
+   * This handles cases where buyer closes the page after payment but before ticket creation
+   */
   async checkPendingPayments(userId: string) {
-    // Find all pending payments for this user
+    // Find all pending payments for this user (within last 24 hours to avoid stale data)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
     const pendingPayments = await this.prisma.payment.findMany({
       where: {
         buyerId: userId,
         status: 'PENDING',
+        createdAt: { gte: twentyFourHoursAgo },
       },
       include: {
         event: true,
@@ -437,18 +570,26 @@ export class PaymentsService {
     });
 
     if (pendingPayments.length === 0) {
-      return { pendingPayments: [] };
+      return { pendingPayments: [], verified: [] };
     }
 
-    // Verify each pending payment with Paystack
+    // Verify each pending payment with Monnify
     const verificationResults = [];
     for (const payment of pendingPayments) {
       try {
-        const paystackData = await this.paystackService.verifyTransaction(payment.reference);
+        // Use Monnify transaction reference if available, otherwise use payment reference
+        const transactionRef = payment.monnifyTransactionRef || payment.reference;
+        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
 
-        if (paystackData.status === 'success') {
-          // Process the payment
-          await this.handleSuccessfulPayment(paystackData);
+        if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+          // Process the payment using the same logic as webhook
+          await this.handleSuccessfulPayment({
+            reference: payment.reference,
+            amount: monnifyData.amount,
+            id: monnifyData.transactionReference,
+            paid_at: monnifyData.paidOn,
+          });
+          
           verificationResults.push({
             reference: payment.reference,
             status: 'verified',
@@ -457,12 +598,24 @@ export class PaymentsService {
         }
       } catch (error) {
         this.logger.warn(`Could not verify payment ${payment.reference}:`, error);
-        // Continue to next payment
+        // Continue to next payment - don't fail the entire check
       }
     }
 
+    // Refetch pending payments to exclude those that were just verified
+    const remainingPending = await this.prisma.payment.findMany({
+      where: {
+        buyerId: userId,
+        status: 'PENDING',
+        createdAt: { gte: twentyFourHoursAgo },
+      },
+      include: {
+        event: true,
+      },
+    });
+
     return {
-      pendingPayments: pendingPayments.map(p => ({
+      pendingPayments: remainingPending.map(p => ({
         reference: p.reference,
         eventId: p.eventId,
         eventTitle: p.event?.title,
@@ -482,16 +635,24 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found');
     }
 
-    // If payment is still pending, verify with Paystack and process it
+    // If payment is still pending, verify with Monnify and process it
     if (payment.status === 'PENDING') {
       try {
-        // Verify transaction with Paystack
-        const paystackData = await this.paystackService.verifyTransaction(reference);
+        // Get transaction reference for Monnify verification
+        const transactionRef = payment.monnifyTransactionRef || reference;
+        
+        // Verify transaction with Monnify
+        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
 
-        // Check if payment was successful on Paystack
-        if (paystackData.status === 'success') {
+        // Check if payment was successful on Monnify
+        if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Process the payment using the same logic as webhook
-          await this.handleSuccessfulPayment(paystackData);
+          await this.handleSuccessfulPayment({
+            reference: payment.reference,
+            amount: monnifyData.amount,
+            id: monnifyData.transactionReference,
+            paid_at: monnifyData.paidOn,
+          });
 
           // Refetch payment to get updated status
           const updatedPayment = await this.prisma.payment.findUnique({
@@ -513,13 +674,13 @@ export class PaymentsService {
             ticket,
           };
         } else {
-          // Payment not successful on Paystack
-          throw new BadRequestException(`Payment verification failed: ${paystackData.gateway_response || 'Payment not completed'}`);
+          // Payment not successful on Monnify
+          throw new BadRequestException(`Payment verification failed: ${monnifyData.status || 'Payment not completed'}`);
         }
       } catch (error) {
         // If verification fails, log and rethrow
         this.logger.error(`Failed to verify payment ${reference}:`, error);
-        throw new BadRequestException('Unable to verify payment with Paystack. Please try again or contact support.');
+        throw new BadRequestException('Unable to verify payment with Monnify. Please try again or contact support.');
       }
     }
 

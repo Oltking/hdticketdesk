@@ -10,7 +10,18 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw } from 'lucide-react';
+import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw, Building2, CreditCard, Copy, CheckCircle } from 'lucide-react';
+
+interface VirtualAccount {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  bankCode: string;
+  accountReference: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 interface OrganizerEarnings {
   organizer: {
@@ -22,6 +33,7 @@ interface OrganizerEarnings {
       firstName: string;
       lastName: string;
     };
+    virtualAccount: VirtualAccount | null;
   };
   balances: {
     pending: number;
@@ -62,6 +74,13 @@ export default function OrganizerDetailsPage() {
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const [data, setData] = useState<OrganizerEarnings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,6 +145,68 @@ export default function OrganizerDetailsPage() {
               {data.organizer.user.firstName} {data.organizer.user.lastName} • {data.organizer.user.email}
             </p>
           </div>
+
+          {/* Virtual Account Card - Admin Only */}
+          <Card className="mb-8 border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Virtual Account (Admin View)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.organizer.virtualAccount ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Account Number</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-mono font-bold">{data.organizer.virtualAccount.accountNumber}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(data.organizer.virtualAccount!.accountNumber)}
+                          className="h-8 w-8 p-0"
+                        >
+                          {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Bank Name</p>
+                      <p className="text-lg font-semibold">{data.organizer.virtualAccount.bankName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Account Name</p>
+                      <p className="text-lg">{data.organizer.virtualAccount.accountName}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Status</p>
+                      <Badge variant={data.organizer.virtualAccount.isActive ? 'success' : 'destructive'}>
+                        {data.organizer.virtualAccount.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Reference: {data.organizer.virtualAccount.accountReference}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Created: {formatDate(data.organizer.virtualAccount.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">No virtual account assigned</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    A virtual account will be created when this organizer publishes their first event
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Balance Cards */}
           <div className="grid gap-6 md:grid-cols-3 mb-8">

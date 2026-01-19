@@ -499,7 +499,7 @@ export default function AdminRefundsPage() {
 
                 <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg mb-4">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    This will initiate the payment reversal through Paystack. The buyer will receive their refund within 5-10 business days.
+                    This will initiate the payment reversal through Monnify. The buyer will receive their refund within 5-10 business days.
                   </p>
                 </div>
 

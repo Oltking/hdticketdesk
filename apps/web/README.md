@@ -90,7 +90,7 @@ GET /events/featured  - Promoted/featured events
 - ✅ Mobile-first responsive design
 - ✅ Dark mode support
 - ✅ QR code scanner
-- ✅ Paystack integration
+- ✅ Monnify integration
 - ✅ Real-time analytics
 - ✅ OTP verification
 - ✅ Email notifications

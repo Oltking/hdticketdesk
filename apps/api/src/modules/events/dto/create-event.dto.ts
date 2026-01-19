@@ -34,6 +34,10 @@ export class CreateTicketTierDto {
   @IsBoolean()
   @IsOptional()
   refundEnabled?: boolean;
+
+  @IsDateString()
+  @IsOptional()
+  saleEndDate?: string; // Date and time when ticket sales end for this tier
 }
 
 export class CreateEventDto {

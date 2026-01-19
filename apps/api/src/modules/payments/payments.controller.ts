@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
-import { PaystackService } from './paystack.service';
+import { MonnifyService } from './monnify.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -16,7 +16,7 @@ import { UserRole } from '@prisma/client';
 export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
-    private readonly paystackService: PaystackService,
+    private readonly monnifyService: MonnifyService,
     private readonly ledgerService: LedgerService,
   ) {}
 
@@ -61,7 +61,7 @@ export class PaymentsController {
   @Get('banks')
   @ApiOperation({ summary: 'Get list of banks' })
   async getBanks() {
-    return this.paystackService.getBanks();
+    return this.monnifyService.getBanks();
   }
 
   @UseGuards(JwtAuthGuard)
@@ -69,7 +69,7 @@ export class PaymentsController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Resolve bank account' })
   async resolveAccount(@Body('accountNumber') accountNumber: string, @Body('bankCode') bankCode: string) {
-    return this.paystackService.resolveAccountNumber(accountNumber, bankCode);
+    return this.monnifyService.resolveAccountNumber(accountNumber, bankCode);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

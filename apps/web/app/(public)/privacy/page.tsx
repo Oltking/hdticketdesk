@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       title: 'Information We Collect',
       content: [
         'Personal information (name, email address, phone number) when you create an account',
-        'Payment information processed securely through Paystack',
+        'Payment information processed securely through Monnify',
         'Event preferences and booking history',
         'Device information and usage data to improve our services',
         'Location data when you search for events near you (with your permission)',
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       title: 'Information Sharing',
       content: [
         'With event organizers for events you\'ve purchased tickets to',
-        'With payment processors (Paystack) to complete transactions',
+        'With payment processors (Monnify) to complete transactions',
         'With service providers who help us operate our platform',
         'When required by law or to protect our legal rights',
         'We never sell your personal information to third parties',
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
       title: 'Data Security',
       content: [
         'Industry-standard SSL encryption for all data transmission',
-        'Secure payment processing through PCI-compliant Paystack',
+        'Secure payment processing through PCI-compliant Monnify',
         'Regular security audits and vulnerability assessments',
         'Access controls and authentication for all systems',
         'Encrypted storage for sensitive personal information',

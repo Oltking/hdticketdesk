@@ -32,10 +32,21 @@ class EnvironmentVariables {
   MAILGUN_DOMAIN: string;
 
   @IsString()
-  PAYSTACK_SECRET_KEY: string;
+  MONNIFY_API_KEY: string;
 
   @IsString()
-  PAYSTACK_PUBLIC_KEY: string;
+  MONNIFY_SECRET_KEY: string;
+
+  @IsString()
+  MONNIFY_CONTRACT_CODE: string;
+
+  @IsString()
+  @IsOptional()
+  MONNIFY_BASE_URL?: string;
+
+  @IsString()
+  @IsOptional()
+  FRONTEND_URL?: string;
 
   @IsString()
   @IsOptional()

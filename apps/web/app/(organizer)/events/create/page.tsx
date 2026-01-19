@@ -25,6 +25,7 @@ const tierSchema = z.object({
   capacity: z.number().min(1),
   description: z.string().optional(),
   refundEnabled: z.boolean().default(false),
+  saleEndDate: z.string().optional(), // Date and time when ticket sales end
 });
 
 const schema = z.object({
@@ -73,6 +74,7 @@ export default function CreateEventPage() {
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
   const isOnline = watch('isOnline');
   const isLocationPublic = watch('isLocationPublic');
+  const startDate = watch('startDate');
 
   // Recommended banner sizes
   const recommendedSizes = [
@@ -139,6 +141,7 @@ export default function CreateEventPage() {
         price: tier.isFree ? 0 : tier.price,
         capacity: tier.capacity,
         refundEnabled: tier.refundEnabled,
+        saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
       }));
 
       // Include cover image in the event data
@@ -480,6 +483,17 @@ export default function CreateEventPage() {
                           <Label>Capacity</Label>
                           <Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} />
                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Sale End Date & Time (Optional)</Label>
+                        <Input 
+                          type="datetime-local" 
+                          {...register(`tiers.${index}.saleEndDate`)}
+                          min={startDate || undefined}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave empty to allow sales until the event starts
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />

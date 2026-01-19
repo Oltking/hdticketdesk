@@ -60,6 +60,7 @@ export default function EditEventPage() {
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
   const isOnline = watch('isOnline');
   const isLocationPublic = watch('isLocationPublic');
+  const startDate = watch('startDate');
 
   // Recommended banner sizes
   const recommendedSizes = [
@@ -95,11 +96,12 @@ export default function EditEventPage() {
             return '';
           }
         };
-        
+
         // Map tiers to include isFree flag based on price
         const tiersWithFreeFlag = (event.tiers || []).map((tier: any) => ({
           ...tier,
           isFree: Number(tier.price) === 0,
+          saleEndDate: formatDateForInput(tier.saleEndDate),
         }));
 
         reset({
@@ -177,6 +179,7 @@ export default function EditEventPage() {
         price: tier.isFree ? 0 : tier.price,
         capacity: tier.capacity,
         refundEnabled: tier.refundEnabled,
+        saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
       })) || [];
 
       // Filter out empty strings for optional fields
@@ -607,6 +610,17 @@ export default function EditEventPage() {
                           </div>
                         </div>
                         <div className="space-y-2"><Label>Capacity</Label><Input type="number" {...register(`tiers.${index}.capacity`, { valueAsNumber: true })} min={1} /></div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Sale End Date & Time (Optional)</Label>
+                        <Input 
+                          type="datetime-local" 
+                          {...register(`tiers.${index}.saleEndDate`)}
+                          min={startDate || undefined}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Leave empty to allow sales until the event starts
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />

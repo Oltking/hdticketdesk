@@ -361,8 +361,8 @@ async function main() {
       eventId: techConference.id,
       tierId: generalTier.id,
       buyerId: buyerUser.id,
-      paystackRef: 'PSK_SEED_001',
-      paystackPaidAt: new Date(),
+      monnifyTransactionRef: 'MNF_SEED_001',
+      paidAt: new Date(),
     },
   });
 
@@ -377,7 +377,7 @@ async function main() {
       buyerFirstName: buyerUser.firstName,
       buyerLastName: buyerUser.lastName,
       amountPaid: 25000,
-      paystackRef: 'PSK_SEED_001',
+      paymentRef: 'MNF_SEED_001',
       eventId: techConference.id,
       tierId: generalTier.id,
       buyerId: buyerUser.id,
@@ -396,8 +396,8 @@ async function main() {
       eventId: techConference.id,
       tierId: generalTier.id,
       buyerId: buyerUser2.id,
-      paystackRef: 'PSK_SEED_002',
-      paystackPaidAt: new Date(),
+      monnifyTransactionRef: 'MNF_SEED_002',
+      paidAt: new Date(),
     },
   });
 
@@ -413,7 +413,7 @@ async function main() {
       buyerFirstName: buyerUser2.firstName,
       buyerLastName: buyerUser2.lastName,
       amountPaid: 25000,
-      paystackRef: 'PSK_SEED_002',
+      paymentRef: 'MNF_SEED_002',
       eventId: techConference.id,
       tierId: generalTier.id,
       buyerId: buyerUser2.id,

@@ -316,14 +316,16 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                     event.tiers?.map((tier) => {
                       const soldOut = tier.sold >= tier.capacity;
                       const percentSold = (tier.sold / tier.capacity) * 100;
+                      const salesEnded = tier.saleEndDate && new Date(tier.saleEndDate) < new Date();
+                      const isUnavailable = soldOut || salesEnded;
                       
                       return (
                         <div 
                           key={tier.id} 
                           className={cn(
                             "p-4 border rounded-xl transition-all",
-                            soldOut ? "opacity-60" : "hover:border-primary hover:shadow-md",
-                            Number(tier.price) === 0 && !soldOut && "border-green-200 bg-green-50/50"
+                            isUnavailable ? "opacity-60" : "hover:border-primary hover:shadow-md",
+                            Number(tier.price) === 0 && !isUnavailable && "border-green-200 bg-green-50/50"
                           )}
                         >
                           <div className="flex justify-between items-start mb-2">
@@ -332,6 +334,9 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                                 <h3 className="font-semibold">{tier.name}</h3>
                                 {Number(tier.price) === 0 && (
                                   <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
+                                )}
+                                {salesEnded && (
+                                  <Badge variant="secondary" className="text-xs">Sales Ended</Badge>
                                 )}
                               </div>
                               {tier.description && (
@@ -345,6 +350,14 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                               {Number(tier.price) === 0 ? 'Free' : formatCurrency(tier.price)}
                             </span>
                           </div>
+                          
+                          {/* Sale End Date */}
+                          {tier.saleEndDate && !salesEnded && (
+                            <div className="flex items-center gap-1.5 text-xs text-orange-600 mb-2">
+                              <Clock className="w-3 h-3" />
+                              <span>Sales end {formatDate(tier.saleEndDate)}</span>
+                            </div>
+                          )}
                           
                           {/* Capacity bar */}
                           <div className="mb-3">
@@ -366,13 +379,15 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                           <Button 
                             className={cn(
                               "w-full",
-                              Number(tier.price) === 0 && !soldOut && "bg-green-600 hover:bg-green-700"
+                              Number(tier.price) === 0 && !isUnavailable && "bg-green-600 hover:bg-green-700"
                             )}
-                            disabled={soldOut || purchasing === tier.id}
+                            disabled={isUnavailable || purchasing === tier.id}
                             onClick={() => handlePurchase(tier.id)}
                           >
                             {purchasing === tier.id ? (
                               <>Processing...</>
+                            ) : salesEnded ? (
+                              'Sales Ended'
                             ) : soldOut ? (
                               'Sold Out'
                             ) : Number(tier.price) === 0 ? (
@@ -442,7 +457,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
               <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg text-xs text-blue-700 dark:text-blue-300">
                 <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  You will be redirected to Paystack to complete your payment securely.
+                  You will be redirected to our secure payment gateway to complete your payment.
                 </span>
               </div>
             </div>

@@ -73,8 +73,8 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
-    // Generate OTP for email verification (6 digits)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate OTP for email verification (6 digits) - cryptographically secure
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create user
@@ -180,8 +180,8 @@ export class AuthService {
 
     // ⚠️ CHECK IF EMAIL IS VERIFIED - This is the key check!
     if (!user.emailVerified) {
-      // Resend verification OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      // Resend verification OTP - cryptographically secure
+      const otp = crypto.randomInt(100000, 999999).toString();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       await this.prisma.user.update({
@@ -308,7 +308,7 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await this.prisma.user.update({
@@ -394,7 +394,7 @@ export class AuthService {
       return { message: 'Email is already verified' };
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     await this.prisma.user.update({
@@ -419,7 +419,7 @@ export class AuthService {
 
   // ==================== LOGIN OTP ====================
   async sendLoginOtp(userId: string, email: string) {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(
       Date.now() +
         (this.configService.get<number>('otpExpiryMinutes') || 10) * 60 * 1000,

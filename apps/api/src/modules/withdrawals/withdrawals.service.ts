@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
-import { PaystackService } from '../payments/paystack.service';
+import { MonnifyService } from '../payments/monnify.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { EmailService } from '../emails/email.service';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -18,7 +18,7 @@ export class WithdrawalsService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private paystackService: PaystackService,
+    private monnifyService: MonnifyService,
     private ledgerService: LedgerService,
     private emailService: EmailService,
   ) {}
@@ -189,63 +189,39 @@ export class WithdrawalsService {
     }
 
     try {
-      // Get or create Paystack recipient
-      let recipientCode = withdrawal.organizer.paystackRecipientCode;
-
-      if (!recipientCode) {
-        this.logger.log(`Creating transfer recipient for organizer ${withdrawal.organizerId}`);
-        const recipient = await this.paystackService.createTransferRecipient(
-          withdrawal.accountName,
-          withdrawal.accountNumber,
-          withdrawal.bankCode,
-        );
-        recipientCode = recipient.recipient_code;
-
-        // Save recipient code
-        await this.prisma.organizerProfile.update({
-          where: { id: withdrawal.organizerId },
-          data: { paystackRecipientCode: recipientCode },
-        });
-        this.logger.log(`Created recipient code: ${recipientCode}`);
-      }
-
-      // Ensure recipientCode is not null before transfer
-      if (!recipientCode) {
-        throw new Error('Failed to create transfer recipient');
-      }
-
-      // Initiate transfer
+      // Get withdrawal amount
       const withdrawalAmount = withdrawal.amount instanceof Decimal 
         ? withdrawal.amount.toNumber() 
         : Number(withdrawal.amount);
 
-      this.logger.log(`Initiating transfer of ${withdrawalAmount} to ${recipientCode}`);
+      this.logger.log(`Initiating Monnify transfer of ${withdrawalAmount} to ${withdrawal.accountNumber}`);
       
-      const transferResult = await this.paystackService.initiateTransfer(
+      // Initiate transfer via Monnify
+      const transferResult = await this.monnifyService.initiateTransfer(
         withdrawalAmount,
-        recipientCode,
-        `Withdrawal for ${withdrawal.organizer.title}`,
+        withdrawal.bankCode,
+        withdrawal.accountNumber,
+        withdrawal.accountName,
+        `HDTicketDesk withdrawal for ${withdrawal.organizer.title}`,
       );
 
-      this.logger.log(`Transfer initiated: ${JSON.stringify(transferResult)}`);
+      this.logger.log(`Monnify transfer initiated: ${JSON.stringify(transferResult)}`);
 
-      // Update withdrawal status and save transfer reference
+      // Update withdrawal status to PROCESSING (will be updated to COMPLETED by webhook)
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
         data: { 
-          status: 'COMPLETED', 
-          processedAt: new Date(),
-          paystackTransferRef: transferResult?.reference || null,
-          paystackTransferCode: transferResult?.transfer_code || null,
+          status: 'PROCESSING', 
+          monnifyTransferRef: transferResult.reference,
+          monnifyTransferStatus: transferResult.status,
         },
       });
 
-      // Update organizer balance
+      // Deduct from available balance immediately (will be restored if transfer fails via webhook)
       await this.prisma.organizerProfile.update({
         where: { id: withdrawal.organizerId },
         data: { 
           availableBalance: { decrement: withdrawal.amount },
-          withdrawnBalance: { increment: withdrawal.amount },
         },
       });
 
@@ -256,15 +232,37 @@ export class WithdrawalsService {
         withdrawalAmount
       );
 
-      // Send success email
-      await this.emailService.sendWithdrawalEmail(withdrawal.organizer.user.email, {
-        amount: withdrawalAmount,
-        bankName: withdrawal.bankName,
-        accountNumber: withdrawal.accountNumber,
-        status: 'success',
-      });
+      // If transfer is already successful (some transfers complete immediately)
+      if (transferResult.status === 'SUCCESS') {
+        await this.prisma.withdrawal.update({
+          where: { id: withdrawalId },
+          data: { 
+            status: 'COMPLETED', 
+            processedAt: new Date(),
+          },
+        });
 
-      this.logger.log(`Withdrawal ${withdrawalId} completed successfully`);
+        // Update withdrawn balance
+        await this.prisma.organizerProfile.update({
+          where: { id: withdrawal.organizerId },
+          data: { 
+            withdrawnBalance: { increment: withdrawal.amount },
+          },
+        });
+
+        // Send success email
+        await this.emailService.sendWithdrawalEmail(withdrawal.organizer.user.email, {
+          amount: withdrawalAmount,
+          bankName: withdrawal.bankName,
+          accountNumber: withdrawal.accountNumber,
+          status: 'success',
+        });
+
+        this.logger.log(`Withdrawal ${withdrawalId} completed successfully`);
+      } else {
+        // Transfer is pending - webhook will update final status
+        this.logger.log(`Withdrawal ${withdrawalId} initiated, awaiting confirmation`);
+      }
     } catch (error: any) {
       this.logger.error(`Withdrawal ${withdrawalId} failed:`, error);
       

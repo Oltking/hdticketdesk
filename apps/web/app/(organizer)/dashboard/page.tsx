@@ -477,6 +477,20 @@ export default function DashboardPage() {
                         <Button variant="outline" size="sm">Edit</Button>
                       </Link>
                       
+                      {/* Share button - for published events */}
+                      {event.status === 'PUBLISHED' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1.5"
+                          title="Share event"
+                          onClick={() => setShareDialog({ slug: event.slug, title: event.title })}
+                        >
+                          <Share2 className="h-4 w-4" />
+                          <span className="hidden sm:inline">Share</span>
+                        </Button>
+                      )}
+                      
                       {/* Unpublish button - only for published events with no sales */}
                       {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) === 0 && (
                         <Button 

@@ -25,7 +25,7 @@ export interface OrganizerProfile {
   pendingBalance: number;
   availableBalance: number;
   withdrawnBalance: number;
-  paystackRecipientCode: string | null;
+  monnifyRecipientCode: string | null;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -73,6 +73,7 @@ export interface TicketTier {
   sold: number;
   refundEnabled: boolean;
   sortOrder: number;
+  saleEndDate: string | null; // Date and time when ticket sales end for this tier
   eventId: string;
   createdAt: string;
   updatedAt: string;
@@ -91,7 +92,7 @@ export interface Ticket {
   buyerLastName: string | null;
   buyerPhone: string | null;
   amountPaid: number;
-  paystackRef: string | null;
+  paymentRef: string | null; // Monnify transaction reference
   eventId: string;
   tierId: string;
   buyerId: string | null;
@@ -109,11 +110,13 @@ export interface Payment {
   amount: number;
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   buyerEmail: string;
-  paystackRef: string | null;
-  paystackPaidAt: string | null;
+  monnifyTransactionRef: string | null;
+  monnifyPaymentRef: string | null;
+  paidAt: string | null;
   eventId: string;
   tierId: string;
   buyerId: string | null;
+  organizerId: string | null;
   event?: Event;
   tier?: TicketTier;
   createdAt: string;
@@ -146,12 +149,28 @@ export interface Withdrawal {
   bankCode: string;
   accountNumber: string;
   accountName: string;
-  paystackTransferCode: string | null;
-  paystackTransferId: string | null;
+  monnifyTransferRef: string | null;
+  monnifyTransferCode: string | null;
+  monnifyTransferStatus: string | null;
   failureReason: string | null;
   processedAt: string | null;
   organizerId: string;
   organizer?: OrganizerProfile;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==================== VIRTUAL ACCOUNT TYPES ====================
+export interface VirtualAccount {
+  id: string;
+  accountNumber: string;
+  accountName: string;
+  bankName: string;
+  bankCode: string;
+  accountReference: string;
+  monnifyContractCode: string;
+  isActive: boolean;
+  organizerId: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -42,7 +42,7 @@ export default function TermsPage() {
       content: [
         'A 5% platform fee applies to all paid ticket sales.',
         'Organizers can choose to absorb the fee or pass it to buyers.',
-        'Payments are processed securely through Paystack.',
+        'Payments are processed securely through Monnify.',
         'Payouts are available 24 hours after the first paid ticket sale.',
         'We are not responsible for payment processing delays by third parties.',
       ],

@@ -194,7 +194,22 @@ class ApiClient {
   }
 
   async getMe() {
-    return this.request<any>('/auth/me');
+    return this.request<{
+      id: string;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      phone: string | null;
+      role: 'BUYER' | 'ORGANIZER' | 'ADMIN';
+      emailVerified: boolean;
+      organizerProfile?: {
+        id: string;
+        title: string;
+        pendingBalance: number;
+        availableBalance: number;
+        withdrawnBalance: number;
+      };
+    }>('/auth/me');
   }
 
   async logout() {
@@ -363,6 +378,18 @@ class ApiClient {
       pendingPayments: any[];
       verified: { reference: string; status: string; eventTitle: string }[];
     }>('/payments/check-pending');
+  }
+
+  /**
+   * Verify payment by reference - works for both guest and authenticated users
+   * This is the primary method for payment recovery when users close the page
+   */
+  async verifyPaymentByReference(reference: string) {
+    return this.request<{ 
+      ticket: any; 
+      message: string; 
+      payment?: any;
+    }>(`/payments/verify/${reference}`);
   }
 
   async verifyPayment(reference: string) {

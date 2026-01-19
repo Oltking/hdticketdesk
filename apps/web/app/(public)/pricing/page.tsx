@@ -219,7 +219,7 @@ export default function PricingPage() {
                 {[
                   { q: 'Are there any hidden fees?', a: 'No hidden fees. Just our simple 5% on paid ticket sales. Free events are completely free to host.' },
                   { q: 'When can I withdraw my earnings?', a: 'Earnings from paid ticket sales become available 24 hours after your first sale. You can withdraw directly to your bank account.' },
-                  { q: 'What payment methods do you support?', a: 'We support all major payment methods through Paystack including cards, bank transfers, and USSD.' },
+                  { q: 'What payment methods do you support?', a: 'We support all major payment methods through Monnify including cards, bank transfers, and USSD.' },
                   { q: 'Can I issue refunds?', a: 'Yes, you can enable refunds for your events. When a refund is issued, the platform fee is also refunded.' },
                   { q: 'Is there a limit on ticket sales?', a: 'No limits! Sell as many tickets as you want. Our platform scales with your event.' },
                 ].map((faq, i) => (

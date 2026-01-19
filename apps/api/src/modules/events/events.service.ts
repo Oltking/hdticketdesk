@@ -2,15 +2,22 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { MonnifyService } from '../payments/monnify.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class EventsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(EventsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private monnifyService: MonnifyService,
+  ) {}
 
   // ==================== HOMEPAGE ENDPOINTS ====================
 
@@ -598,9 +605,44 @@ export class EventsService {
       data: { status: 'PUBLISHED' },
       include: {
         tiers: true,
-        organizer: { select: { id: true, title: true } },
+        organizer: { 
+          select: { id: true, title: true, userId: true },
+          include: { user: { select: { email: true } }, virtualAccount: true },
+        },
       },
     });
+
+    // Create virtual account for organizer if they don't have one yet
+    // This happens on first event publish
+    if (!published.organizer.virtualAccount) {
+      try {
+        this.logger.log(`Creating virtual account for organizer ${published.organizer.id}`);
+        
+        const vaResponse = await this.monnifyService.createVirtualAccount(
+          published.organizer.id,
+          published.organizer.title || 'Organizer',
+          published.organizer.user?.email || '',
+        );
+
+        // Save virtual account to database
+        await this.prisma.virtualAccount.create({
+          data: {
+            accountNumber: vaResponse.accountNumber,
+            accountName: vaResponse.accountName,
+            bankName: vaResponse.bankName,
+            bankCode: vaResponse.bankCode,
+            accountReference: vaResponse.accountReference,
+            monnifyContractCode: this.monnifyService['contractCode'],
+            organizerId: published.organizer.id,
+          },
+        });
+
+        this.logger.log(`Virtual account created: ${vaResponse.accountNumber}`);
+      } catch (error) {
+        // Log but don't fail the publish - VA can be created later
+        this.logger.error(`Failed to create virtual account for organizer ${published.organizer.id}:`, error);
+      }
+    }
 
     return published;
   }

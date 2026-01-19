@@ -101,7 +101,7 @@ export default function AboutPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { icon: Ticket, title: 'Easy Event Creation', description: 'Create and manage events in minutes with our intuitive dashboard. Multiple ticket tiers, early bird pricing, and more.', color: 'from-primary to-purple-500' },
-                { icon: Shield, title: 'Secure Payments', description: 'Industry-leading security with Paystack integration. Your money is always safe and protected.', color: 'from-green-500 to-emerald-500' },
+                { icon: Shield, title: 'Secure Payments', description: 'Industry-leading security with Monnify integration. Your money is always safe and protected.', color: 'from-green-500 to-emerald-500' },
                 { icon: QrCode, title: 'QR Check-in System', description: 'Seamless entry management with QR code scanning. Real-time check-in tracking and attendance analytics.', color: 'from-blue-500 to-cyan-500' },
                 { icon: BarChart3, title: 'Real-time Analytics', description: 'Track sales, attendance, and revenue in real-time. Make data-driven decisions for your events.', color: 'from-orange-500 to-amber-500' },
                 { icon: CreditCard, title: 'Fast Payouts', description: 'Get your money when you need it. Quick and reliable payouts directly to your bank account.', color: 'from-pink-500 to-rose-500' },

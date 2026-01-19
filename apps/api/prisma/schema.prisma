@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x", "windows"]
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -45,9 +45,9 @@ model User {
 }
 
 model OrganizerProfile {
-  id                    String        @id @default(cuid())
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  id                    String          @id @default(cuid())
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
   title                 String
   description           String?
   logo                  String?
@@ -56,19 +56,39 @@ model OrganizerProfile {
   bankCode              String?
   accountNumber         String?
   accountName           String?
-  bankVerified          Boolean       @default(false)
-  paystackRecipientCode String?
-  pendingBalance        Decimal       @default(0) @db.Decimal(12, 2)
-  availableBalance      Decimal       @default(0) @db.Decimal(12, 2)
-  withdrawnBalance      Decimal       @default(0) @db.Decimal(12, 2)
-  notificationsEnabled  Boolean       @default(true)
-  userId                String        @unique
+  bankVerified          Boolean         @default(false)
+  monnifyRecipientCode  String?         // Monnify beneficiary code for transfers
+  pendingBalance        Decimal         @default(0) @db.Decimal(12, 2)
+  availableBalance      Decimal         @default(0) @db.Decimal(12, 2)
+  withdrawnBalance      Decimal         @default(0) @db.Decimal(12, 2)
+  notificationsEnabled  Boolean         @default(true)
+  userId                String          @unique
   events                Event[]
   ledgerEntries         LedgerEntry[]
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   withdrawals           Withdrawal[]
+  virtualAccount        VirtualAccount?
 
   @@index([userId])
+}
+
+// Virtual account for each organizer (created when they publish their first event)
+model VirtualAccount {
+  id                  String           @id @default(cuid())
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  accountNumber       String           @unique
+  accountName         String
+  bankName            String
+  bankCode            String
+  accountReference    String           @unique  // Monnify reference for the VA
+  monnifyContractCode String           // Monnify contract code
+  isActive            Boolean          @default(true)
+  organizerId         String           @unique
+  organizer           OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@index([accountNumber])
+  @@index([accountReference])
 }
 
 model Event {
@@ -115,6 +135,7 @@ model TicketTier {
   sold          Int       @default(0)
   refundEnabled Boolean   @default(false)
   sortOrder     Int       @default(0)
+  saleEndDate   DateTime? // Date and time when ticket sales end for this tier
   eventId       String
   payments      Payment[]
   tickets       Ticket[]
@@ -138,7 +159,7 @@ model Ticket {
   checkedInAt    DateTime?
   checkedInBy    String?
   amountPaid     Decimal      @db.Decimal(12, 2)
-  paystackRef    String?
+  paymentRef     String?      // Monnify transaction reference
   eventId        String
   tierId         String
   buyerId        String
@@ -153,29 +174,37 @@ model Ticket {
   @@index([eventId])
   @@index([buyerId])
   @@index([status])
+  @@index([eventId, status])
+  @@index([buyerEmail, eventId])
 }
 
 model Payment {
-  id             String        @id @default(cuid())
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  reference      String        @unique
-  amount         Decimal       @db.Decimal(12, 2)
-  status         PaymentStatus @default(PENDING)
-  buyerEmail     String
-  paystackRef    String?
-  paystackPaidAt DateTime?
-  eventId        String
-  tierId         String
-  buyerId        String?
-  buyer          User?         @relation(fields: [buyerId], references: [id])
-  event          Event         @relation(fields: [eventId], references: [id])
-  tier           TicketTier    @relation(fields: [tierId], references: [id])
-  tickets        Ticket[]
+  id                    String        @id @default(cuid())
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  reference             String        @unique
+  amount                Decimal       @db.Decimal(12, 2)
+  status                PaymentStatus @default(PENDING)
+  buyerEmail            String
+  monnifyTransactionRef String?       // Monnify transaction reference
+  monnifyPaymentRef     String?       // Monnify payment reference
+  paidAt                DateTime?
+  eventId               String
+  tierId                String
+  buyerId               String?
+  organizerId           String?       // Reference to the organizer for reconciliation
+  buyer                 User?         @relation(fields: [buyerId], references: [id])
+  event                 Event         @relation(fields: [eventId], references: [id])
+  tier                  TicketTier    @relation(fields: [tierId], references: [id])
+  tickets               Ticket[]
 
   @@index([reference])
   @@index([eventId])
   @@index([buyerId])
+  @@index([organizerId])
+  @@index([monnifyTransactionRef])
+  @@index([status, createdAt])
+  @@index([buyerId, status])
 }
 
 model Refund {
@@ -188,7 +217,7 @@ model Refund {
   processedAt       DateTime?
   processedBy       String?
   rejectionNote     String?
-  paystackRefundRef String?
+  monnifyRefundRef  String?      // Monnify refund reference
   ticketId          String       @unique
   requesterId       String
   requester         User         @relation(fields: [requesterId], references: [id])
@@ -199,27 +228,29 @@ model Refund {
 }
 
 model Withdrawal {
-  id                   String           @id @default(cuid())
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-  amount               Decimal          @db.Decimal(12, 2)
-  status               WithdrawalStatus @default(PENDING)
-  bankName             String
-  bankCode             String
-  accountNumber        String
-  accountName          String
-  otpCode              String?
-  otpExpiresAt         DateTime?
-  otpAttempts          Int              @default(0)
-  paystackTransferRef  String?
-  paystackTransferCode String?
-  processedAt          DateTime?
-  failureReason        String?
-  organizerId          String
-  organizer            OrganizerProfile @relation(fields: [organizerId], references: [id])
+  id                    String           @id @default(cuid())
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  amount                Decimal          @db.Decimal(12, 2)
+  status                WithdrawalStatus @default(PENDING)
+  bankName              String
+  bankCode              String
+  accountNumber         String
+  accountName           String
+  otpCode               String?
+  otpExpiresAt          DateTime?
+  otpAttempts           Int              @default(0)
+  monnifyTransferRef    String?          // Monnify transfer reference
+  monnifyTransferCode   String?          // Monnify transfer code/batch ID
+  monnifyTransferStatus String?          // Status from Monnify webhook
+  processedAt           DateTime?
+  failureReason         String?
+  organizerId           String
+  organizer             OrganizerProfile @relation(fields: [organizerId], references: [id])
 
   @@index([organizerId])
   @@index([status])
+  @@index([monnifyTransferRef])
 }
 
 model LedgerEntry {

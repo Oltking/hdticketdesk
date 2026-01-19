@@ -12,7 +12,7 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import emailConfig from './config/email.config';
-import paystackConfig from './config/paystack.config';
+import monnifyConfig from './config/monnify.config';
 import cloudinaryConfig from './config/cloudinary.config';
 import googleConfig from './config/google.config';
 
@@ -48,7 +48,7 @@ import { TasksModule } from './modules/tasks/tasks.module';
         databaseConfig,
         jwtConfig,
         emailConfig,
-        paystackConfig,
+        monnifyConfig,
         cloudinaryConfig,
         googleConfig,
       ],
