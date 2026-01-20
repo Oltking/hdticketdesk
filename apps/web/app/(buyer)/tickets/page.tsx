@@ -102,19 +102,21 @@ export default function MyTicketsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Ticket className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10">
+                <Ticket className="h-6 w-6 text-primary" />
+              </div>
               My Tickets
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-2">
               {tickets.length > 0 
-                ? `You have ${tickets.length} ticket${tickets.length > 1 ? 's' : ''}`
+                ? `You have ${tickets.length} ticket${tickets.length > 1 ? 's' : ''} • ${upcomingTickets.length} upcoming`
                 : 'Your purchased tickets will appear here'}
             </p>
           </div>
           {tickets.length > 0 && (
             <Link href="/events">
-              <Button variant="outline" className="gap-2">
+              <Button className="gap-2 shadow-md">
                 <Sparkles className="h-4 w-4" />
                 Find More Events
               </Button>

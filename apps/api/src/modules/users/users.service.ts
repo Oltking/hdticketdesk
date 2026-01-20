@@ -57,10 +57,15 @@ export class UsersService {
     if (!user?.organizerProfile) throw new NotFoundException('Organizer profile not found');
     
     const profile = user.organizerProfile;
+    const pending = Number(profile.pendingBalance) || 0;
+    const available = Number(profile.availableBalance) || 0;
+    const withdrawn = Number(profile.withdrawnBalance) || 0;
+    
     return {
-      pendingBalance: Number(profile.pendingBalance),
-      availableBalance: Number(profile.availableBalance),
-      withdrawnBalance: Number(profile.withdrawnBalance),
+      pending,
+      available,
+      withdrawn,
+      withdrawable: available, // Same as available for now
     };
   }
 

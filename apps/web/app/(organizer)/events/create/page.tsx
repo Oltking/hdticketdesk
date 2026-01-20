@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { OrganizationNameDialog, useOrganizationNameCheck } from '@/components/ui/organization-name-dialog';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe, Info, Percent } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe, Info, Percent, Sparkles, Calendar, Ticket, ArrowLeft, Eye, Save } from 'lucide-react';
 import { MapPicker } from '@/components/ui/map-picker';
 
 const tierSchema = z.object({
@@ -216,22 +217,99 @@ export default function CreateEventPage() {
 
   if (authLoading) return null;
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar type="organizer" />
-      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-        <div className="max-w-3xl">
-          <h1 className="text-2xl font-bold mb-6">Create New Event</h1>
+  // Calculate form completion for progress indicator
+  const watchedTitle = watch('title');
+  const watchedDescription = watch('description');
+  const watchedStartDate = watch('startDate');
+  const watchedTiers = watch('tiers');
+  
+  const formProgress = {
+    banner: !!coverImage,
+    details: !!(watchedTitle && watchedDescription && watchedStartDate),
+    tickets: watchedTiers?.length > 0 && watchedTiers.every((t: any) => t.name && t.capacity > 0),
+  };
+  
+  const completedSteps = Object.values(formProgress).filter(Boolean).length;
+  const totalSteps = 3;
 
-          <form onSubmit={handleSubmit((d) => onSubmit(d, false))} className="space-y-6">
+  return (
+    <div className="flex min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <Sidebar type="organizer" />
+      <main className="flex-1 p-3 pt-20 sm:p-4 lg:p-8 lg:pt-8">
+        <div className="max-w-3xl mx-auto">
+          {/* Enhanced Header */}
+          <div className="mb-6 sm:mb-8">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="mb-3 -ml-2 gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => router.push('/dashboard')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                  </div>
+                  Create New Event
+                </h1>
+                <p className="text-muted-foreground mt-2 text-sm sm:text-base">
+                  Fill in the details below to create your amazing event
+                </p>
+              </div>
+              
+              {/* Progress Indicator */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-xl border shadow-sm">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3].map((step) => (
+                    <div
+                      key={step}
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                        step <= completedSteps 
+                          ? 'bg-primary scale-110' 
+                          : 'bg-muted'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm font-medium text-muted-foreground ml-2">
+                  {completedSteps}/{totalSteps} sections
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit((d) => onSubmit(d, false))} className="space-y-5 sm:space-y-6">
             {/* Banner/Cover Image Upload */}
-            <Card>
-              <CardHeader><CardTitle>Event Banner</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+            <Card className={`transition-all duration-300 ${formProgress.banner ? 'ring-2 ring-primary/20 border-primary/30' : ''}`}>
+              <CardHeader className="pb-3 sm:pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formProgress.banner ? 'bg-primary/10' : 'bg-muted'}`}>
+                      <ImageIcon className={`h-5 w-5 ${formProgress.banner ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base sm:text-lg">Event Banner</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Upload an eye-catching image for your event</CardDescription>
+                    </div>
+                  </div>
+                  {formProgress.banner && (
+                    <Badge variant="success" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Done
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                <div className="space-y-3 sm:space-y-4">
                   {coverImage ? (
                     <div className="relative">
-                      <div className="relative w-full h-48 md:h-64 rounded-lg overflow-hidden bg-muted">
+                      <div className="relative w-full h-40 sm:h-48 md:h-64 rounded-lg overflow-hidden bg-muted">
                         <Image
                           src={coverImage}
                           alt="Event banner"
@@ -251,26 +329,26 @@ export default function CreateEventPage() {
                   ) : (
                     <div 
                       onClick={() => !uploadingImage && fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-6 sm:p-8 text-center transition-colors ${
                         uploadingImage 
                           ? 'border-primary/50 bg-primary/5 cursor-wait' 
-                          : 'border-border cursor-pointer hover:border-primary hover:bg-muted/50'
+                          : 'border-border cursor-pointer hover:border-primary hover:bg-muted/50 active:bg-muted/70'
                       }`}
                     >
                       <div className="flex flex-col items-center gap-2">
                         {uploadingImage ? (
                           <>
-                            <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                            <p className="text-sm text-muted-foreground">Uploading your banner...</p>
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            <p className="text-xs sm:text-sm text-muted-foreground">Uploading...</p>
                           </>
                         ) : (
                           <>
-                            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                              <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-muted flex items-center justify-center">
+                              <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                             </div>
                             <div>
-                              <p className="font-medium">Click to upload banner image</p>
-                              <p className="text-sm text-muted-foreground">PNG, JPG, GIF, WebP up to 5MB</p>
+                              <p className="font-medium text-sm sm:text-base">Tap to upload banner</p>
+                              <p className="text-xs sm:text-sm text-muted-foreground">PNG, JPG, WebP up to 5MB</p>
                             </div>
                           </>
                         )}
@@ -280,7 +358,7 @@ export default function CreateEventPage() {
 
                   {/* Upload Status Message */}
                   {uploadStatus && (
-                    <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${
+                    <div className={`flex items-center gap-2 p-2.5 sm:p-3 rounded-lg text-xs sm:text-sm ${
                       uploadStatus.type === 'success' 
                         ? 'bg-green-50 text-green-700 border border-green-200' 
                         : 'bg-red-50 text-red-700 border border-red-200'
@@ -302,31 +380,45 @@ export default function CreateEventPage() {
                     className="hidden"
                   />
 
-                  {/* Recommended Sizes */}
-                  <div className="space-y-2">
+                  {/* Recommended Sizes - Hidden on mobile for cleaner UI */}
+                  <div className="hidden sm:block space-y-2">
                     <p className="text-sm font-medium text-foreground">Recommended Sizes:</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       {recommendedSizes.map((size) => (
                         <div 
                           key={size.label}
-                          className="p-3 bg-muted/50 rounded-lg border border-border"
+                          className="p-2.5 bg-muted/50 rounded-lg border border-border"
                         >
-                          <p className="font-medium text-sm">{size.label}</p>
-                          <p className="text-xs text-muted-foreground">{size.width} × {size.height}px</p>
-                          <p className="text-xs text-muted-foreground">{size.description}</p>
+                          <p className="font-medium text-xs">{size.label}</p>
+                          <p className="text-xs text-muted-foreground">{size.width}×{size.height}</p>
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      💡 Tip: A high-quality banner helps your event stand out and attracts more attendees.
-                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Event Details</CardTitle></CardHeader>
+            <Card className={`transition-all duration-300 ${formProgress.details ? 'ring-2 ring-primary/20 border-primary/30' : ''}`}>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formProgress.details ? 'bg-primary/10' : 'bg-muted'}`}>
+                      <Calendar className={`h-5 w-5 ${formProgress.details ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <CardTitle>Event Details</CardTitle>
+                      <CardDescription>Basic information about your event</CardDescription>
+                    </div>
+                  </div>
+                  {formProgress.details && (
+                    <Badge variant="success" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Done
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Event Title <span className="text-red-500">*</span></Label>
@@ -460,12 +552,31 @@ export default function CreateEventPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Ticket Tiers <span className="text-red-500">*</span></CardTitle>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })}>
-                  <Plus className="h-4 w-4 mr-1" />Add Tier
-                </Button>
+            <Card className={`transition-all duration-300 ${formProgress.tickets ? 'ring-2 ring-primary/20 border-primary/30' : ''}`}>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formProgress.tickets ? 'bg-primary/10' : 'bg-muted'}`}>
+                      <Ticket className={`h-5 w-5 ${formProgress.tickets ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <CardTitle>Ticket Tiers <span className="text-red-500">*</span></CardTitle>
+                      <CardDescription>Create different ticket types with varying prices</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {formProgress.tickets && (
+                      <Badge variant="success" className="gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Done
+                      </Badge>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })} className="gap-1">
+                      <Plus className="h-4 w-4" />
+                      <span className="hidden sm:inline">Add Tier</span>
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {errors.tiers?.message && (
@@ -554,12 +665,45 @@ export default function CreateEventPage() {
               </CardContent>
             </Card>
 
-            <div className="flex gap-4">
-              <Button type="submit" variant="outline" loading={isSubmitting && !publishing}>Save as Draft</Button>
-              <Button type="button" className="bg-primary text-white" loading={publishing} onClick={handleSubmit((d) => onSubmit(d, true))}>
-                Save & Publish
-              </Button>
-            </div>
+            {/* Action Buttons - Sticky on mobile */}
+            <Card className="bg-gradient-to-r from-card via-card to-muted/30 border-t-2 border-t-primary/20">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <div className="flex-1 hidden sm:block">
+                    <p className="text-sm text-muted-foreground">
+                      {completedSteps === totalSteps ? (
+                        <span className="text-green-600 font-medium flex items-center gap-1">
+                          <CheckCircle2 className="h-4 w-4" />
+                          All sections completed! Ready to publish.
+                        </span>
+                      ) : (
+                        `Complete all sections to publish your event`
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <Button 
+                      type="submit" 
+                      variant="outline" 
+                      loading={isSubmitting && !publishing}
+                      className="flex-1 sm:flex-none gap-2 h-11"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save Draft
+                    </Button>
+                    <Button 
+                      type="button" 
+                      className="flex-1 sm:flex-none bg-primary text-white gap-2 h-11 px-6" 
+                      loading={publishing} 
+                      onClick={handleSubmit((d) => onSubmit(d, true))}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Save & Publish
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </form>
         </div>
 

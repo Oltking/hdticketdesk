@@ -118,41 +118,51 @@ export default function OrganizerRefundsPage() {
       <Sidebar type="organizer" />
       <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
         <div className="max-w-6xl">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
-                <RotateCcw className="h-6 w-6" />
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <RotateCcw className="h-6 w-6 text-primary" />
+                </div>
                 Refund Requests
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mt-1">
                 Manage refund requests for your events
               </p>
             </div>
             {pendingCount > 0 && (
-              <Badge variant="destructive" className="text-sm">
-                {pendingCount} Pending
+              <Badge variant="destructive" className="text-sm gap-1 h-8 px-3">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {pendingCount} Pending Review
               </Badge>
             )}
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto">
-            {['all', 'PENDING', 'APPROVED', 'PROCESSED', 'REJECTED'].map((f) => (
-              <Button
-                key={f}
-                variant={filter === f ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilter(f as any)}
-                className="whitespace-nowrap"
-              >
-                {f === 'all' ? 'All' : f.charAt(0) + f.slice(1).toLowerCase()}
-                {f !== 'all' && (
-                  <Badge variant="secondary" className="ml-2">
-                    {refunds.filter(r => r.status === f).length}
-                  </Badge>
-                )}
-              </Button>
-            ))}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-1 scrollbar-hide">
+            {['all', 'PENDING', 'APPROVED', 'PROCESSED', 'REJECTED'].map((f) => {
+              const count = f === 'all' ? refunds.length : refunds.filter(r => r.status === f).length;
+              return (
+                <Button
+                  key={f}
+                  variant={filter === f ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter(f as any)}
+                  className={`whitespace-nowrap gap-2 transition-all ${
+                    filter === f ? 'shadow-md' : ''
+                  } ${f === 'PENDING' && count > 0 ? 'border-yellow-500/50' : ''}`}
+                >
+                  {f === 'all' ? 'All Requests' : f.charAt(0) + f.slice(1).toLowerCase()}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    filter === f 
+                      ? 'bg-primary-foreground/20 text-primary-foreground' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {count}
+                  </span>
+                </Button>
+              );
+            })}
           </div>
 
           <Card>

@@ -123,7 +123,17 @@ export default function RefundsPage() {
       <Header />
       <main className="flex-1 container py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h1 className="text-2xl font-bold">Refunds</h1>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10">
+                <Ticket className="h-6 w-6 text-primary" />
+              </div>
+              Refunds
+            </h1>
+            <p className="text-muted-foreground text-sm mt-2">
+              Request and track refunds for your tickets
+            </p>
+          </div>
         </div>
         
         <BuyerNav />
