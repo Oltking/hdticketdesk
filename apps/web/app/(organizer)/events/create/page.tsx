@@ -150,16 +150,30 @@ export default function CreateEventPage() {
       if (publish) {
         setPublishing(true);
       }
-      
+
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
-      const sanitizedTiers = data.tiers.map((tier) => ({
-        name: tier.name,
-        description: tier.description,
-        price: tier.isFree ? 0 : tier.price,
-        capacity: tier.capacity,
-        refundEnabled: tier.refundEnabled,
-        saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
-      }));
+      const sanitizedTiers = data.tiers.map((tier) => {
+        // Ensure price is a valid number
+        let price = tier.isFree ? 0 : tier.price;
+        if (typeof price !== 'number' || isNaN(price)) {
+          price = 0;
+        }
+
+        // Ensure capacity is a valid number
+        let capacity = tier.capacity;
+        if (typeof capacity !== 'number' || isNaN(capacity) || capacity < 1) {
+          capacity = 1;
+        }
+
+        return {
+          name: tier.name?.trim() || '',
+          description: tier.description?.trim() || undefined,
+          price: price,
+          capacity: capacity,
+          refundEnabled: !!tier.refundEnabled,
+          saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
+        };
+      });
 
       // Include cover image in the event data
       // Filter out empty strings for optional fields
@@ -176,7 +190,9 @@ export default function CreateEventPage() {
         // Only include onlineLink if online and has value
         onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
-      
+
+      console.log('Submitting event data:', eventData);
+
       // API client already unwraps the response, so response is the event directly
       const event = await api.createEvent(eventData);
       
