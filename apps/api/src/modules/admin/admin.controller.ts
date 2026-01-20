@@ -102,4 +102,16 @@ export class AdminController {
   async getOrganizerEarnings(@Param('id') id: string) {
     return this.adminService.getOrganizerEarnings(id);
   }
+
+  @Post('organizers/:id/create-virtual-account')
+  @ApiOperation({ summary: 'Create virtual account for organizer who doesn\'t have one' })
+  async createVirtualAccount(@Param('id') id: string) {
+    return this.adminService.createVirtualAccountForOrganizer(id);
+  }
+
+  @Post('organizers/create-all-virtual-accounts')
+  @ApiOperation({ summary: 'Create virtual accounts for all organizers without one (bulk operation)' })
+  async createAllVirtualAccounts() {
+    return this.adminService.createVirtualAccountsForAllOrganizers();
+  }
 }

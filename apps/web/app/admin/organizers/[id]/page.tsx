@@ -10,7 +10,8 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw, Building2, CreditCard, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw, Building2, CreditCard, Copy, CheckCircle, Plus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface VirtualAccount {
   id: string;
@@ -75,11 +76,30 @@ export default function OrganizerDetailsPage() {
   const [data, setData] = useState<OrganizerEarnings | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [creatingVA, setCreatingVA] = useState(false);
+  const { success, error } = useToast();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCreateVirtualAccount = async () => {
+    try {
+      setCreatingVA(true);
+      await api.createVirtualAccountForOrganizer(params.id as string);
+      success('Virtual account created successfully!');
+
+      // Refresh data to show the new virtual account
+      const result = await api.getOrganizerEarnings(params.id as string);
+      setData(result);
+    } catch (err: any) {
+      error(err.message || 'Failed to create virtual account');
+      console.error('Failed to create virtual account:', err);
+    } finally {
+      setCreatingVA(false);
+    }
   };
 
   useEffect(() => {
@@ -199,10 +219,27 @@ export default function OrganizerDetailsPage() {
               ) : (
                 <div className="text-center py-6">
                   <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-muted-foreground">No virtual account assigned</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    A virtual account will be created when this organizer publishes their first event
+                  <p className="text-muted-foreground mb-2">No virtual account assigned</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Create a virtual account now to enable this organizer to receive payments
                   </p>
+                  <Button
+                    onClick={handleCreateVirtualAccount}
+                    disabled={creatingVA}
+                    className="gap-2"
+                  >
+                    {creatingVA ? (
+                      <>
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Create Virtual Account
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </CardContent>

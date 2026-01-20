@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
+import { MonnifyService } from '../payments/monnify.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import * as bcrypt from 'bcrypt';
 
@@ -7,7 +9,11 @@ import * as bcrypt from 'bcrypt';
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+    private monnifyService: MonnifyService,
+  ) {}
 
   async getDashboardStats() {
     const [
@@ -803,6 +809,125 @@ export class AdminService {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Create virtual account for a specific organizer
+  async createVirtualAccountForOrganizer(organizerId: string) {
+    this.logger.log(`Admin creating virtual account for organizer: ${organizerId}`);
+
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+      include: {
+        user: {
+          select: { email: true },
+        },
+        virtualAccount: true,
+      },
+    });
+
+    if (!organizer) {
+      throw new NotFoundException('Organizer not found');
+    }
+
+    if (organizer.virtualAccount) {
+      throw new ConflictException('This organizer already has a virtual account');
+    }
+
+    try {
+      const vaResponse = await this.monnifyService.createVirtualAccount(
+        organizer.id,
+        organizer.title,
+        organizer.user.email,
+      );
+
+      // Save virtual account to database
+      const virtualAccount = await this.prisma.virtualAccount.create({
+        data: {
+          accountNumber: vaResponse.accountNumber,
+          accountName: vaResponse.accountName,
+          bankName: vaResponse.bankName,
+          bankCode: vaResponse.bankCode,
+          accountReference: vaResponse.accountReference,
+          monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
+          organizerId: organizer.id,
+        },
+      });
+
+      this.logger.log(`Virtual account created for organizer ${organizer.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
+
+      return {
+        message: 'Virtual account created successfully',
+        virtualAccount,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create virtual account for organizer ${organizerId}:`, error);
+      throw error;
+    }
+  }
+
+  // Create virtual accounts for all organizers without one
+  async createVirtualAccountsForAllOrganizers() {
+    this.logger.log('Admin bulk creating virtual accounts for all organizers without one');
+
+    const organizersWithoutVA = await this.prisma.organizerProfile.findMany({
+      where: {
+        virtualAccount: null,
+      },
+      include: {
+        user: {
+          select: { email: true },
+        },
+      },
+    });
+
+    this.logger.log(`Found ${organizersWithoutVA.length} organizers without virtual accounts`);
+
+    const results = {
+      total: organizersWithoutVA.length,
+      successful: 0,
+      failed: 0,
+      errors: [] as any[],
+    };
+
+    for (const organizer of organizersWithoutVA) {
+      try {
+        const vaResponse = await this.monnifyService.createVirtualAccount(
+          organizer.id,
+          organizer.title,
+          organizer.user.email,
+        );
+
+        await this.prisma.virtualAccount.create({
+          data: {
+            accountNumber: vaResponse.accountNumber,
+            accountName: vaResponse.accountName,
+            bankName: vaResponse.bankName,
+            bankCode: vaResponse.bankCode,
+            accountReference: vaResponse.accountReference,
+            monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
+            organizerId: organizer.id,
+          },
+        });
+
+        results.successful++;
+        this.logger.log(`Created VA for ${organizer.title}: ${vaResponse.accountNumber}`);
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          organizerId: organizer.id,
+          organizerTitle: organizer.title,
+          error: error.message || 'Unknown error',
+        });
+        this.logger.error(`Failed to create VA for ${organizer.title}:`, error);
+      }
+    }
+
+    this.logger.log(`Bulk VA creation complete: ${results.successful} successful, ${results.failed} failed`);
+
+    return {
+      message: 'Bulk virtual account creation completed',
+      ...results,
     };
   }
 }
