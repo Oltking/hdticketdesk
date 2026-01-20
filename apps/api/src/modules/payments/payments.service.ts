@@ -350,7 +350,7 @@ export class PaymentsService {
     }
 
     // Update withdrawal status to failed and restore balance
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       await tx.withdrawal.update({
         where: { id: withdrawal.id },
         data: {
@@ -388,7 +388,7 @@ export class PaymentsService {
     }
 
     // Handle reversal - restore organizer balance
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       await tx.withdrawal.update({
         where: { id: withdrawal.id },
         data: {
@@ -615,7 +615,7 @@ export class PaymentsService {
     });
 
     return {
-      pendingPayments: remainingPending.map(p => ({
+      pendingPayments: remainingPending.map((p: any) => ({
         reference: p.reference,
         eventId: p.eventId,
         eventTitle: p.event?.title,

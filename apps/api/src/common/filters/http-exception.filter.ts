@@ -7,7 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientValidationError,
+} from '@prisma/client/runtime/library';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -40,8 +43,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
       data = isObjectResponse ? { ...(exceptionResponse as any) } : undefined;
     }
     // Handle Prisma known request errors
-    else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      switch (exception.code) {
+    else if (exception instanceof PrismaClientKnownRequestError) {
+      const prismaError = exception as PrismaClientKnownRequestError;
+      switch (prismaError.code) {
         case 'P2002':
           // Unique constraint violation
           status = HttpStatus.CONFLICT;
@@ -74,13 +78,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
           message = 'A database error occurred. Please try again later.';
       }
       // Log full error details for debugging (server-side only)
-      this.logger.error(`Prisma error [${exception.code}]: ${exception.message}`, exception.stack);
+      this.logger.error(`Prisma error [${prismaError.code}]: ${prismaError.message}`, prismaError.stack);
     }
     // Handle Prisma validation errors
-    else if (exception instanceof Prisma.PrismaClientValidationError) {
+    else if (exception instanceof PrismaClientValidationError) {
+      const prismaError = exception as PrismaClientValidationError;
       status = HttpStatus.BAD_REQUEST;
       message = 'Invalid data provided. Please check all required fields are filled correctly.';
-      this.logger.error(`Prisma validation error: ${exception.message}`, exception.stack);
+      this.logger.error(`Prisma validation error: ${prismaError.message}`, prismaError.stack);
     }
     // Handle other errors
     else if (exception instanceof Error) {

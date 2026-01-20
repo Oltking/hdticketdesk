@@ -589,7 +589,7 @@ export class EventsService {
         });
 
         // Use a transaction to delete old tiers and create new ones
-        const updated = await this.prisma.$transaction(async (tx) => {
+        const updated = await this.prisma.$transaction(async (tx: any) => {
           // Delete existing tiers
           await tx.ticketTier.deleteMany({
             where: { eventId: id },
@@ -851,7 +851,7 @@ export class EventsService {
 
     // Use transaction to safely delete event and related tiers
     // TicketTiers have onDelete: Cascade, so they'll be deleted automatically
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       // Delete the event (tiers cascade automatically due to schema)
       await tx.event.delete({ where: { id } });
     });

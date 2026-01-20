@@ -17,7 +17,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../common/types/prisma-enums';
 
 interface AuthenticatedRequest {
   user: {

@@ -129,8 +129,8 @@ export class AdminService {
     ]);
 
     // Calculate total revenue for each event from successful payments
-    const eventsWithRevenue = events.map(event => {
-      const totalRevenue = event.payments.reduce((sum, payment) => {
+    const eventsWithRevenue = events.map((event: any) => {
+      const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
         const amount = payment.amount instanceof Decimal 
           ? payment.amount.toNumber() 
           : Number(payment.amount) || 0;
@@ -345,10 +345,10 @@ export class AdminService {
     const organizerEmail = event.organizer?.user?.email;
 
     // Get ticket IDs for ledger entry cleanup
-    const ticketIds = event.tickets.map(t => t.id);
+    const ticketIds = event.tickets.map((t: any) => t.id);
 
     // Use transaction to delete all related records in correct order
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: any) => {
       // Delete refunds associated with tickets of this event
       await tx.refund.deleteMany({
         where: {
@@ -640,17 +640,17 @@ export class AdminService {
     });
 
     // Calculate totals
-    const totalSales = ticketSales.reduce((sum, entry) => {
+    const totalSales = ticketSales.reduce((sum: any, entry: any) => {
       const amount = entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
       return sum + amount;
     }, 0);
 
-    const totalWithdrawn = withdrawals.reduce((sum, w) => {
+    const totalWithdrawn = withdrawals.reduce((sum: any, w: any) => {
       const amount = w.amount instanceof Decimal ? w.amount.toNumber() : Number(w.amount);
       return sum + amount;
     }, 0);
 
-    const totalRefunded = refunds.reduce((sum, r) => {
+    const totalRefunded = refunds.reduce((sum: any, r: any) => {
       const amount = r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
       return sum + amount;
     }, 0);
@@ -685,20 +685,20 @@ export class AdminService {
         totalRefunded,
         netEarnings: totalSales - totalRefunded,
       },
-      recentSales: ticketSales.slice(0, 10).map(sale => ({
+      recentSales: ticketSales.slice(0, 10).map((sale: any) => ({
         id: sale.id,
         amount: sale.amount instanceof Decimal ? sale.amount.toNumber() : Number(sale.amount),
         description: sale.description,
         createdAt: sale.createdAt,
       })),
-      recentWithdrawals: withdrawals.slice(0, 10).map(w => ({
+      recentWithdrawals: withdrawals.slice(0, 10).map((w: any) => ({
         id: w.id,
         amount: w.amount instanceof Decimal ? w.amount.toNumber() : Number(w.amount),
         status: w.status,
         createdAt: w.createdAt,
         processedAt: w.processedAt,
       })),
-      recentRefunds: refunds.slice(0, 10).map(r => ({
+      recentRefunds: refunds.slice(0, 10).map((r: any) => ({
         id: r.id,
         amount: r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
         ticketNumber: r.ticket.ticketNumber,
@@ -733,7 +733,7 @@ export class AdminService {
 
     // Calculate earnings for each organizer
     const organizersWithEarnings = await Promise.all(
-      organizers.map(async (organizer) => {
+      organizers.map(async (organizer: any) => {
         // Get total sales from ledger
         const salesSum = await this.prisma.ledgerEntry.aggregate({
           where: {
