@@ -613,10 +613,10 @@ export default function EditEventPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Sale End Date & Time (Optional)</Label>
-                        <Input 
-                          type="datetime-local" 
+                        <Input
+                          type="datetime-local"
                           {...register(`tiers.${index}.saleEndDate`)}
-                          min={startDate || undefined}
+                          max={startDate || undefined}
                         />
                         <p className="text-xs text-muted-foreground">
                           Leave empty to allow sales until the event starts

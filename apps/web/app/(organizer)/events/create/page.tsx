@@ -41,6 +41,23 @@ const schema = z.object({
   onlineLink: z.string().optional(),
   tiers: z.array(tierSchema).min(1, 'At least one ticket tier is required'),
   passFeeTobuyer: z.boolean().default(false),
+}).refine((data) => {
+  // Validate that all tier saleEndDates (if provided) are before or equal to event startDate
+  if (!data.startDate) return true;
+  const eventStart = new Date(data.startDate);
+
+  for (const tier of data.tiers) {
+    if (tier.saleEndDate && tier.saleEndDate.trim() !== '') {
+      const saleEnd = new Date(tier.saleEndDate);
+      if (saleEnd > eventStart) {
+        return false;
+      }
+    }
+  }
+  return true;
+}, {
+  message: 'Ticket sale end date must be before or on the event start date',
+  path: ['tiers'],
 });
 
 type FormData = z.infer<typeof schema>;
@@ -502,10 +519,10 @@ export default function CreateEventPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Sale End Date & Time (Optional)</Label>
-                        <Input 
-                          type="datetime-local" 
+                        <Input
+                          type="datetime-local"
                           {...register(`tiers.${index}.saleEndDate`)}
-                          min={startDate || undefined}
+                          max={startDate || undefined}
                         />
                         <p className="text-xs text-muted-foreground">
                           Leave empty to allow sales until the event starts
