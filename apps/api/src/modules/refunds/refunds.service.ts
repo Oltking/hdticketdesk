@@ -54,20 +54,18 @@ export class RefundsService {
       throw new BadRequestException('Cannot request refund after event has started');
     }
 
-    // Check for free tickets - no refund for free tickets
+    // Calculate ticket amount
     const ticketAmount = ticket.amountPaid instanceof Decimal 
       ? ticket.amountPaid.toNumber() 
       : Number(ticket.amountPaid);
-    
+
+    // Check for free tickets - no refund for free tickets
     if (ticketAmount === 0) {
       throw new BadRequestException('Free tickets cannot be refunded. Please cancel the ticket instead.');
     }
 
-    // Calculate refund amount (minus platform fee)
-    const ticketAmount = ticket.amountPaid instanceof Decimal 
-      ? ticket.amountPaid.toNumber() 
-      : Number(ticket.amountPaid);
-    const platformFee = ticketAmount * 0.05; // 5% platform fee
+    // Calculate refund amount (minus platform fee - 5%)
+    const platformFee = ticketAmount * 0.05;
     const refundAmount = ticketAmount - platformFee;
 
     const refund = await this.prisma.refund.create({

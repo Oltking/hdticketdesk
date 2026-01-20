@@ -703,12 +703,6 @@ class ApiClient {
     return this.request<any>(`/admin/organizers/${organizerId}/earnings`);
   }
 
-  async createVirtualAccountForOrganizer(organizerId: string) {
-    return this.request<{ message: string; virtualAccount: any }>(`/admin/organizers/${organizerId}/create-virtual-account`, {
-      method: 'POST',
-    });
-  }
-
   async processRefund(refundId: string) {
     return this.request<{ message: string; refund: any }>(`/admin/refunds/${refundId}/process`, {
       method: 'POST',

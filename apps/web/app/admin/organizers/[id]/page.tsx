@@ -72,7 +72,7 @@ interface OrganizerEarnings {
 export default function OrganizerDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
+  const { success, error } = useToast();
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const [data, setData] = useState<OrganizerEarnings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,19 +91,12 @@ export default function OrganizerDetailsPage() {
     setCreatingVA(true);
     try {
       const result = await api.createVirtualAccountForOrganizer(data.organizer.id);
-      toast({
-        title: 'Success!',
-        description: `Virtual account created: ${result.virtualAccount.accountNumber}`,
-      });
+      success(`Virtual account created: ${result.virtualAccount.accountNumber}`);
       // Refresh data to show the new virtual account
       const refreshedData = await api.getOrganizerEarnings(params.id as string);
       setData(refreshedData);
     } catch (err: any) {
-      toast({
-        title: 'Failed to create virtual account',
-        description: err.message || 'Please try again or check Monnify configuration',
-        variant: 'destructive',
-      });
+      error(err.message || 'Failed to create virtual account. Please try again.');
     } finally {
       setCreatingVA(false);
     }

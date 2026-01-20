@@ -914,60 +914,6 @@ export class AdminService {
     };
   }
 
-  // Create virtual account for a specific organizer
-  async createVirtualAccountForOrganizer(organizerId: string) {
-    this.logger.log(`Admin creating virtual account for organizer: ${organizerId}`);
-
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { id: organizerId },
-      include: {
-        user: {
-          select: { email: true },
-        },
-        virtualAccount: true,
-      },
-    });
-
-    if (!organizer) {
-      throw new NotFoundException('Organizer not found');
-    }
-
-    if (organizer.virtualAccount) {
-      throw new ConflictException('This organizer already has a virtual account');
-    }
-
-    try {
-      const vaResponse = await this.monnifyService.createVirtualAccount(
-        organizer.id,
-        organizer.title,
-        organizer.user.email,
-      );
-
-      // Save virtual account to database
-      const virtualAccount = await this.prisma.virtualAccount.create({
-        data: {
-          accountNumber: vaResponse.accountNumber,
-          accountName: vaResponse.accountName,
-          bankName: vaResponse.bankName,
-          bankCode: vaResponse.bankCode,
-          accountReference: vaResponse.accountReference,
-          monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
-          organizerId: organizer.id,
-        },
-      });
-
-      this.logger.log(`Virtual account created for organizer ${organizer.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
-
-      return {
-        message: 'Virtual account created successfully',
-        virtualAccount,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to create virtual account for organizer ${organizerId}:`, error);
-      throw error;
-    }
-  }
-
   // Create virtual accounts for all organizers without one
   async createVirtualAccountsForAllOrganizers() {
     this.logger.log('Admin bulk creating virtual accounts for all organizers without one');
