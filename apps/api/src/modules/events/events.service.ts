@@ -651,9 +651,13 @@ export class EventsService {
       data: { status: 'PUBLISHED' },
       include: {
         tiers: true,
-        organizer: { 
-          select: { id: true, title: true, userId: true },
-          include: { user: { select: { email: true } }, virtualAccount: true },
+        organizer: {
+          include: {
+            user: {
+              select: { email: true },
+            },
+            virtualAccount: true,
+          },
         },
       },
     });
