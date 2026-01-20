@@ -457,10 +457,17 @@ export class PaymentsService {
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const eventPassFeeTobuyer = (event as any).passFeeTobuyer ?? false;
     const serviceFee = eventPassFeeTobuyer ? tierPrice * (platformFeePercent / 100) : 0;
-    const expectedAmount = (tierPrice + serviceFee) * 100; // In kobo
-      
-    if (amount !== expectedAmount) {
-      this.logger.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}`);
+    const expectedAmount = tierPrice + serviceFee; // Monnify sends amount in Naira, not kobo
+    
+    // Allow small tolerance for floating point differences (₦0.50)
+    const amountDifference = Math.abs(amount - expectedAmount);
+    if (amountDifference > 0.5) {
+      this.logger.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}, diff: ${amountDifference}`);
+      // Mark payment as failed instead of silently returning
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'FAILED' },
+      });
       return;
     }
 

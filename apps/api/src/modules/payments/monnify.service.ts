@@ -78,6 +78,7 @@ export class MonnifyService {
 
   /**
    * Create a reserved (virtual) account for an organizer
+   * Monnify API: POST /api/v2/bank-transfer/reserved-accounts
    */
   async createVirtualAccount(
     organizerId: string,
@@ -87,28 +88,38 @@ export class MonnifyService {
     const token = await this.getAccessToken();
     const accountReference = `HD-ORG-${organizerId}-${Date.now()}`;
 
+    // Sanitize organizer name - Monnify has restrictions on account names
+    const sanitizedName = organizerName
+      .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
+      .substring(0, 50) // Max 50 chars
+      .trim() || 'Organizer';
+
+    const requestBody = {
+      accountReference,
+      accountName: `HDTicketDesk - ${sanitizedName}`,
+      currencyCode: 'NGN',
+      contractCode: this.contractCode,
+      customerEmail: organizerEmail,
+      customerName: sanitizedName,
+      getAllAvailableBanks: false,
+      preferredBanks: ['035'], // Wema Bank - good for VAs
+    };
+
+    this.logger.log(`Creating virtual account for ${organizerId}: ${JSON.stringify(requestBody)}`);
+
     const response = await fetch(`${this.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        accountReference,
-        accountName: `HDTicketDesk - ${organizerName}`,
-        currencyCode: 'NGN',
-        contractCode: this.contractCode,
-        customerEmail: organizerEmail,
-        customerName: organizerName,
-        getAllAvailableBanks: false,
-        preferredBanks: ['035'], // Wema Bank - good for VAs
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();
 
     if (!data.requestSuccessful) {
-      this.logger.error('Failed to create virtual account:', data);
+      this.logger.error('Failed to create virtual account:', JSON.stringify(data));
       throw new Error(data.responseMessage || 'Failed to create virtual account');
     }
 

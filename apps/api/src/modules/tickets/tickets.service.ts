@@ -194,9 +194,13 @@ export class TicketsService {
     return this.getTicketsByEvent(eventId);
   }
 
-  async checkInTicket(ticketNumber: string) {
+  async checkInTicket(ticketNumber: string, checkedInBy?: string) {
     const ticket = await this.prisma.ticket.findUnique({
       where: { ticketNumber },
+      include: {
+        event: true,
+        tier: true,
+      },
     });
 
     if (!ticket) {
@@ -208,13 +212,40 @@ export class TicketsService {
         success: false,
         message: 'Ticket already checked in',
         checkedInAt: ticket.checkedInAt,
+        ticket,
       };
     }
 
     if (ticket.status !== 'ACTIVE') {
       return {
         success: false,
-        message: `Ticket status is ${ticket.status}`,
+        message: `Cannot check in ticket with status: ${ticket.status}`,
+        ticket,
+      };
+    }
+
+    // Validate event timing - allow check-in starting 5 hours before event
+    const now = new Date();
+    const eventStart = new Date(ticket.event.startDate);
+    const fiveHoursBefore = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
+    
+    if (now < fiveHoursBefore) {
+      return {
+        success: false,
+        message: `Check-in opens 5 hours before event start (${eventStart.toLocaleString()})`,
+        ticket,
+      };
+    }
+
+    // Check if event has ended (allow 24 hour grace period for late check-ins)
+    const eventEnd = ticket.event.endDate ? new Date(ticket.event.endDate) : eventStart;
+    const gracePeriodEnd = new Date(eventEnd.getTime() + 24 * 60 * 60 * 1000);
+    
+    if (now > gracePeriodEnd) {
+      return {
+        success: false,
+        message: 'Event has ended. Check-in is no longer available.',
+        ticket,
       };
     }
 
@@ -223,6 +254,7 @@ export class TicketsService {
       data: {
         status: 'CHECKED_IN',
         checkedInAt: new Date(),
+        checkedInBy: checkedInBy || null,
       },
       include: {
         event: true,

@@ -103,9 +103,15 @@ export class AdminController {
     return this.adminService.getOrganizerEarnings(id);
   }
 
+  @Get('organizers/no-virtual-account')
+  @ApiOperation({ summary: 'Get all organizers without virtual accounts' })
+  async getOrganizersWithoutVirtualAccount() {
+    return this.adminService.getOrganizersWithoutVirtualAccount();
+  }
+
   @Post('organizers/:id/create-virtual-account')
-  @ApiOperation({ summary: 'Create virtual account for organizer who doesn\'t have one' })
-  async createVirtualAccount(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Create virtual account for an organizer (admin only)' })
+  async createVirtualAccountForOrganizer(@Param('id') id: string) {
     return this.adminService.createVirtualAccountForOrganizer(id);
   }
 

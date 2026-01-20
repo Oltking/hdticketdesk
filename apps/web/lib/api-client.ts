@@ -714,6 +714,23 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  async getOrganizersWithoutVirtualAccount() {
+    return this.request<{
+      organizers: any[];
+      total: number;
+    }>('/admin/organizers/no-virtual-account');
+  }
+
+  async createVirtualAccountForOrganizer(organizerId: string) {
+    return this.request<{
+      message: string;
+      virtualAccount: any;
+      organizer: { id: string; title: string; email: string };
+    }>(`/admin/organizers/${organizerId}/create-virtual-account`, {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();

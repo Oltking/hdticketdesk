@@ -49,6 +49,20 @@ export class RefundsService {
       throw new BadRequestException('Refunds are not enabled for this ticket tier');
     }
 
+    // Check if event has already started (no refunds after event starts)
+    if (new Date(ticket.event.startDate) <= new Date()) {
+      throw new BadRequestException('Cannot request refund after event has started');
+    }
+
+    // Check for free tickets - no refund for free tickets
+    const ticketAmount = ticket.amountPaid instanceof Decimal 
+      ? ticket.amountPaid.toNumber() 
+      : Number(ticket.amountPaid);
+    
+    if (ticketAmount === 0) {
+      throw new BadRequestException('Free tickets cannot be refunded. Please cancel the ticket instead.');
+    }
+
     // Calculate refund amount (minus platform fee)
     const ticketAmount = ticket.amountPaid instanceof Decimal 
       ? ticket.amountPaid.toNumber() 

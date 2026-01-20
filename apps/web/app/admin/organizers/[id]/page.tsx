@@ -10,7 +10,7 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw, Building2, CreditCard, Copy, CheckCircle, Plus } from 'lucide-react';
+import { ArrowLeft, User, DollarSign, TrendingUp, TrendingDown, RotateCcw, Building2, CreditCard, Copy, CheckCircle, Plus, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface VirtualAccount {
@@ -72,12 +72,12 @@ interface OrganizerEarnings {
 export default function OrganizerDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const [data, setData] = useState<OrganizerEarnings | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [creatingVA, setCreatingVA] = useState(false);
-  const { success, error } = useToast();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -86,17 +86,24 @@ export default function OrganizerDetailsPage() {
   };
 
   const handleCreateVirtualAccount = async () => {
+    if (!data?.organizer?.id) return;
+    
+    setCreatingVA(true);
     try {
-      setCreatingVA(true);
-      await api.createVirtualAccountForOrganizer(params.id as string);
-      success('Virtual account created successfully!');
-
+      const result = await api.createVirtualAccountForOrganizer(data.organizer.id);
+      toast({
+        title: 'Success!',
+        description: `Virtual account created: ${result.virtualAccount.accountNumber}`,
+      });
       // Refresh data to show the new virtual account
-      const result = await api.getOrganizerEarnings(params.id as string);
-      setData(result);
+      const refreshedData = await api.getOrganizerEarnings(params.id as string);
+      setData(refreshedData);
     } catch (err: any) {
-      error(err.message || 'Failed to create virtual account');
-      console.error('Failed to create virtual account:', err);
+      toast({
+        title: 'Failed to create virtual account',
+        description: err.message || 'Please try again or check Monnify configuration',
+        variant: 'destructive',
+      });
     } finally {
       setCreatingVA(false);
     }
@@ -219,19 +226,20 @@ export default function OrganizerDetailsPage() {
               ) : (
                 <div className="text-center py-6">
                   <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                  <p className="text-muted-foreground mb-2">No virtual account assigned</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Create a virtual account now to enable this organizer to receive payments
+                  <p className="text-muted-foreground font-medium">No virtual account assigned</p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    A virtual account is automatically created when an organizer publishes their first event.
+                    You can also create one manually below.
                   </p>
-                  <Button
+                  <Button 
                     onClick={handleCreateVirtualAccount}
                     disabled={creatingVA}
                     className="gap-2"
                   >
                     {creatingVA ? (
                       <>
-                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Creating Account...
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Creating...
                       </>
                     ) : (
                       <>
