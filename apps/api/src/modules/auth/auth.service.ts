@@ -821,6 +821,40 @@ export class AuthService {
       },
     });
 
+    // Create virtual account for the organizer immediately
+    try {
+      this.logger.log(`Creating virtual account for new organizer: ${organizerProfile.id}`);
+
+      // Import MonnifyService dynamically to avoid circular dependency
+      const { MonnifyService } = await import('../payments/monnify.service');
+      const monnifyService = new MonnifyService(this.configService);
+
+      const vaResponse = await monnifyService.createVirtualAccount(
+        organizerProfile.id,
+        organizationName.trim(),
+        user.email,
+      );
+
+      // Save virtual account to database
+      await this.prisma.virtualAccount.create({
+        data: {
+          accountNumber: vaResponse.accountNumber,
+          accountName: vaResponse.accountName,
+          bankName: vaResponse.bankName,
+          bankCode: vaResponse.bankCode,
+          accountReference: vaResponse.accountReference,
+          monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
+          organizerId: organizerProfile.id,
+        },
+      });
+
+      this.logger.log(`Virtual account created for organizer ${organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
+    } catch (error) {
+      // Log but don't fail organizer setup if VA creation fails
+      this.logger.error(`Failed to create virtual account for organizer ${organizerProfile.id}:`, error);
+      this.logger.warn('Organizer can still create events. Virtual account will be created on first event publish.');
+    }
+
     // Return updated user
     const updatedUser = await this.prisma.user.findUnique({
       where: { id: userId },
