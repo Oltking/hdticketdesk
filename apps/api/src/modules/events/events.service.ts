@@ -443,42 +443,73 @@ export class EventsService {
 
     const slug = this.generateSlug(dto.title);
 
-    const event = await this.prisma.event.create({
-      data: {
-        title: dto.title,
-        description: dto.description,
-        startDate: new Date(dto.startDate),
-        endDate: dto.endDate ? new Date(dto.endDate) : null,
-        location: dto.location,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
-        isOnline: dto.isOnline || false,
-        onlineLink: dto.onlineLink,
-        coverImage: dto.coverImage,
-        gallery: dto.gallery || [],
-        slug,
-        organizerId,
-        status: 'DRAFT',
-        passFeeTobuyer: dto.passFeeTobuyer || false,
-        tiers: {
-          create: dto.tiers.map((tier) => ({
-            name: tier.name,
-            description: tier.description,
-            price: tier.price,
-            capacity: tier.capacity,
-            sold: 0,
-            refundEnabled: tier.refundEnabled || false,
-          })),
-        },
-      },
-      include: {
-        tiers: true,
-        organizer: { select: { id: true, title: true } },
-      },
-    });
+    try {
+      // Parse and validate dates
+      const startDate = new Date(dto.startDate);
+      if (isNaN(startDate.getTime())) {
+        throw new Error('Invalid start date format');
+      }
 
-    return event;
+      const endDate = dto.endDate ? new Date(dto.endDate) : null;
+      if (endDate && isNaN(endDate.getTime())) {
+        throw new Error('Invalid end date format');
+      }
+
+      // Prepare tiers data with proper date parsing
+      const tiersData = dto.tiers.map((tier) => {
+        let saleEndDate = null;
+        if (tier.saleEndDate && tier.saleEndDate.trim() !== '') {
+          saleEndDate = new Date(tier.saleEndDate);
+          if (isNaN(saleEndDate.getTime())) {
+            this.logger.warn(`Invalid saleEndDate for tier ${tier.name}: ${tier.saleEndDate}`);
+            saleEndDate = null;
+          }
+        }
+
+        return {
+          name: tier.name,
+          description: tier.description || null,
+          price: tier.price,
+          capacity: tier.capacity,
+          sold: 0,
+          refundEnabled: tier.refundEnabled || false,
+          saleEndDate,
+        };
+      });
+
+      const event = await this.prisma.event.create({
+        data: {
+          title: dto.title,
+          description: dto.description,
+          startDate,
+          endDate,
+          location: dto.location || null,
+          latitude: dto.latitude ?? null,
+          longitude: dto.longitude ?? null,
+          isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
+          isOnline: dto.isOnline || false,
+          onlineLink: dto.onlineLink || null,
+          coverImage: dto.coverImage || null,
+          gallery: dto.gallery || [],
+          slug,
+          organizerId,
+          status: 'DRAFT',
+          passFeeTobuyer: dto.passFeeTobuyer || false,
+          tiers: {
+            create: tiersData,
+          },
+        },
+        include: {
+          tiers: true,
+          organizer: { select: { id: true, title: true } },
+        },
+      });
+
+      return event;
+    } catch (error) {
+      this.logger.error(`Failed to create event: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   async update(id: string, organizerId: string, dto: UpdateEventDto) {
@@ -535,6 +566,28 @@ export class EventsService {
         // Organizers should contact support for tier changes after sales begin
       } else {
         // No ticket sales - safe to update/replace tiers
+        // Prepare tiers data with proper date parsing
+        const tiersData = dto.tiers.map((tier) => {
+          let saleEndDate = null;
+          if (tier.saleEndDate && tier.saleEndDate.trim() !== '') {
+            saleEndDate = new Date(tier.saleEndDate);
+            if (isNaN(saleEndDate.getTime())) {
+              this.logger.warn(`Invalid saleEndDate for tier ${tier.name}: ${tier.saleEndDate}`);
+              saleEndDate = null;
+            }
+          }
+
+          return {
+            name: tier.name,
+            description: tier.description || null,
+            price: tier.price,
+            capacity: tier.capacity,
+            sold: 0,
+            refundEnabled: tier.refundEnabled || false,
+            saleEndDate,
+          };
+        });
+
         // Use a transaction to delete old tiers and create new ones
         const updated = await this.prisma.$transaction(async (tx) => {
           // Delete existing tiers
@@ -548,14 +601,7 @@ export class EventsService {
             data: {
               ...updateData,
               tiers: {
-                create: dto.tiers!.map((tier) => ({
-                  name: tier.name,
-                  description: tier.description,
-                  price: tier.price,
-                  capacity: tier.capacity,
-                  sold: 0,
-                  refundEnabled: tier.refundEnabled || false,
-                })),
+                create: tiersData,
               },
             },
             include: {

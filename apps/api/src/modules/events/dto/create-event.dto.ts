@@ -14,47 +14,48 @@ import { Type } from 'class-transformer';
 
 export class CreateTicketTierDto {
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
+  @IsNotEmpty({ message: 'Tier name is required' })
+  @MaxLength(100, { message: 'Tier name must be less than 100 characters' })
   name: string;
 
   @IsString()
   @IsOptional()
-  @MaxLength(500)
+  @MaxLength(500, { message: 'Tier description must be less than 500 characters' })
   description?: string;
 
-  @IsNumber()
-  @Min(0)
+  @IsNumber({}, { message: 'Price must be a valid number' })
+  @Min(0, { message: 'Price cannot be negative' })
   price: number;
 
-  @IsNumber()
-  @Min(1)
+  @IsNumber({}, { message: 'Capacity must be a valid number' })
+  @Min(1, { message: 'Capacity must be at least 1' })
   capacity: number;
 
   @IsBoolean()
   @IsOptional()
   refundEnabled?: boolean;
 
-  @IsDateString()
+  @IsString()
   @IsOptional()
-  saleEndDate?: string; // Date and time when ticket sales end for this tier
+  saleEndDate?: string; // Date and time when ticket sales end for this tier (accepts datetime-local format)
 }
 
 export class CreateEventDto {
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(200)
+  @IsNotEmpty({ message: 'Event title is required' })
+  @MaxLength(200, { message: 'Event title must be less than 200 characters' })
   title: string;
 
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(5000)
+  @IsNotEmpty({ message: 'Event description is required' })
+  @MaxLength(5000, { message: 'Event description must be less than 5000 characters' })
   description: string;
 
-  @IsDateString()
+  @IsString()
+  @IsNotEmpty({ message: 'Start date is required' })
   startDate: string;
 
-  @IsDateString()
+  @IsString()
   @IsOptional()
   endDate?: string;
 

@@ -442,7 +442,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                   <span>{formatCurrency(checkoutDialog.tierPrice)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Service Fee (5%)</span>
+                  <span className="text-muted-foreground">Service Fee</span>
                   <span>{formatCurrency(checkoutDialog.serviceFee)}</span>
                 </div>
                 <div className="border-t pt-2 mt-2">

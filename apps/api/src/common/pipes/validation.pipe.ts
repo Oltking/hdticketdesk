@@ -4,7 +4,7 @@ import {
   ArgumentMetadata,
   BadRequestException,
 } from '@nestjs/common';
-import { validate } from 'class-validator';
+import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 
 @Injectable()
@@ -18,13 +18,7 @@ export class ValidationPipe implements PipeTransform<any> {
     const errors = await validate(object);
 
     if (errors.length > 0) {
-      const messages = errors.map((error) => {
-        const constraints = error.constraints;
-        return {
-          property: error.property,
-          errors: constraints ? Object.values(constraints) : [],
-        };
-      });
+      const messages = this.flattenValidationErrors(errors);
 
       throw new BadRequestException({
         message: 'Validation failed',
@@ -38,5 +32,31 @@ export class ValidationPipe implements PipeTransform<any> {
   private toValidate(metatype: Function): boolean {
     const types: Function[] = [String, Boolean, Number, Array, Object];
     return !types.includes(metatype);
+  }
+
+  /**
+   * Flatten nested validation errors for better readability
+   */
+  private flattenValidationErrors(errors: ValidationError[], parentPath = ''): any[] {
+    const result: any[] = [];
+
+    for (const error of errors) {
+      const propertyPath = parentPath ? `${parentPath}.${error.property}` : error.property;
+
+      // Add constraints from this error
+      if (error.constraints) {
+        result.push({
+          property: propertyPath,
+          errors: Object.values(error.constraints),
+        });
+      }
+
+      // Recursively handle children (nested objects)
+      if (error.children && error.children.length > 0) {
+        result.push(...this.flattenValidationErrors(error.children, propertyPath));
+      }
+    }
+
+    return result;
   }
 }
