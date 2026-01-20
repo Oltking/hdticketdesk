@@ -58,9 +58,23 @@ class ApiClient {
       const error = await response.json().catch(() => ({}));
       // Handle wrapped error response
       const errorData = error.data || error;
-      
+
       // Provide more helpful error messages for common status codes
       let errorMessage = errorData.message || error.message;
+
+      // If there are detailed validation errors, include them in the message
+      if (errorData.errors && Array.isArray(errorData.errors)) {
+        const detailedErrors = errorData.errors
+          .map((err: any) => {
+            if (err.property && err.errors) {
+              return `${err.property}: ${err.errors.join(', ')}`;
+            }
+            return JSON.stringify(err);
+          })
+          .join(' | ');
+        errorMessage = `${errorMessage}: ${detailedErrors}`;
+      }
+
       if (!errorMessage) {
         if (response.status === 401) {
           errorMessage = 'Your session has expired. Please log in again.';
@@ -70,7 +84,7 @@ class ApiClient {
           errorMessage = `Request failed with status ${response.status}`;
         }
       }
-      
+
       const err = new Error(errorMessage);
       (err as any).response = { data: errorData, status: response.status };
       throw err;
