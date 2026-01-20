@@ -109,6 +109,42 @@ export class AuthService {
 
     this.logger.log(`Registered user: ${user.email} (role=${user.role})`);
 
+    // Create virtual account for organizer immediately
+    if (dto.role === 'ORGANIZER' && user.organizerProfile) {
+      try {
+        this.logger.log(`Creating virtual account for new organizer: ${user.organizerProfile.id}`);
+
+        // Import MonnifyService dynamically to avoid circular dependency
+        const { MonnifyService } = await import('../payments/monnify.service');
+        const monnifyService = new MonnifyService(this.configService);
+
+        const vaResponse = await monnifyService.createVirtualAccount(
+          user.organizerProfile.id,
+          user.organizerProfile.title,
+          user.email,
+        );
+
+        // Save virtual account to database
+        await this.prisma.virtualAccount.create({
+          data: {
+            accountNumber: vaResponse.accountNumber,
+            accountName: vaResponse.accountName,
+            bankName: vaResponse.bankName,
+            bankCode: vaResponse.bankCode,
+            accountReference: vaResponse.accountReference,
+            monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
+            organizerId: user.organizerProfile.id,
+          },
+        });
+
+        this.logger.log(`Virtual account created for organizer ${user.organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
+      } catch (error) {
+        // Log but don't fail registration if VA creation fails
+        this.logger.error(`Failed to create virtual account for organizer ${user.organizerProfile.id}:`, error);
+        this.logger.warn('Organizer can still create events. Virtual account will be created on first event publish.');
+      }
+    }
+
     // Return userId and role so frontend can redirect to verify page and confirm role
     // Don't generate tokens yet - user must verify first
     return {
