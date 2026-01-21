@@ -1029,10 +1029,12 @@ export class AdminService {
   }
 
   // Manually verify a specific payment
+  // Accepts: HD payment reference, Monnify transaction reference (MNFY_...), or payment ID
   async manuallyVerifyPayment(reference: string) {
     this.logger.log(`Admin manually verifying payment: ${reference}`);
 
-    const payment = await this.prisma.payment.findUnique({
+    // Try to find payment by various identifiers
+    let payment = await this.prisma.payment.findUnique({
       where: { reference },
       include: {
         event: true,
@@ -1040,8 +1042,44 @@ export class AdminService {
       },
     });
 
+    // If not found by reference, try by monnifyTransactionRef
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${reference}`);
+      this.logger.log(`Payment not found by reference, trying monnifyTransactionRef: ${reference}`);
+      payment = await this.prisma.payment.findFirst({
+        where: { monnifyTransactionRef: reference },
+        include: {
+          event: true,
+          tier: true,
+        },
+      });
+    }
+
+    // If still not found, try by ID
+    if (!payment) {
+      this.logger.log(`Payment not found by monnifyTransactionRef, trying by ID: ${reference}`);
+      payment = await this.prisma.payment.findUnique({
+        where: { id: reference },
+        include: {
+          event: true,
+          tier: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      // List recent pending payments to help admin
+      const recentPending = await this.prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: { reference: true, monnifyTransactionRef: true, buyerEmail: true, createdAt: true },
+      });
+      
+      throw new NotFoundException({
+        message: `Payment not found with reference: ${reference}`,
+        suggestion: 'Try using the HD-xxx reference, MNFY_xxx reference, or payment ID',
+        recentPendingPayments: recentPending,
+      });
     }
 
     if (payment.status !== 'PENDING') {
@@ -1213,37 +1251,107 @@ export class AdminService {
   }
 
   // Debug payment verification - shows detailed API calls
+  // Accepts: HD reference, Monnify reference (MNFY_...), payment ID, or buyer email
   async debugPaymentVerification(reference: string) {
     this.logger.log(`Debugging payment verification for: ${reference}`);
 
     try {
-      // Find the payment
-      const payment = await this.prisma.payment.findUnique({
+      // Try to find the payment by various identifiers
+      let payment = await this.prisma.payment.findUnique({
         where: { reference },
         include: {
-          event: { select: { title: true } },
-          tier: { select: { name: true } },
+          event: { select: { title: true, passFeeTobuyer: true } },
+          tier: { select: { name: true, price: true } },
         },
       });
 
+      // Try by monnifyTransactionRef
       if (!payment) {
+        payment = await this.prisma.payment.findFirst({
+          where: { monnifyTransactionRef: reference },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      // Try by ID
+      if (!payment) {
+        payment = await this.prisma.payment.findUnique({
+          where: { id: reference },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      // Try by buyer email (returns most recent)
+      if (!payment && reference.includes('@')) {
+        payment = await this.prisma.payment.findFirst({
+          where: { buyerEmail: reference },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      if (!payment) {
+        // Show recent payments to help admin find the right one
+        const recentPayments = await this.prisma.payment.findMany({
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            reference: true,
+            monnifyTransactionRef: true,
+            buyerEmail: true,
+            status: true,
+            amount: true,
+            createdAt: true,
+          },
+        });
+
         return {
           error: 'Payment not found in database',
           searchedReference: reference,
+          searchedBy: ['reference', 'monnifyTransactionRef', 'id', reference.includes('@') ? 'buyerEmail' : null].filter(Boolean),
+          recentPayments,
         };
       }
+
+      // Calculate what the amounts should be
+      const tierPrice = payment.tier?.price 
+        ? (typeof payment.tier.price === 'object' ? Number(payment.tier.price) : payment.tier.price)
+        : 0;
+      const passFeeTobuyer = (payment.event as any)?.passFeeTobuyer ?? false;
+      const platformFeePercent = 5;
+      const serviceFee = tierPrice * (platformFeePercent / 100);
+      const expectedBuyerPayment = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
 
       const debug = {
         payment: {
           id: payment.id,
           reference: payment.reference,
           monnifyTransactionRef: payment.monnifyTransactionRef,
-          amount: payment.amount,
+          storedAmount: payment.amount,
           status: payment.status,
           buyerEmail: payment.buyerEmail,
           eventTitle: payment.event?.title,
           tierName: payment.tier?.name,
           createdAt: payment.createdAt,
+        },
+        expectedAmounts: {
+          tierPrice,
+          serviceFee,
+          passFeeTobuyer,
+          expectedBuyerPayment,
+          note: passFeeTobuyer 
+            ? `Buyer should pay ₦${expectedBuyerPayment} (tier ₦${tierPrice} + fee ₦${serviceFee})`
+            : `Buyer should pay ₦${expectedBuyerPayment} (tier price only, fee deducted from organizer)`,
         },
         monnifyConfig: {
           baseUrl: this.configService.get<string>('MONNIFY_BASE_URL') || 'https://api.monnify.com',
