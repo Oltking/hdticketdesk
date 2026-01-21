@@ -144,4 +144,16 @@ export class AdminController {
   async debugPaymentVerification(@Param('reference') reference: string) {
     return this.adminService.debugPaymentVerification(reference);
   }
+
+  @Post('payments/:reference/force-confirm')
+  @ApiOperation({ 
+    summary: 'Force confirm payment - bypasses Monnify verification',
+    description: 'Use when you have manually verified the payment in Monnify dashboard. Creates ticket and credits organizer immediately. Accepts HD reference, MNFY reference, payment ID, or buyer email.'
+  })
+  async forceConfirmPayment(
+    @Param('reference') reference: string,
+    @Body() body: { confirmedAmount?: number; adminNotes?: string },
+  ) {
+    return this.adminService.forceConfirmPayment(reference, body?.confirmedAmount, body?.adminNotes);
+  }
 }

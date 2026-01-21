@@ -759,7 +759,23 @@ class ApiClient {
   }
 
   async debugPaymentVerification(reference: string) {
-    return this.request<any>(`/admin/payments/${reference}/debug`);
+    return this.request<any>(`/admin/payments/${encodeURIComponent(reference)}/debug`);
+  }
+
+  // Force confirm a payment (bypasses Monnify verification)
+  // Use when you've manually verified in Monnify dashboard
+  async forceConfirmPayment(reference: string, confirmedAmount?: number, adminNotes?: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+      payment: any;
+      ticket: any;
+      financials: any;
+      adminNotes?: string;
+    }>(`/admin/payments/${encodeURIComponent(reference)}/force-confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ confirmedAmount, adminNotes }),
+    });
   }
 }
 

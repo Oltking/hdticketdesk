@@ -1160,6 +1160,231 @@ export class AdminService {
     }
   }
 
+  /**
+   * ADMIN FORCE CONFIRM PAYMENT
+   * Use this when you've manually verified payment in Monnify dashboard
+   * This bypasses Monnify API verification and directly creates the ticket
+   * 
+   * @param reference - HD payment reference, Monnify ref, or payment ID
+   * @param confirmedAmount - The amount confirmed in Monnify dashboard (for logging)
+   * @param adminNotes - Optional notes explaining why force confirm was used
+   */
+  async forceConfirmPayment(reference: string, confirmedAmount?: number, adminNotes?: string) {
+    this.logger.log(`Admin force confirming payment: ${reference}`);
+
+    // Find the payment by various identifiers
+    let payment = await this.prisma.payment.findUnique({
+      where: { reference },
+      include: {
+        event: { include: { organizer: true } },
+        tier: true,
+        buyer: true,
+      },
+    });
+
+    if (!payment) {
+      payment = await this.prisma.payment.findFirst({
+        where: { monnifyTransactionRef: reference },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      payment = await this.prisma.payment.findUnique({
+        where: { id: reference },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    // Also try by buyer email
+    if (!payment && reference.includes('@')) {
+      payment = await this.prisma.payment.findFirst({
+        where: { buyerEmail: reference, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      // Show recent pending payments to help
+      const recentPending = await this.prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: { 
+          id: true,
+          reference: true, 
+          monnifyTransactionRef: true, 
+          buyerEmail: true, 
+          amount: true,
+          createdAt: true 
+        },
+      });
+
+      throw new NotFoundException({
+        message: `Payment not found: ${reference}`,
+        suggestion: 'Try the HD-xxx reference, MNFY_xxx reference, payment ID, or buyer email',
+        recentPendingPayments: recentPending,
+      });
+    }
+
+    // Check if already processed
+    if (payment.status === 'SUCCESS') {
+      const existingTicket = await this.prisma.ticket.findFirst({
+        where: { paymentId: payment.id },
+      });
+
+      return {
+        message: 'Payment already confirmed and ticket exists',
+        payment: { id: payment.id, reference: payment.reference, status: payment.status },
+        ticket: existingTicket,
+      };
+    }
+
+    // Calculate amounts
+    const tierPrice = payment.tier.price instanceof Decimal
+      ? payment.tier.price.toNumber()
+      : Number(payment.tier.price);
+
+    const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
+    const passFeeTobuyer = (payment.event as any).passFeeTobuyer ?? false;
+    const serviceFee = tierPrice * (platformFeePercent / 100);
+
+    // Calculate what buyer should have paid
+    const expectedBuyerPayment = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
+
+    // Calculate organizer earnings
+    let organizerAmount: number;
+    if (passFeeTobuyer) {
+      organizerAmount = tierPrice; // Full tier price - buyer paid fee separately
+    } else {
+      organizerAmount = tierPrice - serviceFee; // Minus platform fee
+    }
+
+    this.logger.log(`Force confirming payment ${payment.reference}:`);
+    this.logger.log(`  - Tier price: ₦${tierPrice}`);
+    this.logger.log(`  - Service fee (${platformFeePercent}%): ₦${serviceFee}`);
+    this.logger.log(`  - Fee paid by: ${passFeeTobuyer ? 'BUYER' : 'ORGANIZER'}`);
+    this.logger.log(`  - Expected buyer payment: ₦${expectedBuyerPayment}`);
+    this.logger.log(`  - Confirmed amount from admin: ₦${confirmedAmount || 'not provided'}`);
+    this.logger.log(`  - Organizer will receive: ₦${organizerAmount}`);
+
+    // Generate ticket number
+    const ticketNumber = `TKT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const qrCode = `${payment.eventId}-${ticketNumber}`;
+
+    // Use transaction to ensure all operations succeed
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // 1. Update payment status
+      const updatedPayment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'SUCCESS',
+          paidAt: new Date(),
+        },
+      });
+
+      // 2. Create ticket
+      const ticket = await prisma.ticket.create({
+        data: {
+          ticketNumber,
+          qrCode,
+          status: 'ACTIVE',
+          buyerEmail: payment.buyerEmail,
+          buyerFirstName: payment.buyer?.firstName || null,
+          buyerLastName: payment.buyer?.lastName || null,
+          amountPaid: tierPrice,
+          paymentRef: payment.reference,
+          eventId: payment.eventId,
+          tierId: payment.tierId,
+          buyerId: payment.buyerId!,
+          paymentId: payment.id,
+        },
+      });
+
+      // 3. Update tier sold count
+      await prisma.ticketTier.update({
+        where: { id: payment.tierId },
+        data: { sold: { increment: 1 } },
+      });
+
+      // 4. Update organizer pending balance
+      await prisma.organizerProfile.update({
+        where: { id: payment.event.organizerId },
+        data: { pendingBalance: { increment: organizerAmount } },
+      });
+
+      // 5. Get updated organizer for ledger entry
+      const organizer = await prisma.organizerProfile.findUnique({
+        where: { id: payment.event.organizerId },
+      });
+
+      const currentPending = organizer?.pendingBalance instanceof Decimal
+        ? organizer.pendingBalance.toNumber()
+        : Number(organizer?.pendingBalance || 0);
+      const currentAvailable = organizer?.availableBalance instanceof Decimal
+        ? organizer.availableBalance.toNumber()
+        : Number(organizer?.availableBalance || 0);
+
+      // 6. Create ledger entry
+      await prisma.ledgerEntry.create({
+        data: {
+          type: 'TICKET_SALE',
+          amount: organizerAmount,
+          description: `[ADMIN FORCE CONFIRM] ${payment.event.title} - ${payment.tier.name}${adminNotes ? ` | Note: ${adminNotes}` : ''}`,
+          pendingBalanceAfter: currentPending,
+          availableBalanceAfter: currentAvailable,
+          ticketId: ticket.id,
+          organizerId: payment.event.organizerId,
+        },
+      });
+
+      return { payment: updatedPayment, ticket };
+    });
+
+    this.logger.log(`✅ Payment force confirmed! Ticket: ${result.ticket.ticketNumber}`);
+
+    return {
+      success: true,
+      message: 'Payment confirmed and ticket created successfully!',
+      payment: {
+        id: result.payment.id,
+        reference: result.payment.reference,
+        monnifyTransactionRef: payment.monnifyTransactionRef,
+        status: result.payment.status,
+        amount: payment.amount,
+      },
+      ticket: {
+        id: result.ticket.id,
+        ticketNumber: result.ticket.ticketNumber,
+        status: result.ticket.status,
+        buyerEmail: result.ticket.buyerEmail,
+        eventTitle: payment.event.title,
+        tierName: payment.tier.name,
+      },
+      financials: {
+        tierPrice,
+        serviceFee,
+        passFeeTobuyer,
+        expectedBuyerPayment,
+        organizerReceives: organizerAmount,
+      },
+      adminNotes,
+    };
+  }
+
   // Bulk verify all pending payments
   async verifyAllPendingPayments() {
     this.logger.log('Admin bulk verifying all pending payments');
