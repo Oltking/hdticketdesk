@@ -242,14 +242,16 @@ export class MonnifyService {
   /**
    * Verify a transaction status
    * Can use either transactionReference or paymentReference
+   * Will try both if the first one fails
    */
-  async verifyTransaction(transactionReference: string): Promise<any> {
+  async verifyTransaction(reference: string, paymentReference?: string): Promise<any> {
     const token = await this.getAccessToken();
 
-    this.logger.log(`Verifying transaction: ${transactionReference}`);
+    this.logger.log(`Verifying transaction with reference: ${reference}`);
 
-    const response = await fetch(
-      `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(transactionReference)}`,
+    // Try with the provided reference first
+    let response = await fetch(
+      `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(reference)}`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -257,22 +259,40 @@ export class MonnifyService {
       },
     );
 
+    let data = await response.json();
+    this.logger.log(`First attempt response: ${JSON.stringify(data)}`);
+
+    // If failed and we have a payment reference to try, attempt with that
+    if (!data.requestSuccessful && paymentReference && paymentReference !== reference) {
+      this.logger.log(`First attempt failed, trying with payment reference: ${paymentReference}`);
+
+      response = await fetch(
+        `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        },
+      );
+
+      data = await response.json();
+      this.logger.log(`Second attempt response: ${JSON.stringify(data)}`);
+    }
+
     if (!response.ok) {
       this.logger.error(`Monnify API returned HTTP ${response.status}: ${response.statusText}`);
+      this.logger.error(`Response body: ${JSON.stringify(data)}`);
       throw new Error(`Monnify API error: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
-
-    this.logger.log(`Monnify transaction verification raw response: ${JSON.stringify(data)}`);
-
     if (!data.requestSuccessful) {
       this.logger.error('Failed to verify transaction:', JSON.stringify(data));
+      this.logger.error(`Tried references: ${reference}${paymentReference ? `, ${paymentReference}` : ''}`);
       throw new Error(data.responseMessage || 'Failed to verify transaction');
     }
 
     const paymentStatus = data.responseBody.paymentStatus?.toUpperCase();
-    
+
     // Normalize status - Monnify uses PAID, we normalize to 'paid' or 'success'
     let normalizedStatus = 'pending';
     if (paymentStatus === 'PAID' || paymentStatus === 'SUCCESS') {
@@ -281,7 +301,7 @@ export class MonnifyService {
       normalizedStatus = 'failed';
     }
 
-    this.logger.log(`Transaction ${transactionReference} status: ${paymentStatus} -> ${normalizedStatus}`);
+    this.logger.log(`Transaction ${reference} status: ${paymentStatus} -> ${normalizedStatus}`);
 
     return {
       status: normalizedStatus,

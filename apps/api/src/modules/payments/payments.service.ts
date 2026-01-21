@@ -684,7 +684,7 @@ export class PaymentsService {
       try {
         // Use Monnify transaction reference if available, otherwise use payment reference
         const transactionRef = payment.monnifyTransactionRef || payment.reference;
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
 
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Process the payment using the same logic as webhook
@@ -765,7 +765,8 @@ export class PaymentsService {
         // Try up to 3 times with delays (sometimes Monnify takes a moment to update status)
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+            // Pass both transaction ref and payment ref to try both
+            monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
             this.logger.log(`Monnify verification attempt ${attempt} result: ${JSON.stringify(monnifyData)}`);
 
             // If we got a successful status, break out of retry loop
