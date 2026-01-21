@@ -1055,8 +1055,8 @@ export class AdminService {
     const transactionRef = payment.monnifyTransactionRef || reference;
 
     try {
-      // Verify with Monnify
-      const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+      // Verify with Monnify - pass both transaction ref and payment ref
+      const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
 
       this.logger.log(`Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`);
 
@@ -1146,8 +1146,8 @@ export class AdminService {
       try {
         const transactionRef = payment.monnifyTransactionRef || payment.reference;
 
-        // Verify with Monnify
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+        // Verify with Monnify - pass both transaction ref and payment ref
+        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
 
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Import PaymentsService to process payment

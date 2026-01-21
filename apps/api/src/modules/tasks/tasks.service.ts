@@ -328,8 +328,8 @@ export class TasksService {
         try {
           const transactionRef = payment.monnifyTransactionRef || payment.reference;
 
-          // Verify with Monnify
-          const monnifyData = await monnifyService.verifyTransaction(transactionRef);
+          // Verify with Monnify - pass both transaction ref and payment ref
+          const monnifyData = await monnifyService.verifyTransaction(transactionRef, payment.reference);
 
           if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
             // Process the payment
