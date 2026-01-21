@@ -805,7 +805,7 @@ export class AdminService {
     });
 
     return {
-      organizers: organizers.map(org => ({
+      organizers: organizers.map((org: any) => ({
         id: org.id,
         title: org.title,
         user: org.user,
