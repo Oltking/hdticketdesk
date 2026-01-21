@@ -805,7 +805,7 @@ export class AdminService {
     });
 
     return {
-      organizers: organizers.map(org => ({
+      organizers: organizers.map((org: any) => ({
         id: org.id,
         title: org.title,
         user: org.user,
@@ -1093,6 +1093,7 @@ export class AdminService {
           amount: monnifyData.amount,
           id: monnifyData.transactionReference,
           paid_at: monnifyData.paidOn,
+          customer: monnifyData.customer,
         });
 
         // Fetch updated payment and ticket
@@ -1180,6 +1181,7 @@ export class AdminService {
             amount: monnifyData.amount,
             id: monnifyData.transactionReference,
             paid_at: monnifyData.paidOn,
+            customer: monnifyData.customer,
           });
 
           results.verified++;
