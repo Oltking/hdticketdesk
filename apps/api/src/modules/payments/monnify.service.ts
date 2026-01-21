@@ -194,6 +194,8 @@ export class MonnifyService {
   async verifyTransaction(transactionReference: string): Promise<any> {
     const token = await this.getAccessToken();
 
+    this.logger.log(`Verifying transaction with Monnify: ${transactionReference}`);
+
     const response = await fetch(
       `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(transactionReference)}`,
       {
@@ -203,15 +205,26 @@ export class MonnifyService {
       },
     );
 
+    if (!response.ok) {
+      this.logger.error(`Monnify API returned HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Monnify API error: ${response.status} ${response.statusText}`);
+    }
+
     const data = await response.json();
 
+    this.logger.log(`Monnify transaction verification raw response: ${JSON.stringify(data)}`);
+
     if (!data.requestSuccessful) {
-      this.logger.error('Failed to verify transaction:', data);
+      this.logger.error('Failed to verify transaction:', JSON.stringify(data));
       throw new Error(data.responseMessage || 'Failed to verify transaction');
     }
 
+    // Extract and log the payment status
+    const paymentStatus = data.responseBody?.paymentStatus;
+    this.logger.log(`Transaction ${transactionReference} status from Monnify: ${paymentStatus}`);
+
     return {
-      status: data.responseBody.paymentStatus?.toLowerCase(),
+      status: paymentStatus?.toLowerCase(),
       amount: data.responseBody.amountPaid,
       reference: data.responseBody.paymentReference,
       transactionReference: data.responseBody.transactionReference,
