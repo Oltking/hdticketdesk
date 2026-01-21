@@ -574,18 +574,18 @@ export class PaymentsService {
       ? await this.prisma.user.findUnique({ where: { id: payment.buyerId } })
       : null;
 
-    // Create ticket
+    // Create ticket - buyerId can be null for guest checkouts
     const ticket = await this.ticketsService.createTicket({
       eventId: payment.eventId,
       tierId: payment.tierId,
-      buyerId: payment.buyerId || '',
+      buyerId: payment.buyerId || null,  // Pass null for guest checkouts, not empty string
       buyerEmail: payment.buyerEmail,
       buyerFirstName: user?.firstName || undefined,
       buyerLastName: user?.lastName || undefined,
       paymentId: payment.id,
       paymentRef: reference,
-      amountPaid: payment.amount instanceof Decimal 
-        ? payment.amount.toNumber() 
+      amountPaid: payment.amount instanceof Decimal
+        ? payment.amount.toNumber()
         : Number(payment.amount),
     });
 

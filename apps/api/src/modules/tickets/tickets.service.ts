@@ -6,7 +6,7 @@ import { QrService } from '../qr/qr.service';
 interface CreateTicketData {
   eventId: string;
   tierId: string;
-  buyerId: string;
+  buyerId: string | null;  // Nullable for guest checkouts
   buyerEmail: string;
   buyerFirstName?: string;
   buyerLastName?: string;
@@ -34,7 +34,7 @@ export class TicketsService {
     const qrCode = qrResult.code;
     const qrCodeUrl = qrResult.hostedUrl; // Use hosted URL for email compatibility
 
-    // Create ticket
+    // Create ticket - buyerId is optional for guest checkouts
     const ticket = await this.prisma.ticket.create({
       data: {
         ticketNumber,
@@ -43,7 +43,7 @@ export class TicketsService {
         status: 'ACTIVE',
         eventId: data.eventId,
         tierId: data.tierId,
-        buyerId: data.buyerId,
+        ...(data.buyerId && { buyerId: data.buyerId }), // Only include if not null
         buyerEmail: data.buyerEmail,
         buyerFirstName: data.buyerFirstName,
         buyerLastName: data.buyerLastName,
