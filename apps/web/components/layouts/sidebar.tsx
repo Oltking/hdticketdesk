@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/ui/logo';
-import { 
-  LayoutDashboard, Calendar, Plus, DollarSign, Settings, 
-  Users, BarChart3, BookOpen, Menu, X, LogOut, Ticket, RotateCcw, Receipt
+import {
+  LayoutDashboard, Calendar, Plus, DollarSign, Settings,
+  Users, BarChart3, BookOpen, Menu, X, LogOut, Ticket, RotateCcw, Receipt, CreditCard
 } from 'lucide-react';
 import { useAuthStore } from '@/store/auth-store';
 
@@ -67,6 +67,7 @@ export function Sidebar({ type }: SidebarProps) {
     { href: '/admin/overview', label: 'Overview', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/events', label: 'Events', icon: Calendar },
+    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
     { href: '/admin/organizers', label: 'Organizers', icon: DollarSign },
     { href: '/admin/refunds', label: 'Refunds', icon: RotateCcw },
     { href: '/admin/ledger', label: 'Ledger', icon: BookOpen },

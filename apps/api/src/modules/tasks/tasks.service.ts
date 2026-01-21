@@ -257,4 +257,110 @@ export class TasksService {
     this.logger.log('Manually triggered pending balance maturity check');
     return this.handlePendingBalanceMaturity();
   }
+
+  /**
+   * Cron job that runs every 10 minutes to check and recover stuck pending payments.
+   *
+   * This automatically verifies payments that are stuck in PENDING status
+   * and processes them if they were successful on Monnify.
+   *
+   * Helps recover payments where webhook failed or was delayed.
+   */
+  @Cron('*/10 * * * *') // Every 10 minutes
+  async checkStuckPendingPayments() {
+    this.logger.log('Running automatic stuck payment recovery check...');
+
+    try {
+      // Get pending payments older than 5 minutes (webhook should have arrived by then)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+      const stuckPayments = await this.prisma.payment.findMany({
+        where: {
+          status: 'PENDING',
+          createdAt: { lte: fiveMinutesAgo },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20, // Process max 20 at a time to avoid overload
+      });
+
+      if (stuckPayments.length === 0) {
+        this.logger.log('No stuck pending payments found.');
+        return { checked: 0, recovered: 0, failed: 0 };
+      }
+
+      this.logger.log(`Found ${stuckPayments.length} stuck pending payments to check`);
+
+      const results = {
+        checked: stuckPayments.length,
+        recovered: 0,
+        failed: 0,
+        errors: [] as string[],
+      };
+
+      // Import services dynamically
+      const { MonnifyService } = await import('../payments/monnify.service');
+      const { PaymentsService } = await import('../payments/payments.service');
+      const { TicketsService } = await import('../tickets/tickets.service');
+      const { LedgerService } = await import('../ledger/ledger.service');
+      const { EmailService } = await import('../emails/email.service');
+      const { QrService } = await import('../qr/qr.service');
+      const { MediaService } = await import('../media/media.service');
+      const { ConfigService } = await import('@nestjs/config');
+
+      const configService = new ConfigService();
+      const monnifyService = new MonnifyService(configService);
+      const mediaService = new MediaService(configService);
+      const qrService = new QrService(mediaService);
+      const emailService = new EmailService(configService);
+      const ticketsService = new TicketsService(this.prisma, emailService, qrService);
+      const ledgerService = new LedgerService(this.prisma);
+
+      const paymentsService = new PaymentsService(
+        this.prisma,
+        configService,
+        monnifyService,
+        ticketsService,
+        ledgerService,
+        this,
+      );
+
+      for (const payment of stuckPayments) {
+        try {
+          const transactionRef = payment.monnifyTransactionRef || payment.reference;
+
+          // Verify with Monnify
+          const monnifyData = await monnifyService.verifyTransaction(transactionRef);
+
+          if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+            // Process the payment
+            await (paymentsService as any).handleSuccessfulPayment({
+              reference: payment.reference,
+              amount: monnifyData.amount,
+              id: monnifyData.transactionReference,
+              paid_at: monnifyData.paidOn,
+            });
+
+            results.recovered++;
+            this.logger.log(`Auto-recovered stuck payment: ${payment.reference}`);
+          } else {
+            this.logger.log(`Payment ${payment.reference} status on Monnify: ${monnifyData.status}`);
+          }
+        } catch (error) {
+          results.failed++;
+          const errorMsg = `${payment.reference}: ${error.message}`;
+          results.errors.push(errorMsg);
+          this.logger.warn(`Failed to check payment ${payment.reference}:`, error.message);
+        }
+      }
+
+      this.logger.log(
+        `Stuck payment check complete: ${results.recovered} recovered, ${results.failed} failed out of ${results.checked} checked`
+      );
+
+      return results;
+    } catch (error) {
+      this.logger.error('Error in stuck payment recovery cron:', error);
+      return { checked: 0, recovered: 0, failed: 0, error: error.message };
+    }
+  }
 }
