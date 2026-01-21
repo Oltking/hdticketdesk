@@ -253,9 +253,9 @@ export class PaymentsService {
    * This is called when Monnify confirms a payment was successful
    */
   async handleMonnifyPaymentSuccess(eventData: any) {
-    const { paymentReference, transactionReference, amountPaid, paidOn } = eventData;
+    const { paymentReference, transactionReference, amountPaid, paidOn, customer } = eventData;
 
-    this.logger.log(`Processing successful payment: ${paymentReference}, amount: ${amountPaid}`);
+    this.logger.log(`Processing successful payment: ${paymentReference}, amount: ${amountPaid}, customer: ${customer?.email}`);
 
     // Find payment record by reference
     const payment = await this.prisma.payment.findUnique({
@@ -273,16 +273,16 @@ export class PaymentsService {
     }
 
     if (payment.status === 'FAILED') {
-      this.logger.warn(`Received success webhook for failed payment: ${paymentReference} - investigating`);
-      // This could happen if we marked it failed due to amount mismatch but Monnify says success
-      // Log for manual review but don't auto-process
-      return;
+      this.logger.warn(`Received success webhook for failed payment: ${paymentReference} - Re-processing...`);
+      // If Monnify says it's successful, process it even if we previously marked it failed
+      // This handles cases where we marked it failed due to amount mismatch but payment actually went through
     }
 
     // Process the successful payment
     await this.handleSuccessfulPayment({
       reference: paymentReference,
       amount: amountPaid,
+      customer,
       id: transactionReference,
       paid_at: paidOn,
     });
@@ -431,29 +431,65 @@ export class PaymentsService {
   }
 
   private async handleSuccessfulPayment(data: any) {
-    const { reference, amount } = data;
+    const { reference, amount, customer } = data;
 
-    this.logger.log(`handleSuccessfulPayment called: ${reference}, amount: ${amount}`);
+    this.logger.log(`handleSuccessfulPayment called: ${reference}, amount: ${amount}, customer: ${customer?.email}`);
 
-    // Find payment record
-    const payment = await this.prisma.payment.findUnique({
+    // Find payment record - try by reference first
+    let payment = await this.prisma.payment.findUnique({
       where: { reference },
     });
 
+    // If not found by reference, try by email and amount (for cases where reference might differ)
+    if (!payment && customer?.email) {
+      this.logger.log(`Payment not found by reference, trying to find by email: ${customer.email}`);
+
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const recentPayments = await this.prisma.payment.findMany({
+        where: {
+          buyerEmail: customer.email,
+          status: 'PENDING',
+          createdAt: { gte: fiveMinutesAgo },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Try to match by amount
+      if (recentPayments.length > 0) {
+        this.logger.log(`Found ${recentPayments.length} recent pending payments for ${customer.email}`);
+
+        // Find payment with matching or close amount
+        for (const p of recentPayments) {
+          const paymentAmount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+          const amountDiff = Math.abs(amount - paymentAmount);
+
+          this.logger.log(`Checking payment ${p.reference}: amount ${paymentAmount}, diff: ${amountDiff}`);
+
+          // If amount matches within ₦2 tolerance, use this payment
+          if (amountDiff <= 2) {
+            this.logger.log(`Matched payment by email and amount: ${p.reference}`);
+            payment = p;
+            break;
+          }
+        }
+      }
+    }
+
     if (!payment) {
-      this.logger.error(`Payment not found for reference: ${reference}`);
+      this.logger.error(`Payment not found for reference: ${reference} (even after email search)`);
       return;
     }
 
     // Idempotency check - prevent double processing
     if (payment.status === 'SUCCESS') {
-      this.logger.log(`Payment already processed successfully: ${reference}`);
+      this.logger.log(`Payment already processed successfully: ${payment.reference}`);
       return;
     }
 
     if (payment.status === 'FAILED') {
-      this.logger.warn(`Attempting to process failed payment: ${reference} - skipping`);
-      return;
+      this.logger.warn(`Payment was previously marked as FAILED: ${payment.reference}`);
+      this.logger.warn(`Monnify says it's successful, so re-processing as successful payment...`);
+      // Don't return - continue processing since Monnify confirms it was paid
     }
 
     // Check if ticket already exists for this payment (another idempotency check)
@@ -493,24 +529,44 @@ export class PaymentsService {
     }
 
     // Verify amount - account for service fee if passed to buyer
-    const tierPrice = payment.amount instanceof Decimal 
-      ? payment.amount.toNumber() 
+    const tierPrice = payment.amount instanceof Decimal
+      ? payment.amount.toNumber()
       : Number(payment.amount);
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const eventPassFeeTobuyer = (event as any).passFeeTobuyer ?? false;
     const serviceFee = eventPassFeeTobuyer ? tierPrice * (platformFeePercent / 100) : 0;
     const expectedAmount = tierPrice + serviceFee; // Monnify sends amount in Naira, not kobo
-    
-    // Allow small tolerance for floating point differences (₦0.50)
+
+    // Log amount details for debugging
+    this.logger.log(`Amount verification for ${reference}:`);
+    this.logger.log(`  - Tier price: ₦${tierPrice}`);
+    this.logger.log(`  - Service fee: ₦${serviceFee} (${eventPassFeeTobuyer ? 'passed to buyer' : 'absorbed by organizer'})`);
+    this.logger.log(`  - Expected total: ₦${expectedAmount}`);
+    this.logger.log(`  - Actual paid: ₦${amount}`);
+
+    // More flexible amount tolerance - allow up to ₦2 difference
+    // This handles floating point issues and potential rounding differences
     const amountDifference = Math.abs(amount - expectedAmount);
-    if (amountDifference > 0.5) {
-      this.logger.error(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}, diff: ${amountDifference}`);
-      // Mark payment as failed instead of silently returning
-      await this.prisma.payment.update({
-        where: { id: payment.id },
-        data: { status: 'FAILED' },
-      });
-      return;
+    this.logger.log(`  - Difference: ₦${amountDifference}`);
+
+    if (amountDifference > 2) {
+      // Log warning but don't fail immediately - check if amount matches tier price
+      this.logger.warn(`Amount mismatch for ${reference}: expected ${expectedAmount}, got ${amount}, diff: ${amountDifference}`);
+
+      // Check if the paid amount matches just the tier price (in case fee calculation is off)
+      const tierPriceDiff = Math.abs(amount - tierPrice);
+      if (tierPriceDiff <= 2) {
+        this.logger.log(`Amount matches tier price (within ₦2), proceeding...`);
+      } else {
+        this.logger.error(`Amount doesn't match tier price either (diff: ₦${tierPriceDiff}). Marking as failed.`);
+        await this.prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: 'FAILED' },
+        });
+        return;
+      }
+    } else {
+      this.logger.log(`Amount verified successfully (within ₦2 tolerance)`);
     }
 
     // Get buyer info
@@ -637,6 +693,7 @@ export class PaymentsService {
             amount: monnifyData.amount,
             id: monnifyData.transactionReference,
             paid_at: monnifyData.paidOn,
+            customer: monnifyData.customer,
           });
           
           verificationResults.push({
@@ -756,6 +813,7 @@ export class PaymentsService {
             amount: monnifyData.amount,
             id: monnifyData.transactionReference,
             paid_at: monnifyData.paidOn,
+            customer: monnifyData.customer,
           });
 
           // Refetch payment to get updated status

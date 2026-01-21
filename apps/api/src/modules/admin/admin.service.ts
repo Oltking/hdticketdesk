@@ -1093,6 +1093,7 @@ export class AdminService {
           amount: monnifyData.amount,
           id: monnifyData.transactionReference,
           paid_at: monnifyData.paidOn,
+          customer: monnifyData.customer,
         });
 
         // Fetch updated payment and ticket
@@ -1180,6 +1181,7 @@ export class AdminService {
             amount: monnifyData.amount,
             id: monnifyData.transactionReference,
             paid_at: monnifyData.paidOn,
+            customer: monnifyData.customer,
           });
 
           results.verified++;

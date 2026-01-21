@@ -338,6 +338,7 @@ export class TasksService {
               amount: monnifyData.amount,
               id: monnifyData.transactionReference,
               paid_at: monnifyData.paidOn,
+              customer: monnifyData.customer,
             });
 
             results.recovered++;
