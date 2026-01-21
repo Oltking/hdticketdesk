@@ -120,4 +120,22 @@ export class AdminController {
   async createAllVirtualAccounts() {
     return this.adminService.createVirtualAccountsForAllOrganizers();
   }
+
+  @Get('payments/pending')
+  @ApiOperation({ summary: 'Get all pending payments (admin view)' })
+  async getAllPendingPayments(@Query('page') page = 1, @Query('limit') limit = 50) {
+    return this.adminService.getAllPendingPayments(+page, +limit);
+  }
+
+  @Post('payments/:reference/verify')
+  @ApiOperation({ summary: 'Manually verify a payment by reference (force verification)' })
+  async manuallyVerifyPayment(@Param('reference') reference: string) {
+    return this.adminService.manuallyVerifyPayment(reference);
+  }
+
+  @Post('payments/verify-all-pending')
+  @ApiOperation({ summary: 'Bulk verify all pending payments (recovery operation)' })
+  async verifyAllPendingPayments() {
+    return this.adminService.verifyAllPendingPayments();
+  }
 }
