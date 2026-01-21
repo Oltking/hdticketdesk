@@ -11,6 +11,7 @@ import {
   Logger,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -32,10 +33,12 @@ export class AuthController {
 
   // ==================== REGISTER ====================
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 registrations per minute per IP
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';
@@ -44,11 +47,13 @@ export class AuthController {
 
   // ==================== LOGIN ====================
   @Post('login')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 login attempts per minute per IP
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login user' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 403, description: 'Email not verified' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const ip = req.ip || req.connection.remoteAddress || '';
     const userAgent = req.headers['user-agent'] || '';

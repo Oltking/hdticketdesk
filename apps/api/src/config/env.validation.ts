@@ -46,6 +46,10 @@ class EnvironmentVariables {
 
   @IsString()
   @IsOptional()
+  MONNIFY_WALLET_ACCOUNT_NUMBER?: string; // Required for disbursements/withdrawals
+
+  @IsString()
+  @IsOptional()
   FRONTEND_URL?: string;
 
   @IsString()

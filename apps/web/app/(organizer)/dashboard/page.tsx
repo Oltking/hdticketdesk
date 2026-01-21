@@ -33,8 +33,11 @@ import {
   Users,
   Copy,
   Download,
-  Share2
+  Share2,
+  Ban,
+  Lock
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Event } from '@/types';
 
 export default function DashboardPage() {
@@ -424,121 +427,228 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {events.map((event) => (
-                  <div 
-                    key={event.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors gap-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold truncate">{event.title}</h3>
-                        <Badge 
-                          variant={event.status === 'PUBLISHED' ? 'success' : 'secondary'}
-                          className="flex-shrink-0"
-                        >
-                          {event.status === 'PUBLISHED' ? (
-                            <><CheckCircle2 className="h-3 w-3 mr-1" />{event.status}</>
-                          ) : (
-                            <><Clock className="h-3 w-3 mr-1" />{event.status}</>
-                          )}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {formatDate(event.startDate)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Ticket className="h-3.5 w-3.5" />
-                          {event.totalTicketsSold || 0} sold
-                        </span>
-                        {(event.totalRevenue || 0) > 0 && (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <TrendingUp className="h-3.5 w-3.5" />
-                            {formatCurrency(event.totalRevenue || 0)}
+                {/* Sort events: Active/Upcoming first, then Ended */}
+                {[...events].sort((a, b) => {
+                  const now = new Date();
+                  const aEnd = a.endDate ? new Date(a.endDate) : new Date(a.startDate);
+                  const bEnd = b.endDate ? new Date(b.endDate) : new Date(b.startDate);
+                  const aEnded = aEnd < now;
+                  const bEnded = bEnd < now;
+                  
+                  // Ended events go to bottom
+                  if (aEnded && !bEnded) return 1;
+                  if (!aEnded && bEnded) return -1;
+                  
+                  // Sort by start date
+                  return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+                }).map((event) => {
+                  // Check if event has ended
+                  const now = new Date();
+                  const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.startDate);
+                  const isEnded = eventEnd < now;
+                  const eventStart = new Date(event.startDate);
+                  const isLive = eventStart <= now && eventEnd >= now;
+                  
+                  // Format date and time separately for better mobile layout
+                  const dateStr = eventStart.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: eventStart.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+                  });
+                  const timeStr = eventStart.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit'
+                  });
+                  
+                  return (
+                    <div 
+                      key={event.id} 
+                      className={cn(
+                        "flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg transition-colors gap-4",
+                        isEnded 
+                          ? "bg-muted/30 border-muted opacity-75 hover:opacity-100" 
+                          : "hover:bg-muted/30"
+                      )}
+                    >
+                      <div className="flex-1 min-w-0">
+                        {/* Title and badges row */}
+                        <div className="flex items-start sm:items-center gap-2 flex-wrap">
+                          <h3 className={cn(
+                            "font-semibold truncate",
+                            isEnded && "text-muted-foreground"
+                          )}>
+                            {event.title}
+                          </h3>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Status Badge */}
+                            {isEnded ? (
+                              <Badge variant="secondary" className="flex-shrink-0 bg-gray-500/10 text-gray-600">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                ENDED
+                              </Badge>
+                            ) : isLive ? (
+                              <Badge className="flex-shrink-0 bg-red-500 text-white animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white mr-1.5" />
+                                LIVE
+                              </Badge>
+                            ) : (
+                              <Badge 
+                                variant={event.status === 'PUBLISHED' ? 'success' : 'secondary'}
+                                className="flex-shrink-0"
+                              >
+                                {event.status === 'PUBLISHED' ? (
+                                  <><CheckCircle2 className="h-3 w-3 mr-1" />LIVE</>
+                                ) : (
+                                  <><Clock className="h-3 w-3 mr-1" />DRAFT</>
+                                )}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Event info - improved mobile layout */}
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                          {/* Date */}
+                          <span className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span className="truncate">{dateStr}</span>
                           </span>
+                          
+                          {/* Time */}
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>{timeStr}</span>
+                          </span>
+                          
+                          {/* Tickets sold */}
+                          <span className={cn(
+                            "flex items-center gap-1.5",
+                            isEnded && "text-muted-foreground/70"
+                          )}>
+                            <Ticket className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>{event.totalTicketsSold || 0} {isEnded ? 'attended' : 'sold'}</span>
+                          </span>
+                          
+                          {/* Revenue */}
+                          {(event.totalRevenue || 0) > 0 && (
+                            <span className={cn(
+                              "flex items-center gap-1.5",
+                              isEnded ? "text-muted-foreground/70" : "text-green-600"
+                            )}>
+                              <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
+                              <span>{formatCurrency(event.totalRevenue || 0)}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Scan button - always available for check-in review */}
+                        <Link href={`/events/${event.slug}/scan`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            title={isEnded ? "View check-ins" : "Scan tickets"} 
+                            className={cn(
+                              "gap-1.5",
+                              isEnded && "opacity-70"
+                            )}
+                          >
+                            <QrCode className="h-4 w-4" />
+                            <span className="hidden sm:inline">{isEnded ? 'Check-ins' : 'Scan'}</span>
+                          </Button>
+                        </Link>
+                        
+                        {/* Analytics - always available */}
+                        <Link href={`/events/${event.slug}/analytics`}>
+                          <Button variant="outline" size="sm" title="Analytics" className="gap-1.5">
+                            <BarChart3 className="h-4 w-4" />
+                            <span className="hidden sm:inline">Stats</span>
+                          </Button>
+                        </Link>
+                        
+                        {/* Edit button - disabled for ended events */}
+                        {isEnded ? (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            disabled
+                            className="opacity-50 cursor-not-allowed gap-1.5"
+                            title="Cannot edit ended events"
+                          >
+                            <Lock className="h-4 w-4" />
+                            <span className="hidden sm:inline">Locked</span>
+                          </Button>
+                        ) : (
+                          <Link href={`/events/${event.slug}/edit`}>
+                            <Button variant="outline" size="sm">Edit</Button>
+                          </Link>
+                        )}
+                        
+                        {/* Share button - for published events (even ended) */}
+                        {event.status === 'PUBLISHED' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1.5"
+                            title="Share event"
+                            onClick={() => setShareDialog({ slug: event.slug, title: event.title })}
+                          >
+                            <Share2 className="h-4 w-4" />
+                            <span className="hidden sm:inline">Share</span>
+                          </Button>
+                        )}
+                        
+                        {/* Unpublish button - only for published events with no sales and not ended */}
+                        {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) === 0 && !isEnded && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10"
+                            title="Unpublish event"
+                            onClick={() => setShowUnpublishConfirm({ id: event.id, title: event.title })}
+                          >
+                            <EyeOff className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Contact support hint for published events with sales */}
+                        {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) > 0 && !isEnded && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1" title="Contact support to unpublish">
+                            <AlertCircle className="h-3 w-3" />
+                          </span>
+                        )}
+                        
+                        {/* Publish button - only for draft events (not ended) */}
+                        {event.status === 'DRAFT' && !isEnded && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-green-500 text-green-600 hover:bg-green-500/10"
+                            title="Publish event"
+                            onClick={() => setShowPublishConfirm({ id: event.id, title: event.title })}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
+                        {/* Delete button - only for draft events */}
+                        {event.status === 'DRAFT' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-red-500 text-red-600 hover:bg-red-500/10"
+                            title="Delete event"
+                            onClick={() => setShowDeleteConfirm({ id: event.id, title: event.title })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/events/${event.slug}/scan`}>
-                        <Button variant="outline" size="sm" title="Scan tickets" className="gap-1.5">
-                          <QrCode className="h-4 w-4" />
-                          <span className="hidden sm:inline">Scan</span>
-                        </Button>
-                      </Link>
-                      <Link href={`/events/${event.slug}/analytics`}>
-                        <Button variant="outline" size="sm" title="Analytics" className="gap-1.5">
-                          <BarChart3 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Stats</span>
-                        </Button>
-                      </Link>
-                      <Link href={`/events/${event.slug}/edit`}>
-                        <Button variant="outline" size="sm">Edit</Button>
-                      </Link>
-                      
-                      {/* Share button - for published events */}
-                      {event.status === 'PUBLISHED' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-1.5"
-                          title="Share event"
-                          onClick={() => setShareDialog({ slug: event.slug, title: event.title })}
-                        >
-                          <Share2 className="h-4 w-4" />
-                          <span className="hidden sm:inline">Share</span>
-                        </Button>
-                      )}
-                      
-                      {/* Unpublish button - only for published events with no sales */}
-                      {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) === 0 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="border-yellow-500 text-yellow-600 hover:bg-yellow-500/10"
-                          title="Unpublish event"
-                          onClick={() => setShowUnpublishConfirm({ id: event.id, title: event.title })}
-                        >
-                          <EyeOff className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {/* Contact support hint for published events with sales */}
-                      {event.status === 'PUBLISHED' && (event.totalTicketsSold || 0) > 0 && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1" title="Contact support to unpublish">
-                          <AlertCircle className="h-3 w-3" />
-                        </span>
-                      )}
-                      
-                      {/* Publish button - only for draft events */}
-                      {event.status === 'DRAFT' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="border-green-500 text-green-600 hover:bg-green-500/10"
-                          title="Publish event"
-                          onClick={() => setShowPublishConfirm({ id: event.id, title: event.title })}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      {/* Delete button - only for draft events */}
-                      {event.status === 'DRAFT' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="border-red-500 text-red-600 hover:bg-red-500/10"
-                          title="Delete event"
-                          onClick={() => setShowDeleteConfirm({ id: event.id, title: event.title })}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

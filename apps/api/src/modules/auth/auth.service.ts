@@ -55,7 +55,8 @@ export class AuthService {
     // Admins can only be created via:
     // 1. Database seed with ADMIN_SEED_EMAIL/ADMIN_SEED_PASSWORD env vars
     // 2. Admin-only endpoint: POST /admin/users/create-admin
-    if (dto.role === 'ADMIN') {
+    // Note: We check the string value since ADMIN is not in the RegisterDto enum
+    if ((dto.role as string) === 'ADMIN') {
       throw new ForbiddenException(
         'Admin accounts cannot be created through registration. Please contact system administrator.'
       );

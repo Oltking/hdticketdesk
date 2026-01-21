@@ -12,7 +12,7 @@ import { BuyerNav } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
 import { 
   Calendar, 
   MapPin, 
@@ -78,9 +78,23 @@ export default function MyTicketsPage() {
   }, [authLoading]);
 
   // Separate tickets into upcoming and past
+  // A ticket is considered "past" only if:
+  // 1. The event has an endDate and it has passed, OR
+  // 2. The event only has startDate and it has passed
   const now = new Date();
-  const upcomingTickets = tickets.filter(t => new Date(t.event?.startDate || 0) >= now);
-  const pastTickets = tickets.filter(t => new Date(t.event?.startDate || 0) < now);
+  const upcomingTickets = tickets.filter(t => {
+    const endDate = t.event?.endDate ? new Date(t.event.endDate) : null;
+    const startDate = new Date(t.event?.startDate || 0);
+    // If endDate exists, use it; otherwise fall back to startDate
+    const relevantDate = endDate || startDate;
+    return relevantDate >= now;
+  });
+  const pastTickets = tickets.filter(t => {
+    const endDate = t.event?.endDate ? new Date(t.event.endDate) : null;
+    const startDate = new Date(t.event?.startDate || 0);
+    const relevantDate = endDate || startDate;
+    return relevantDate < now;
+  });
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -278,12 +292,35 @@ export default function MyTicketsPage() {
                 <div className="space-y-3">
                   {pastTickets.map((ticket) => {
                     const statusConfig = getStatusConfig(ticket.status);
+                    // Only blur/grey out if the ticket was checked in (attended)
+                    // Unchecked tickets from past events should still be visible normally
+                    const wasAttended = ticket.status === 'CHECKED_IN';
+                    const wasCancelled = ticket.status === 'CANCELLED' || ticket.status === 'REFUNDED';
+                    
                     return (
-                      <Card key={ticket.id} className="overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                      <Card 
+                        key={ticket.id} 
+                        className={cn(
+                          "overflow-hidden transition-all",
+                          wasAttended && "opacity-60 hover:opacity-90",
+                          wasCancelled && "opacity-50",
+                          !wasAttended && !wasCancelled && "hover:shadow-md"
+                        )}
+                      >
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                              <Ticket className="h-6 w-6 text-muted-foreground" />
+                            <div className={cn(
+                              "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
+                              wasAttended ? "bg-green-500/10" : wasCancelled ? "bg-red-500/10" : "bg-muted"
+                            )}>
+                              {wasAttended ? (
+                                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                              ) : (
+                                <Ticket className={cn(
+                                  "h-6 w-6",
+                                  wasCancelled ? "text-red-400" : "text-muted-foreground"
+                                )} />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-medium text-sm line-clamp-1">{ticket.event?.title}</h3>
@@ -294,9 +331,16 @@ export default function MyTicketsPage() {
                                 <span>{ticket.tier?.name}</span>
                               </div>
                             </div>
-                            <Badge variant={statusConfig.variant} className="text-xs">
-                              {statusConfig.label}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-1">
+                              <Badge variant={statusConfig.variant} className="text-xs">
+                                {wasAttended ? 'Attended' : statusConfig.label}
+                              </Badge>
+                              {wasAttended && ticket.checkedInAt && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(ticket.checkedInAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

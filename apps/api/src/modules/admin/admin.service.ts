@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from '../payments/monnify.service';
@@ -714,6 +714,108 @@ export class AdminService {
     };
   }
 
+  /**
+   * Create virtual account for an organizer (admin only)
+   * This is useful when VA creation failed during event publish
+   */
+  async createVirtualAccountForOrganizer(organizerId: string) {
+    // Find the organizer
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+      include: {
+        user: {
+          select: { email: true },
+        },
+        virtualAccount: true,
+      },
+    });
+
+    if (!organizer) {
+      throw new NotFoundException('Organizer not found');
+    }
+
+    // Check if already has a virtual account
+    if (organizer.virtualAccount) {
+      throw new BadRequestException('Organizer already has a virtual account');
+    }
+
+    try {
+      this.logger.log(`Admin creating virtual account for organizer ${organizerId}`);
+
+      const vaResponse = await this.monnifyService.createVirtualAccount(
+        organizer.id,
+        organizer.title || 'Organizer',
+        organizer.user?.email || '',
+      );
+
+      // Save virtual account to database
+      const virtualAccount = await this.prisma.virtualAccount.create({
+        data: {
+          accountNumber: vaResponse.accountNumber,
+          accountName: vaResponse.accountName,
+          bankName: vaResponse.bankName,
+          bankCode: vaResponse.bankCode,
+          accountReference: vaResponse.accountReference,
+          monnifyContractCode: this.monnifyService['contractCode'] || '',
+          organizerId: organizer.id,
+        },
+      });
+
+      this.logger.log(`Virtual account created by admin: ${vaResponse.accountNumber} for organizer ${organizerId}`);
+
+      return {
+        message: 'Virtual account created successfully',
+        virtualAccount,
+        organizer: {
+          id: organizer.id,
+          title: organizer.title,
+          email: organizer.user?.email,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to create virtual account for organizer ${organizerId}:`, error);
+      throw new BadRequestException(`Failed to create virtual account: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all organizers without virtual accounts
+   */
+  async getOrganizersWithoutVirtualAccount() {
+    const organizers = await this.prisma.organizerProfile.findMany({
+      where: {
+        virtualAccount: null,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        _count: {
+          select: {
+            events: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      organizers: organizers.map(org => ({
+        id: org.id,
+        title: org.title,
+        user: org.user,
+        eventsCount: org._count.events,
+        createdAt: org.createdAt,
+      })),
+      total: organizers.length,
+    };
+  }
+
   // Get all organizers with their earnings summary
   async getAllOrganizersEarnings(page = 1, limit = 20) {
     const skip = (page - 1) * limit;
@@ -810,60 +912,6 @@ export class AdminService {
       page,
       totalPages: Math.ceil(total / limit),
     };
-  }
-
-  // Create virtual account for a specific organizer
-  async createVirtualAccountForOrganizer(organizerId: string) {
-    this.logger.log(`Admin creating virtual account for organizer: ${organizerId}`);
-
-    const organizer = await this.prisma.organizerProfile.findUnique({
-      where: { id: organizerId },
-      include: {
-        user: {
-          select: { email: true },
-        },
-        virtualAccount: true,
-      },
-    });
-
-    if (!organizer) {
-      throw new NotFoundException('Organizer not found');
-    }
-
-    if (organizer.virtualAccount) {
-      throw new ConflictException('This organizer already has a virtual account');
-    }
-
-    try {
-      const vaResponse = await this.monnifyService.createVirtualAccount(
-        organizer.id,
-        organizer.title,
-        organizer.user.email,
-      );
-
-      // Save virtual account to database
-      const virtualAccount = await this.prisma.virtualAccount.create({
-        data: {
-          accountNumber: vaResponse.accountNumber,
-          accountName: vaResponse.accountName,
-          bankName: vaResponse.bankName,
-          bankCode: vaResponse.bankCode,
-          accountReference: vaResponse.accountReference,
-          monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
-          organizerId: organizer.id,
-        },
-      });
-
-      this.logger.log(`Virtual account created for organizer ${organizer.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
-
-      return {
-        message: 'Virtual account created successfully',
-        virtualAccount,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to create virtual account for organizer ${organizerId}:`, error);
-      throw error;
-    }
   }
 
   // Create virtual accounts for all organizers without one

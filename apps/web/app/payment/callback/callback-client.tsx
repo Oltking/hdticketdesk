@@ -16,7 +16,19 @@ function PaymentCallbackContent() {
 
   useEffect(() => {
     const verifyPayment = async () => {
-      const reference = searchParams.get('reference');
+      // Monnify redirects with different parameter names
+      // Try multiple parameter names that Monnify might use
+      const reference = 
+        searchParams.get('paymentReference') ||  // Monnify's primary reference
+        searchParams.get('reference') ||          // Our fallback
+        searchParams.get('transactionReference'); // Monnify's transaction reference
+
+      console.log('Payment callback params:', {
+        paymentReference: searchParams.get('paymentReference'),
+        reference: searchParams.get('reference'),
+        transactionReference: searchParams.get('transactionReference'),
+        allParams: searchParams.toString(),
+      });
 
       if (!reference) {
         setStatus('error');

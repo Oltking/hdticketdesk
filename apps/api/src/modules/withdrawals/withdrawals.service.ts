@@ -10,6 +10,7 @@ import { MonnifyService } from '../payments/monnify.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { EmailService } from '../emails/email.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class WithdrawalsService {
@@ -92,13 +93,31 @@ export class WithdrawalsService {
       ? organizer.availableBalance.toNumber() 
       : Number(organizer.availableBalance);
 
+    // Minimum withdrawal amount (₦1,000)
+    const minimumWithdrawal = 1000;
+    if (amount < minimumWithdrawal) {
+      throw new BadRequestException(`Minimum withdrawal amount is ₦${minimumWithdrawal.toLocaleString()}`);
+    }
+
     // Check available balance
     if (amount > availableBalance) {
       throw new BadRequestException('Insufficient available balance');
     }
 
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Prevent multiple pending withdrawals
+    const pendingWithdrawal = await this.prisma.withdrawal.findFirst({
+      where: {
+        organizerId,
+        status: { in: ['PENDING', 'PROCESSING'] },
+      },
+    });
+
+    if (pendingWithdrawal) {
+      throw new BadRequestException('You have a pending withdrawal. Please wait for it to complete before requesting another.');
+    }
+
+    // Generate OTP - cryptographically secure
+    const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(
       Date.now() +
         (this.configService.get<number>('OTP_EXPIRY_MINUTES') || 10) * 60 * 1000,
