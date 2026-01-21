@@ -78,7 +78,9 @@ export class MonnifyService {
 
   /**
    * Create a reserved (virtual) account for an organizer
-   * Monnify API: POST /api/v2/bank-transfer/reserved-accounts
+   * Monnify API: POST /api/v1/bank-transfer/reserved-accounts
+   * 
+   * Note: Uses v1 endpoint as v2 may have different requirements
    */
   async createVirtualAccount(
     organizerId: string,
@@ -94,20 +96,29 @@ export class MonnifyService {
       .substring(0, 50) // Max 50 chars
       .trim() || 'Organizer';
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!organizerEmail || !emailRegex.test(organizerEmail)) {
+      throw new Error('Valid organizer email is required to create virtual account');
+    }
+
     const requestBody = {
       accountReference,
-      accountName: `HDTicketDesk - ${sanitizedName}`,
+      accountName: sanitizedName, // Monnify will prefix with your business name
       currencyCode: 'NGN',
       contractCode: this.contractCode,
       customerEmail: organizerEmail,
       customerName: sanitizedName,
-      getAllAvailableBanks: false,
-      preferredBanks: ['035'], // Wema Bank - good for VAs
+      getAllAvailableBanks: true, // Let Monnify use available banks
     };
 
-    this.logger.log(`Creating virtual account for ${organizerId}: ${JSON.stringify(requestBody)}`);
+    this.logger.log(`Creating virtual account for ${organizerId}`);
+    this.logger.log(`Request: ${JSON.stringify(requestBody)}`);
+    this.logger.log(`Contract Code: ${this.contractCode}`);
+    this.logger.log(`Base URL: ${this.baseUrl}`);
 
-    const response = await fetch(`${this.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
+    // Try v1 endpoint first (more widely supported)
+    const response = await fetch(`${this.baseUrl}/api/v1/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -118,9 +129,23 @@ export class MonnifyService {
 
     const data = await response.json();
 
+    this.logger.log(`Monnify response: ${JSON.stringify(data)}`);
+
     if (!data.requestSuccessful) {
       this.logger.error('Failed to create virtual account:', JSON.stringify(data));
-      throw new Error(data.responseMessage || 'Failed to create virtual account');
+      
+      // Provide more helpful error messages
+      let errorMessage = data.responseMessage || 'Failed to create virtual account';
+      
+      if (errorMessage.includes('business category')) {
+        errorMessage = 'Reserved accounts not enabled for your Monnify account. Please contact Monnify support.';
+      } else if (errorMessage.includes('contract')) {
+        errorMessage = 'Invalid contract code. Please verify MONNIFY_CONTRACT_CODE in your configuration.';
+      } else if (errorMessage.includes('email')) {
+        errorMessage = 'Invalid email format provided.';
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const account = data.responseBody.accounts[0];

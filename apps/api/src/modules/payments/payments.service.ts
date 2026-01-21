@@ -676,11 +676,20 @@ export class PaymentsService {
   }
 
   async verifyPayment(reference: string) {
-    const payment = await this.prisma.payment.findUnique({
+    // Try to find payment by our reference first
+    let payment = await this.prisma.payment.findUnique({
       where: { reference },
     });
 
+    // If not found, try to find by Monnify transaction reference
     if (!payment) {
+      payment = await this.prisma.payment.findFirst({
+        where: { monnifyTransactionRef: reference },
+      });
+    }
+
+    if (!payment) {
+      this.logger.error(`Payment not found for reference: ${reference}`);
       throw new NotFoundException('Payment not found');
     }
 
