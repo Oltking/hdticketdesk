@@ -138,4 +138,10 @@ export class AdminController {
   async verifyAllPendingPayments() {
     return this.adminService.verifyAllPendingPayments();
   }
+
+  @Get('payments/:reference/debug')
+  @ApiOperation({ summary: 'Debug payment verification - shows detailed Monnify API calls' })
+  async debugPaymentVerification(@Param('reference') reference: string) {
+    return this.adminService.debugPaymentVerification(reference);
+  }
 }

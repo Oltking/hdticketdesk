@@ -1211,4 +1211,130 @@ export class AdminService {
       ...results,
     };
   }
+
+  // Debug payment verification - shows detailed API calls
+  async debugPaymentVerification(reference: string) {
+    this.logger.log(`Debugging payment verification for: ${reference}`);
+
+    try {
+      // Find the payment
+      const payment = await this.prisma.payment.findUnique({
+        where: { reference },
+        include: {
+          event: { select: { title: true } },
+          tier: { select: { name: true } },
+        },
+      });
+
+      if (!payment) {
+        return {
+          error: 'Payment not found in database',
+          searchedReference: reference,
+        };
+      }
+
+      const debug = {
+        payment: {
+          id: payment.id,
+          reference: payment.reference,
+          monnifyTransactionRef: payment.monnifyTransactionRef,
+          amount: payment.amount,
+          status: payment.status,
+          buyerEmail: payment.buyerEmail,
+          eventTitle: payment.event?.title,
+          tierName: payment.tier?.name,
+          createdAt: payment.createdAt,
+        },
+        monnifyConfig: {
+          baseUrl: this.configService.get<string>('MONNIFY_BASE_URL') || 'https://api.monnify.com',
+          contractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE'),
+          apiKeyConfigured: !!this.configService.get<string>('MONNIFY_API_KEY'),
+          secretKeyConfigured: !!this.configService.get<string>('MONNIFY_SECRET_KEY'),
+        },
+        verificationAttempts: [] as any[],
+      };
+
+      // Try verifying with transaction ref
+      const transactionRef = payment.monnifyTransactionRef || payment.reference;
+
+      this.logger.log(`Attempting verification with transaction ref: ${transactionRef}`);
+
+      try {
+        const attempt1 = await this.attemptMonnifyVerification(transactionRef);
+        debug.verificationAttempts.push({
+          reference: transactionRef,
+          referenceType: 'Monnify Transaction Reference',
+          url: `${debug.monnifyConfig.baseUrl}/api/v2/transactions/${encodeURIComponent(transactionRef)}`,
+          ...attempt1,
+        });
+      } catch (error: any) {
+        debug.verificationAttempts.push({
+          reference: transactionRef,
+          referenceType: 'Monnify Transaction Reference',
+          url: `${debug.monnifyConfig.baseUrl}/api/v2/transactions/${encodeURIComponent(transactionRef)}`,
+          success: false,
+          error: error.message,
+          stack: error.stack,
+        });
+      }
+
+      // Try with payment reference if different
+      if (payment.reference !== transactionRef) {
+        this.logger.log(`Attempting verification with payment ref: ${payment.reference}`);
+
+        try {
+          const attempt2 = await this.attemptMonnifyVerification(payment.reference);
+          debug.verificationAttempts.push({
+            reference: payment.reference,
+            referenceType: 'Payment Reference',
+            url: `${debug.monnifyConfig.baseUrl}/api/v2/transactions/${encodeURIComponent(payment.reference)}`,
+            ...attempt2,
+          });
+        } catch (error: any) {
+          debug.verificationAttempts.push({
+            reference: payment.reference,
+            referenceType: 'Payment Reference',
+            url: `${debug.monnifyConfig.baseUrl}/api/v2/transactions/${encodeURIComponent(payment.reference)}`,
+            success: false,
+            error: error.message,
+            stack: error.stack,
+          });
+        }
+      }
+
+      return {
+        message: 'Debug information retrieved',
+        ...debug,
+      };
+    } catch (error: any) {
+      this.logger.error(`Debug failed:`, error);
+      return {
+        error: 'Debug failed',
+        message: error.message,
+        stack: error.stack,
+      };
+    }
+  }
+
+  private async attemptMonnifyVerification(reference: string) {
+    const token = await this.monnifyService['getAccessToken']();
+    const baseUrl = this.configService.get<string>('MONNIFY_BASE_URL') || 'https://api.monnify.com';
+
+    const url = `${baseUrl}/api/v2/transactions/${encodeURIComponent(reference)}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    return {
+      success: response.ok && data.requestSuccessful,
+      httpStatus: response.status,
+      httpStatusText: response.statusText,
+      monnifyResponse: data,
+    };
+  }
 }
