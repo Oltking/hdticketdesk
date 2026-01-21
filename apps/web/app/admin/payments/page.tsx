@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Loader2,
   Clock,
-  CreditCard
+  CreditCard,
+  Bug
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,6 +40,8 @@ export default function AdminPaymentsPage() {
   const [verifying, setVerifying] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
   const [stats, setStats] = useState({ total: 0, page: 1, totalPages: 0 });
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugging, setDebugging] = useState<string | null>(null);
 
   const fetchPendingPayments = async () => {
     try {
@@ -95,6 +98,18 @@ export default function AdminPaymentsPage() {
       error(err.message || 'Bulk verification failed');
     } finally {
       setBulkVerifying(false);
+    }
+  };
+
+  const handleDebug = async (reference: string) => {
+    setDebugging(reference);
+    try {
+      const result = await api.debugPaymentVerification(reference);
+      setDebugInfo(result);
+    } catch (err: any) {
+      error(err.message || 'Debug failed');
+    } finally {
+      setDebugging(null);
     }
   };
 
@@ -258,24 +273,45 @@ export default function AdminPaymentsPage() {
                             )}
                           </div>
 
-                          {/* Action Button */}
-                          <Button
-                            onClick={() => handleVerifyPayment(payment.reference)}
-                            disabled={verifying === payment.reference}
-                            className="gap-2"
-                          >
-                            {verifying === payment.reference ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Verifying...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-4 w-4" />
-                                Verify Now
-                              </>
-                            )}
-                          </Button>
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDebug(payment.reference)}
+                              disabled={debugging === payment.reference}
+                              className="gap-2"
+                            >
+                              {debugging === payment.reference ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Debugging...
+                                </>
+                              ) : (
+                                <>
+                                  <Bug className="h-3 w-3" />
+                                  Debug
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => handleVerifyPayment(payment.reference)}
+                              disabled={verifying === payment.reference}
+                              className="gap-2"
+                            >
+                              {verifying === payment.reference ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  Verify Now
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -303,6 +339,32 @@ export default function AdminPaymentsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Debug Info */}
+          {debugInfo && (
+            <Card className="mt-6 border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Bug className="h-5 w-5" />
+                    Debug Information
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDebugInfo(null)}
+                  >
+                    Close
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="text-xs bg-black text-green-400 p-4 rounded overflow-x-auto">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
     </div>

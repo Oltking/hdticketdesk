@@ -757,6 +757,10 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  async debugPaymentVerification(reference: string) {
+    return this.request<any>(`/admin/payments/${reference}/debug`);
+  }
 }
 
 export const api = new ApiClient();
