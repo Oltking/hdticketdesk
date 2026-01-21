@@ -698,12 +698,58 @@ export class PaymentsService {
       try {
         // Get transaction reference for Monnify verification
         const transactionRef = payment.monnifyTransactionRef || reference;
-        
-        // Verify transaction with Monnify
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+
+        this.logger.log(`Verifying payment ${reference} with Monnify transaction ref: ${transactionRef}`);
+
+        // Verify transaction with Monnify with retry logic
+        let monnifyData;
+        let lastError;
+
+        // Try up to 3 times with delays (sometimes Monnify takes a moment to update status)
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+            this.logger.log(`Monnify verification attempt ${attempt} result: ${JSON.stringify(monnifyData)}`);
+
+            // If we got a successful status, break out of retry loop
+            if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+              break;
+            }
+
+            // If status is still pending on first attempts, wait and retry
+            if (monnifyData.status === 'pending' && attempt < 3) {
+              this.logger.log(`Payment still pending on Monnify, waiting ${attempt * 2} seconds before retry...`);
+              await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // 2s, 4s delays
+              continue;
+            }
+
+            // If we got a definitive failed status or it's the last attempt, stop retrying
+            break;
+          } catch (error) {
+            lastError = error;
+            this.logger.warn(`Monnify verification attempt ${attempt} failed:`, error);
+
+            // Wait before retrying (except on last attempt)
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, attempt * 1500)); // 1.5s, 3s delays
+            }
+          }
+        }
+
+        if (!monnifyData) {
+          // All retries failed
+          this.logger.error(`All verification attempts failed for payment ${reference}`, lastError);
+          throw new BadRequestException(
+            'Unable to verify payment with Monnify at this time. ' +
+            'If you were charged, your ticket will be issued shortly. ' +
+            'Please check your tickets page in a few minutes or contact support.'
+          );
+        }
 
         // Check if payment was successful on Monnify
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+          this.logger.log(`Payment ${reference} verified as successful, processing...`);
+
           // Process the payment using the same logic as webhook
           await this.handleSuccessfulPayment({
             reference: payment.reference,
@@ -733,12 +779,34 @@ export class PaymentsService {
           };
         } else {
           // Payment not successful on Monnify
-          throw new BadRequestException(`Payment verification failed: ${monnifyData.status || 'Payment not completed'}`);
+          const statusMsg = monnifyData.status || 'unknown status';
+          this.logger.warn(`Payment ${reference} verification returned status: ${statusMsg}`);
+          throw new BadRequestException(
+            `Payment verification returned status: ${statusMsg}. ` +
+            (monnifyData.status === 'pending'
+              ? 'Payment is still being processed. Please check your tickets page in a few minutes.'
+              : 'Payment was not completed. Please try again or contact support if you were charged.')
+          );
         }
       } catch (error) {
-        // If verification fails, log and rethrow
+        // If verification fails, log details and provide helpful error
         this.logger.error(`Failed to verify payment ${reference}:`, error);
-        throw new BadRequestException('Unable to verify payment with Monnify. Please try again or contact support.');
+
+        // Check if error has a useful message
+        const errorMessage = error?.message || 'Unknown error';
+
+        // If it's a BadRequestException we threw, just rethrow it
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+
+        // Otherwise, provide a generic but helpful error
+        throw new BadRequestException(
+          'Unable to verify payment with Monnify. ' +
+          'If you completed payment and were charged, your ticket will be issued automatically. ' +
+          'Please check your tickets page in a few minutes or contact support. ' +
+          `Error: ${errorMessage}`
+        );
       }
     }
 

@@ -257,7 +257,14 @@ export class MonnifyService {
       },
     );
 
+    if (!response.ok) {
+      this.logger.error(`Monnify API returned HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`Monnify API error: ${response.status} ${response.statusText}`);
+    }
+
     const data = await response.json();
+
+    this.logger.log(`Monnify transaction verification raw response: ${JSON.stringify(data)}`);
 
     if (!data.requestSuccessful) {
       this.logger.error('Failed to verify transaction:', JSON.stringify(data));
