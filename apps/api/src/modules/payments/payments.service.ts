@@ -130,14 +130,37 @@ export class PaymentsService {
       }
     }
 
-    // Calculate amount
-    const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
+    // =============================================================================
+    // PAYMENT AMOUNT CALCULATION
+    // =============================================================================
+    // Platform fee (5%) can be paid by buyer or absorbed by organizer:
+    //
+    // If passFeeTobuyer = true:
+    //   - Buyer pays: tierPrice + 5% service fee
+    //   - Organizer gets: full tierPrice
+    //
+    // If passFeeTobuyer = false:
+    //   - Buyer pays: just tierPrice
+    //   - Organizer gets: tierPrice - 5%
+    // =============================================================================
     
-    // Calculate service fee (5%) - only added to buyer's payment if organizer opted to pass fee
+    const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const passFeeTobuyer = (event as any).passFeeTobuyer ?? false;
-    const serviceFee = passFeeTobuyer ? tierPrice * (platformFeePercent / 100) : 0;
-    const totalAmountForBuyer = tierPrice + serviceFee;
+    
+    // Calculate service fee (5% of tier price)
+    const serviceFee = tierPrice * (platformFeePercent / 100);
+    
+    // Total amount buyer will pay
+    // If fee is passed to buyer: tierPrice + serviceFee
+    // If organizer absorbs fee: just tierPrice (organizer gets tierPrice - serviceFee)
+    const totalAmountForBuyer = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
+    
+    this.logger.log(`Payment initialized for event ${event.title}:`);
+    this.logger.log(`  - Tier: ${tier.name}, Price: ₦${tierPrice}`);
+    this.logger.log(`  - Service fee (${platformFeePercent}%): ₦${serviceFee.toFixed(2)}`);
+    this.logger.log(`  - Fee passed to buyer: ${passFeeTobuyer}`);
+    this.logger.log(`  - Buyer will pay: ₦${totalAmountForBuyer.toFixed(2)}`);
 
     // Create reference
     const reference = `HD-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -211,20 +234,22 @@ export class PaymentsService {
     const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
     const customerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer' : 'Customer';
 
-    // Initialize Monnify transaction with total amount (including service fee if passed to buyer)
+    // Initialize Monnify transaction with total amount buyer will pay
     const monnifyResponse = await this.monnifyService.initializeTransaction(
       email,
-      totalAmountForBuyer, // Monnify expects Naira (not kobo)
+      totalAmountForBuyer, // Total amount buyer pays (Monnify expects Naira, not kobo)
       reference,
       {
         eventId,
         tierId,
         paymentId: payment.id,
         organizerId: event.organizerId,
-        serviceFee: serviceFee.toString(),
+        tierPrice: tierPrice.toString(),              // Original ticket price
+        serviceFee: serviceFee.toString(),            // 5% fee amount
         passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
+        totalAmount: totalAmountForBuyer.toString(),  // What buyer is paying
         customerName,
-        description: `Ticket for ${event.title}`,
+        description: `Ticket for ${event.title} - ${tier.name}`,
       },
     );
 
@@ -242,9 +267,20 @@ export class PaymentsService {
       reference,
       paymentId: payment.id,
       transactionReference: monnifyResponse.transactionReference,
-      // Return breakdown for frontend display if needed
+      // Return breakdown for frontend display
+      breakdown: {
+        tierPrice,                          // Base ticket price
+        serviceFee,                         // 5% service fee amount
+        serviceFeePercent: platformFeePercent,
+        passFeeTobuyer,                     // Whether buyer pays the fee
+        totalAmount: totalAmountForBuyer,   // What buyer actually pays
+        // For display purposes:
+        buyerPays: totalAmountForBuyer,
+        organizerReceives: passFeeTobuyer ? tierPrice : (tierPrice - serviceFee),
+      },
+      // Keep legacy fields for backward compatibility
       tierPrice,
-      serviceFee,
+      serviceFee: passFeeTobuyer ? serviceFee : 0, // Only show fee to buyer if they're paying it
       totalAmount: totalAmountForBuyer,
     };
   }
@@ -600,29 +636,60 @@ export class PaymentsService {
         : Number(payment.amount),
     });
 
-    // Calculate organizer earnings based on TIER PRICE, not payment amount
-    // payment.amount now stores the total paid by buyer (which may include service fee)
-    // But organizer earnings are always calculated from tier price
+    // =============================================================================
+    // ORGANIZER EARNINGS CALCULATION
+    // =============================================================================
+    // The platform fee (5%) works differently based on who pays it:
+    //
+    // SCENARIO 1: Buyer pays fee (passFeeTobuyer = true)
+    //   - Tier price: ₦400
+    //   - Service fee added: ₦400 × 5% = ₦20
+    //   - Buyer pays TOTAL: ₦420
+    //   - Organizer receives: ₦400 (full tier price - no deduction)
+    //   - Platform keeps: ₦20 (the extra fee buyer paid)
+    //
+    // SCENARIO 2: Organizer absorbs fee (passFeeTobuyer = false)
+    //   - Tier price: ₦400
+    //   - Buyer pays: ₦400
+    //   - Platform takes: ₦400 × 5% = ₦20
+    //   - Organizer receives: ₦400 - ₦20 = ₦380
+    //   - Platform keeps: ₦20
+    // =============================================================================
     
     let organizerAmount: number;
     let platformFee: number;
+    let buyerPaidTotal: number;
+    
+    // Calculate service fee (5% of tier price)
+    const serviceFeeAmount = actualTierPrice * (platformFeePercent / 100);
     
     if (eventPassFeeTobuyer) {
-      // Buyer paid the fee separately, organizer gets full tier price
-      // Service fee was added on top and goes to platform
+      // SCENARIO 1: Buyer pays the service fee on top of tier price
+      // - Buyer paid: tierPrice + serviceFee
+      // - Organizer gets: full tier price (no deduction)
+      // - Platform keeps: the service fee that buyer paid extra
+      buyerPaidTotal = actualTierPrice + serviceFeeAmount;
       organizerAmount = actualTierPrice;
-      platformFee = actualTierPrice * (platformFeePercent / 100); // Track for records
+      platformFee = serviceFeeAmount;
     } else {
-      // Organizer absorbs the fee from the tier price
-      platformFee = actualTierPrice * (platformFeePercent / 100);
+      // SCENARIO 2: Organizer absorbs the fee from their earnings
+      // - Buyer paid: just the tier price
+      // - Platform takes 5% from what buyer paid
+      // - Organizer gets: tier price minus 5%
+      buyerPaidTotal = actualTierPrice;
+      platformFee = serviceFeeAmount;
       organizerAmount = actualTierPrice - platformFee;
     }
     
-    this.logger.log(`Organizer earnings for ${reference}:`);
-    this.logger.log(`  - Tier price: ₦${actualTierPrice}`);
-    this.logger.log(`  - Platform fee (${platformFeePercent}%): ₦${platformFee}`);
-    this.logger.log(`  - Organizer gets: ₦${organizerAmount}`);
-    this.logger.log(`  - Fee passed to buyer: ${eventPassFeeTobuyer}`);
+    this.logger.log(`=== Organizer Earnings Calculation for ${reference} ===`);
+    this.logger.log(`  Tier price: ₦${actualTierPrice.toFixed(2)}`);
+    this.logger.log(`  Service fee (${platformFeePercent}%): ₦${serviceFeeAmount.toFixed(2)}`);
+    this.logger.log(`  Fee paid by: ${eventPassFeeTobuyer ? 'BUYER (added to total)' : 'ORGANIZER (deducted from earnings)'}`);
+    this.logger.log(`  ---`);
+    this.logger.log(`  Buyer paid total: ₦${buyerPaidTotal.toFixed(2)}`);
+    this.logger.log(`  Platform keeps: ₦${platformFee.toFixed(2)}`);
+    this.logger.log(`  Organizer receives: ₦${organizerAmount.toFixed(2)}`);
+    this.logger.log(`  ================================================`);
 
     // All new payments go to pendingBalance first
     // The cron job (tasks.service.ts) handles moving funds to availableBalance 
