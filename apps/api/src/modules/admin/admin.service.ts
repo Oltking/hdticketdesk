@@ -930,4 +930,235 @@ export class AdminService {
       ...results,
     };
   }
+
+  // Get all pending payments
+  async getAllPendingPayments(page = 1, limit = 50) {
+    this.logger.log('Admin fetching all pending payments');
+
+    const skip = (page - 1) * limit;
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          tier: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      }),
+      this.prisma.payment.count({
+        where: { status: 'PENDING' },
+      }),
+    ]);
+
+    return {
+      payments: payments.map((p: any) => ({
+        id: p.id,
+        reference: p.reference,
+        monnifyTransactionRef: p.monnifyTransactionRef,
+        amount: p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount),
+        buyerEmail: p.buyerEmail,
+        eventTitle: p.event?.title,
+        tierName: p.tier?.name,
+        createdAt: p.createdAt,
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Manually verify a specific payment
+  async manuallyVerifyPayment(reference: string) {
+    this.logger.log(`Admin manually verifying payment: ${reference}`);
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { reference },
+      include: {
+        event: true,
+        tier: true,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Payment not found: ${reference}`);
+    }
+
+    if (payment.status !== 'PENDING') {
+      return {
+        message: `Payment already processed with status: ${payment.status}`,
+        payment,
+      };
+    }
+
+    // Use the monnify transaction reference or the payment reference
+    const transactionRef = payment.monnifyTransactionRef || reference;
+
+    try {
+      // Verify with Monnify
+      const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+
+      this.logger.log(`Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`);
+
+      if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+        // Import PaymentsService to process payment
+        const { PaymentsService } = await import('../payments/payments.service');
+        const { TicketsService } = await import('../tickets/tickets.service');
+        const { LedgerService } = await import('../ledger/ledger.service');
+        const { TasksService } = await import('../tasks/tasks.service');
+        const { EmailService } = await import('../emails/email.service');
+        const { QrService } = await import('../qr/qr.service');
+        const { MediaService } = await import('../media/media.service');
+
+        // Create service instances with proper dependencies
+        const mediaService = new MediaService(this.configService);
+        const qrService = new QrService(mediaService);
+        const emailService = new EmailService(this.configService);
+        const ticketsService = new TicketsService(this.prisma, emailService, qrService);
+        const ledgerService = new LedgerService(this.prisma);
+        const tasksService = new TasksService(this.prisma);
+
+        const paymentsService = new PaymentsService(
+          this.prisma,
+          this.configService,
+          this.monnifyService,
+          ticketsService,
+          ledgerService,
+          tasksService,
+        );
+
+        // Process the payment manually
+        await (paymentsService as any).handleSuccessfulPayment({
+          reference: payment.reference,
+          amount: monnifyData.amount,
+          id: monnifyData.transactionReference,
+          paid_at: monnifyData.paidOn,
+        });
+
+        // Fetch updated payment and ticket
+        const updatedPayment = await this.prisma.payment.findUnique({
+          where: { reference },
+        });
+
+        const ticket = await this.prisma.ticket.findFirst({
+          where: { paymentId: payment.id },
+        });
+
+        return {
+          message: 'Payment verified and ticket created successfully!',
+          payment: updatedPayment,
+          ticket,
+        };
+      } else {
+        return {
+          message: `Payment status on Monnify: ${monnifyData.status}. Cannot process.`,
+          monnifyStatus: monnifyData.status,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Failed to verify payment ${reference}:`, error);
+      throw error;
+    }
+  }
+
+  // Bulk verify all pending payments
+  async verifyAllPendingPayments() {
+    this.logger.log('Admin bulk verifying all pending payments');
+
+    // Get all pending payments (no pagination, get them all)
+    const pendingPayments = await this.prisma.payment.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    this.logger.log(`Found ${pendingPayments.length} pending payments to verify`);
+
+    const results = {
+      total: pendingPayments.length,
+      verified: 0,
+      failed: 0,
+      alreadyProcessed: 0,
+      errors: [] as any[],
+    };
+
+    for (const payment of pendingPayments) {
+      try {
+        const transactionRef = payment.monnifyTransactionRef || payment.reference;
+
+        // Verify with Monnify
+        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef);
+
+        if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
+          // Import PaymentsService to process payment
+          const { PaymentsService } = await import('../payments/payments.service');
+          const { TicketsService } = await import('../tickets/tickets.service');
+          const { LedgerService } = await import('../ledger/ledger.service');
+          const { TasksService } = await import('../tasks/tasks.service');
+          const { EmailService } = await import('../emails/email.service');
+          const { QrService } = await import('../qr/qr.service');
+          const { MediaService } = await import('../media/media.service');
+
+          // Create service instances
+          const mediaService = new MediaService(this.configService);
+          const qrService = new QrService(mediaService);
+          const emailService = new EmailService(this.configService);
+          const ticketsService = new TicketsService(this.prisma, emailService, qrService);
+          const ledgerService = new LedgerService(this.prisma);
+          const tasksService = new TasksService(this.prisma);
+
+          const paymentsService = new PaymentsService(
+            this.prisma,
+            this.configService,
+            this.monnifyService,
+            ticketsService,
+            ledgerService,
+            tasksService,
+          );
+
+          await (paymentsService as any).handleSuccessfulPayment({
+            reference: payment.reference,
+            amount: monnifyData.amount,
+            id: monnifyData.transactionReference,
+            paid_at: monnifyData.paidOn,
+          });
+
+          results.verified++;
+          this.logger.log(`Verified payment: ${payment.reference}`);
+        } else {
+          results.failed++;
+          results.errors.push({
+            reference: payment.reference,
+            status: monnifyData.status,
+            message: `Payment not successful on Monnify: ${monnifyData.status}`,
+          });
+        }
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          reference: payment.reference,
+          error: error.message || 'Unknown error',
+        });
+        this.logger.error(`Failed to verify payment ${payment.reference}:`, error);
+      }
+    }
+
+    this.logger.log(`Bulk verification complete: ${results.verified} verified, ${results.failed} failed`);
+
+    return {
+      message: 'Bulk payment verification completed',
+      ...results,
+    };
+  }
 }
