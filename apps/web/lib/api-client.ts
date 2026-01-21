@@ -725,6 +725,38 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Payment recovery methods
+  async getAllPendingPayments(page = 1, limit = 50) {
+    return this.request<{
+      payments: any[];
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`/admin/payments/pending?page=${page}&limit=${limit}`);
+  }
+
+  async manuallyVerifyPayment(reference: string) {
+    return this.request<{
+      message: string;
+      payment: any;
+      ticket?: any;
+    }>(`/admin/payments/${reference}/verify`, {
+      method: 'POST',
+    });
+  }
+
+  async verifyAllPendingPayments() {
+    return this.request<{
+      message: string;
+      total: number;
+      verified: number;
+      failed: number;
+      errors: any[];
+    }>('/admin/payments/verify-all-pending', {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient();
