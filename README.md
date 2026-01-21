@@ -103,7 +103,7 @@ We welcome contributions!
 
 ## Security
 
-If you discover a security vulnerability, please send an email to security@hdticketdesk.com instead of using the issue tracker.
+If you discover a security vulnerability, please send an email to support@hdticketdesk.com instead of using the issue tracker.
 
 ---
 
@@ -129,4 +129,5 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
   <a href="https://hdticketdesk.com">Website</a> •
   <a href="https://twitter.com/hdticketdesk">Twitter</a> •
   <a href="mailto:support@hdticketdesk.com">Support</a>
+
 </p>

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
-import { Search, Calendar, MapPin, Ticket, Sparkles, Filter, ArrowRight, Clock, Users } from 'lucide-react';
+import { Search, Calendar, MapPin, Ticket, Sparkles, Filter, ArrowRight, Clock, Users, CheckCircle2, XCircle } from 'lucide-react';
 
 type SearchParams = {
   page?: string | string[];
@@ -280,7 +280,30 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
 
           {/* Events Grid */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {events.map((event) => {
+            {/* Sort events: Live first, then upcoming by date, then ended at bottom */}
+            {[...events].sort((a, b) => {
+              const now = new Date();
+              const aStart = new Date(a.startDate);
+              const bStart = new Date(b.startDate);
+              const aEnd = a.endDate ? new Date(a.endDate) : aStart;
+              const bEnd = b.endDate ? new Date(b.endDate) : bStart;
+              
+              const aIsLive = aStart <= now && aEnd >= now;
+              const bIsLive = bStart <= now && bEnd >= now;
+              const aIsEnded = aEnd < now;
+              const bIsEnded = bEnd < now;
+              
+              // Live events first
+              if (aIsLive && !bIsLive) return -1;
+              if (!aIsLive && bIsLive) return 1;
+              
+              // Ended events last
+              if (aIsEnded && !bIsEnded) return 1;
+              if (!aIsEnded && bIsEnded) return -1;
+              
+              // Sort by start date (upcoming events closest first)
+              return aStart.getTime() - bStart.getTime();
+            }).map((event) => {
               // Check if event has any free tickets
               const hasFreeTickets = event.tiers?.some((tier: any) => Number(tier.price) === 0);
               // Get lowest price for display
@@ -290,14 +313,23 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
               
               // Format date nicely
               const eventDate = new Date(event.startDate);
+              const endDate = event.endDate ? new Date(event.endDate) : eventDate;
+              const now = new Date();
               const dateStr = eventDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
               const timeStr = eventDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+              
+              // Determine event status
+              const isLive = eventDate <= now && endDate >= now;
+              const isEnded = endDate < now;
               
               return (
                 <Link 
                   key={event.id} 
                   href={`/events/${event.slug}`} 
-                  className="group relative bg-card rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20"
+                  className={cn(
+                    "group relative bg-card rounded-2xl overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20",
+                    isEnded && "opacity-75 hover:opacity-100"
+                  )}
                 >
                   {/* Image */}
                   <div className="h-48 w-full bg-muted relative overflow-hidden">
@@ -306,7 +338,10 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                       <img 
                         src={event.coverImage} 
                         alt={event.title} 
-                        className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110" 
+                        className={cn(
+                          "object-cover w-full h-full transition-transform duration-500 group-hover:scale-110",
+                          isEnded && "grayscale-[30%]"
+                        )}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-purple-500/5">
@@ -316,6 +351,28 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                     
                     {/* Gradient overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    
+                    {/* ENDED Stamp */}
+                    {isEnded && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-black/70 text-white px-4 py-2 rounded-lg font-bold text-sm uppercase tracking-wider transform -rotate-12 border-2 border-white/30">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            ENDED
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* LIVE NOW Badge */}
+                    {isLive && (
+                      <div className="absolute top-3 left-3">
+                        <Badge className="bg-red-500 text-white shadow-lg animate-pulse gap-1">
+                          <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                          LIVE NOW
+                        </Badge>
+                      </div>
+                    )}
                     
                     {/* Price/Free Badge */}
                     <div className="absolute top-3 right-3">
@@ -330,7 +387,10 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
 
                     {/* Date badge at bottom of image */}
                     <div className="absolute bottom-3 left-3">
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/50 backdrop-blur-sm rounded-lg text-white text-xs">
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2.5 py-1 backdrop-blur-sm rounded-lg text-xs",
+                        isEnded ? "bg-gray-800/70 text-gray-300" : "bg-black/50 text-white"
+                      )}>
                         <Calendar className="w-3 h-3" />
                         {dateStr} • {timeStr}
                       </div>
@@ -339,7 +399,10 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                   
                   {/* Content */}
                   <div className="p-4">
-                    <h3 className="font-display font-semibold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                    <h3 className={cn(
+                      "font-display font-semibold text-lg mb-2 line-clamp-2 transition-colors",
+                      isEnded ? "text-muted-foreground group-hover:text-foreground" : "group-hover:text-primary"
+                    )}>
                       {event.title}
                     </h3>
                     
@@ -350,18 +413,35 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                       </span>
                     </div>
 
-                    {/* Tickets sold indicator */}
+                    {/* Tickets sold indicator - shows "attended" for ended events */}
                     {event.totalTicketsSold > 0 && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3 pt-3 border-t">
+                      <div className={cn(
+                        "flex items-center gap-1.5 text-xs mt-3 pt-3 border-t",
+                        isEnded ? "text-muted-foreground/70" : "text-muted-foreground"
+                      )}>
                         <Users className="w-3.5 h-3.5" />
-                        <span>{event.totalTicketsSold} attending</span>
+                        <span>
+                          {event.totalTicketsSold} {isEnded ? 'attended' : 'attending'}
+                        </span>
+                        {isEnded && (
+                          <span className="ml-auto text-xs text-muted-foreground/50 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Completed
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
                   
                   {/* Hover arrow */}
-                  <div className="absolute bottom-4 right-4 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ArrowRight className="w-4 h-4 text-primary" />
+                  <div className={cn(
+                    "absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
+                    isEnded ? "bg-muted" : "bg-primary/10"
+                  )}>
+                    <ArrowRight className={cn(
+                      "w-4 h-4",
+                      isEnded ? "text-muted-foreground" : "text-primary"
+                    )} />
                   </div>
                 </Link>
               );
