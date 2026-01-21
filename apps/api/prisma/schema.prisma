@@ -162,10 +162,10 @@ model Ticket {
   paymentRef     String?      // Monnify transaction reference
   eventId        String
   tierId         String
-  buyerId        String
+  buyerId        String?      // Nullable for guest checkouts
   paymentId      String?
   refund         Refund?
-  buyer          User         @relation(fields: [buyerId], references: [id])
+  buyer          User?        @relation(fields: [buyerId], references: [id])
   event          Event        @relation(fields: [eventId], references: [id])
   payment        Payment?     @relation(fields: [paymentId], references: [id])
   tier           TicketTier   @relation(fields: [tierId], references: [id])
