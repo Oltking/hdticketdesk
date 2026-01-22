@@ -145,8 +145,29 @@ export class TicketsService {
   }
 
   async getTicketsByBuyer(buyerId: string) {
+    // Get user email to also fetch any guest tickets
+    const user = await this.prisma.user.findUnique({
+      where: { id: buyerId },
+      select: { email: true },
+    });
+
+    if (!user) {
+      return [];
+    }
+
+    // Fetch tickets that either:
+    // 1. Have buyerId matching the user (normal tickets)
+    // 2. Have matching email but null buyerId (guest tickets not yet linked)
     return this.prisma.ticket.findMany({
-      where: { buyerId },
+      where: {
+        OR: [
+          { buyerId: buyerId },
+          {
+            buyerEmail: user.email.toLowerCase(),
+            buyerId: null,
+          },
+        ],
+      },
       include: {
         event: {
           include: {

@@ -110,6 +110,26 @@ export class AuthService {
 
     this.logger.log(`Registered user: ${user.email} (role=${user.role})`);
 
+    // Link any existing guest tickets to this new user account
+    try {
+      const guestTickets = await this.prisma.ticket.updateMany({
+        where: {
+          buyerEmail: user.email.toLowerCase(),
+          buyerId: null, // Only link tickets that were guest purchases
+        },
+        data: {
+          buyerId: user.id,
+        },
+      });
+
+      if (guestTickets.count > 0) {
+        this.logger.log(`Linked ${guestTickets.count} guest tickets to new user: ${user.email}`);
+      }
+    } catch (error) {
+      // Log but don't fail registration if ticket linking fails
+      this.logger.error(`Failed to link guest tickets for user ${user.email}:`, error);
+    }
+
     // Create virtual account for organizer immediately
     if (dto.role === 'ORGANIZER' && user.organizerProfile) {
       try {
@@ -766,6 +786,26 @@ export class AuthService {
           },
           include: { organizerProfile: true },
         });
+
+        // Link any existing guest tickets to this new user account
+        try {
+          const guestTickets = await this.prisma.ticket.updateMany({
+            where: {
+              buyerEmail: user.email.toLowerCase(),
+              buyerId: null, // Only link tickets that were guest purchases
+            },
+            data: {
+              buyerId: user.id,
+            },
+          });
+
+          if (guestTickets.count > 0) {
+            this.logger.log(`Linked ${guestTickets.count} guest tickets to new OAuth user: ${user.email}`);
+          }
+        } catch (error) {
+          // Log but don't fail registration if ticket linking fails
+          this.logger.error(`Failed to link guest tickets for OAuth user ${user.email}:`, error);
+        }
 
         // If organizer, they need to complete setup (provide organization name)
         if (isOrganizer) {
