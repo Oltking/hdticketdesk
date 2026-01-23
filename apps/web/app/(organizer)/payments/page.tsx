@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
@@ -149,13 +150,7 @@ export default function PaymentHistoryPage() {
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
         <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-          <Skeleton className="h-8 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-3 mb-6">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-24" />
-            ))}
-          </div>
-          <Skeleton className="h-96" />
+          <PageLoader text="Loading payment history..." />
         </main>
       </div>
     );

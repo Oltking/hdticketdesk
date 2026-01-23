@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
 import { BuyerNav } from '@/components/layouts/sidebar';

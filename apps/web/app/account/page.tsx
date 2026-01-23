@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Header } from '@/components/layouts/header';
 import { Footer } from '@/components/layouts/footer';
 import { BuyerNav } from '@/components/layouts/sidebar';
@@ -116,9 +117,7 @@ export default function AccountPage() {
       <>
         <Header />
         <main className="flex-1 container py-8">
-          <Skeleton className="h-8 w-48 mb-6" />
-          <Skeleton className="h-12 w-64 mb-8" />
-          <Skeleton className="h-64 max-w-2xl" />
+          <PageLoader text="Loading account..." />
         </main>
         <Footer />
       </>

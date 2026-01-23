@@ -1,10 +1,11 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode, Suspense } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { api } from '@/lib/api-client';
 import { ToastProvider } from '@/hooks/use-toast';
+import { LoadingBar } from '@/components/ui/loading-bar';
 
 // Separate component to handle auth initialization
 // This prevents Zustand hydration issues during SSG
@@ -49,6 +50,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
+        <Suspense fallback={null}>
+          <LoadingBar />
+        </Suspense>
         <AuthInitializer>{children}</AuthInitializer>
       </ToastProvider>
     </QueryClientProvider>

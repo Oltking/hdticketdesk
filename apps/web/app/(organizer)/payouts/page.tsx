@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
@@ -89,12 +90,7 @@ export default function PayoutsPage() {
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
         <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <div className="grid gap-6 md:grid-cols-3 mb-8">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
-          </div>
-          <Skeleton className="h-40 mb-6" />
-          <Skeleton className="h-64" />
+          <PageLoader text="Loading payouts..." />
         </main>
       </div>
     );
