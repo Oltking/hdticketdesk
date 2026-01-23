@@ -754,6 +754,11 @@ export class EventsService {
             tierId: true,
             checkedInAt: true,
             createdAt: true,
+            tier: {
+              select: {
+                price: true,
+              },
+            },
           },
         },
       },
@@ -778,26 +783,24 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // Handle Decimal type from Prisma
-    const totalRevenue = activeTickets.reduce((sum: number, t: { amountPaid: Decimal | number }) => {
-      const amount = t.amountPaid instanceof Decimal 
-        ? t.amountPaid.toNumber() 
-        : Number(t.amountPaid);
+    // Calculate total revenue based on tier prices (not amountPaid which includes service fees)
+    // Organizers only receive the tier price, service fees go to the platform
+    const totalRevenue = activeTickets.reduce((sum: number, t: { tier: { price: Decimal | number } }) => {
+      const amount = t.tier.price instanceof Decimal
+        ? t.tier.price.toNumber()
+        : Number(t.tier.price);
       return sum + amount;
     }, 0);
 
     const tierBreakdown = event.tiers.map((tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
       const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-      const tierRevenue = tierTickets.reduce((sum: number, t: { amountPaid: Decimal | number }) => {
-        const amount = t.amountPaid instanceof Decimal 
-          ? t.amountPaid.toNumber() 
-          : Number(t.amountPaid);
-        return sum + amount;
-      }, 0);
+      // Calculate revenue based on tier price only (excludes service fees)
+      const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
+      const tierRevenue = tierTickets.length * tierPrice;
 
       return {
         name: tier.name,
-        price: tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price),
+        price: tierPrice,
         capacity: tier.capacity,
         sold: tierTickets.length,
         revenue: tierRevenue,
