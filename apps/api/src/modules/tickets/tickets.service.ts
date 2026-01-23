@@ -187,6 +187,7 @@ export class TicketsService {
         event: {
           include: {
             organizer: { select: { id: true, title: true } },
+            tiers: true, // Include tiers for color ranking calculation
           },
         },
         tier: true,
