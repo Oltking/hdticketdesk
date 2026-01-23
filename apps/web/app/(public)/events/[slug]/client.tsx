@@ -17,6 +17,7 @@ import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink } from 'lucide-react';
+import { Countdown } from '@/components/ui/countdown';
 import { MapPreviewDialog } from '@/components/ui/map-preview-dialog';
 import type { Event } from '@/types';
 
@@ -342,11 +343,16 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                             </span>
                           </div>
                           
-                          {/* Sale End Date */}
+                          {/* Sale End Countdown */}
                           {tier.saleEndDate && !salesEnded && (
-                            <div className="flex items-center gap-1.5 text-xs text-orange-600 mb-2">
-                              <Clock className="w-3 h-3" />
-                              <span>Sales end {formatDate(tier.saleEndDate)}</span>
+                            <div className="flex items-center gap-1.5 text-xs mb-2">
+                              <Clock className="w-3 h-3 text-orange-500" />
+                              <Countdown 
+                                targetDate={tier.saleEndDate} 
+                                prefix="Sales end in"
+                                expiredText="Sales ended"
+                                compact
+                              />
                             </div>
                           )}
                           
