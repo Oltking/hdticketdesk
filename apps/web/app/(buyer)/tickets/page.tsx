@@ -208,22 +208,24 @@ export default function MyTicketsPage() {
                       : getDefaultTierColor();
 
                     return (
-                      <Card key={ticket.id} className={cn("overflow-hidden hover:shadow-lg transition-shadow border-l-[6px]")} style={{ borderLeftColor: tierColor.hex }}>
+                      <Card key={ticket.id} className={cn("overflow-hidden hover:shadow-lg transition-shadow border-l-4")} style={{ borderLeftColor: tierColor.hex }}>
                         <CardContent className="p-0">
                           <div className="flex flex-col lg:flex-row">
                             {/* Main Content */}
-                            <div className="flex-1 p-6">
+                            <div className="flex-1 p-4">
                               {/* Tier Name - Prominent Display */}
-                              <div className={cn("inline-block px-6 py-3 rounded-lg mb-4", tierColor.bg, tierColor.text, tierColor.border, "border-2")}>
-                                <h2 className="text-3xl font-black uppercase tracking-wider" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                              <div className={cn("inline-block px-4 py-2 rounded-lg mb-3", tierColor.bg, tierColor.text, tierColor.border, "border-2")}>
+                                <h2 className="text-2xl font-black uppercase tracking-wider" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                                   {ticket.tier?.name}
                                 </h2>
-                                <p className="text-xs opacity-80 mt-1 uppercase tracking-wide">
-                                  {tierColor.colorName} • Rank #{tierColor.rank}
-                                </p>
+                                {tierColor.rank > 0 && (
+                                  <p className="text-xs opacity-80 mt-1 uppercase tracking-wide">
+                                    {tierColor.colorName} • Rank #{tierColor.rank}
+                                  </p>
+                                )}
                               </div>
 
-                              <div className="flex items-start justify-between gap-4 mb-4">
+                              <div className="flex items-start justify-between gap-4 mb-3">
                                 <div className="flex-1 min-w-0">
                                   <Link
                                     href={`/events/${ticket.event?.slug}`}
@@ -244,9 +246,9 @@ export default function MyTicketsPage() {
                                   {statusConfig.label}
                                 </Badge>
                               </div>
-                              
+
                               {/* Event Details */}
-                              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                   <Calendar className="h-4 w-4 text-primary" />
                                   <span>{formatDate(ticket.event?.startDate || new Date())}</span>
@@ -258,7 +260,7 @@ export default function MyTicketsPage() {
                               </div>
 
                               {/* Action Buttons */}
-                              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border">
+                              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
                                 <Link href={`/events/${ticket.event?.slug}`}>
                                   <Button variant="outline" size="sm" className="gap-1.5">
                                     <ExternalLink className="h-3.5 w-3.5" />
@@ -269,23 +271,21 @@ export default function MyTicketsPage() {
                             </div>
 
                             {/* QR Code Section */}
-                            <div className={cn("w-full lg:w-56 p-6 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-border", tierColor.bg)} style={{ opacity: 0.1 }}>
-                              <div style={{ opacity: 10 }}>
-                                <div className="relative">
-                                  {ticket.qrCodeUrl ? (
-                                    <div className="bg-white p-3 rounded-xl shadow-lg" style={{ borderColor: tierColor.hex, borderWidth: '3px', borderStyle: 'solid' }}>
-                                      <img src={ticket.qrCodeUrl} alt="QR Code" className="w-32 h-32 rounded-lg" />
-                                    </div>
-                                  ) : (
-                                    <div className="w-36 h-36 bg-white rounded-xl flex items-center justify-center shadow-sm" style={{ borderColor: tierColor.hex, borderWidth: '3px', borderStyle: 'solid' }}>
-                                      <QrCode className="h-16 w-16 text-muted-foreground/40" />
-                                    </div>
-                                  )}
-                                </div>
-                                <p className="text-xs text-gray-600 mt-3 text-center font-bold">
-                                  Show QR at entrance
-                                </p>
+                            <div className="w-full lg:w-48 p-4 bg-gradient-to-br from-muted/30 to-muted/20 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-border">
+                              <div className="relative">
+                                {ticket.qrCodeUrl ? (
+                                  <div className="bg-white p-2 rounded-lg shadow-md border-2 border-black">
+                                    <img src={ticket.qrCodeUrl} alt="QR Code" className="w-28 h-28" />
+                                  </div>
+                                ) : (
+                                  <div className="w-32 h-32 bg-white rounded-lg flex items-center justify-center shadow-md border-2 border-black">
+                                    <QrCode className="h-14 w-14 text-muted-foreground/40" />
+                                  </div>
+                                )}
                               </div>
+                              <p className="text-xs text-foreground mt-3 text-center font-semibold">
+                                Show QR at entrance
+                              </p>
                             </div>
                           </div>
                         </CardContent>
