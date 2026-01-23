@@ -4,23 +4,22 @@
  */
 
 export const TIER_COLORS = [
-  { rank: 1, name: 'Black', bg: 'bg-black', text: 'text-white', border: 'border-gray-800', hex: '#000000' },
-  { rank: 2, name: 'Charcoal Grey', bg: 'bg-[#36454F]', text: 'text-white', border: 'border-gray-600', hex: '#36454F' },
-  { rank: 3, name: 'Burgundy Red', bg: 'bg-[#800020]', text: 'text-white', border: 'border-[#A0002F]', hex: '#800020' },
-  { rank: 4, name: 'Emerald Green', bg: 'bg-[#50C878]', text: 'text-white', border: 'border-[#3DA55E]', hex: '#50C878' },
-  { rank: 5, name: 'Royal Blue', bg: 'bg-[#4169E1]', text: 'text-white', border: 'border-[#5A7FE5]', hex: '#4169E1' },
-  { rank: 6, name: 'Deep Purple', bg: 'bg-purple-600', text: 'text-white', border: 'border-purple-500', hex: '#673AB7' },
-  { rank: 7, name: 'Champagne Gold', bg: 'bg-[#F7E7CE]', text: 'text-black', border: 'border-[#E5D5BC]', hex: '#F7E7CE' },
-  { rank: 8, name: 'Muted Teal', bg: 'bg-[#5F9EA0]', text: 'text-white', border: 'border-[#4A8A8C]', hex: '#5F9EA0' },
-  { rank: 9, name: 'Coral', bg: 'bg-[#FF7F50]', text: 'text-white', border: 'border-[#FF6A3D]', hex: '#FF7F50' },
-  { rank: 10, name: 'Mustard Yellow', bg: 'bg-[#FFDB58]', text: 'text-black', border: 'border-[#E5C64A]', hex: '#FFDB58' },
+  { rank: 1, name: 'Black', bgHex: '#000000', textHex: '#FFFFFF', borderHex: '#333333' },
+  { rank: 2, name: 'Charcoal Grey', bgHex: '#36454F', textHex: '#FFFFFF', borderHex: '#4A5568' },
+  { rank: 3, name: 'Burgundy Red', bgHex: '#800020', textHex: '#FFFFFF', borderHex: '#A0002F' },
+  { rank: 4, name: 'Emerald Green', bgHex: '#50C878', textHex: '#FFFFFF', borderHex: '#3DA55E' },
+  { rank: 5, name: 'Royal Blue', bgHex: '#4169E1', textHex: '#FFFFFF', borderHex: '#5A7FE5' },
+  { rank: 6, name: 'Deep Purple', bgHex: '#673AB7', textHex: '#FFFFFF', borderHex: '#7E57C2' },
+  { rank: 7, name: 'Champagne Gold', bgHex: '#F7E7CE', textHex: '#000000', borderHex: '#E5D5BC' },
+  { rank: 8, name: 'Muted Teal', bgHex: '#5F9EA0', textHex: '#FFFFFF', borderHex: '#4A8A8C' },
+  { rank: 9, name: 'Coral', bgHex: '#FF7F50', textHex: '#FFFFFF', borderHex: '#FF6A3D' },
+  { rank: 10, name: 'Mustard Yellow', bgHex: '#FFDB58', textHex: '#000000', borderHex: '#E5C64A' },
 ];
 
 export interface TierColorScheme {
-  bg: string; // Tailwind class
-  text: string; // Tailwind class
-  border: string; // Tailwind class
-  hex: string; // Hex color for inline styles
+  bgHex: string; // Background color hex
+  textHex: string; // Text color hex
+  borderHex: string; // Border color hex
   rank: number;
   colorName: string;
 }
@@ -46,10 +45,9 @@ export function getTierColorByPrice(
   const color = TIER_COLORS[colorIndex];
 
   return {
-    bg: color.bg,
-    text: color.text,
-    border: color.border,
-    hex: color.hex,
+    bgHex: color.bgHex,
+    textHex: color.textHex,
+    borderHex: color.borderHex,
     rank: priceRank,
     colorName: color.name,
   };
@@ -61,10 +59,9 @@ export function getTierColorByPrice(
  */
 export function getDefaultTierColor(): TierColorScheme {
   return {
-    bg: 'bg-primary',
-    text: 'text-white',
-    border: 'border-primary',
-    hex: '#667eea',
+    bgHex: '#667eea',
+    textHex: '#FFFFFF',
+    borderHex: '#5568d3',
     rank: 0,
     colorName: 'Default',
   };

@@ -208,13 +208,20 @@ export default function MyTicketsPage() {
                       : getDefaultTierColor();
 
                     return (
-                      <Card key={ticket.id} className={cn("overflow-hidden hover:shadow-lg transition-shadow border-l-4")} style={{ borderLeftColor: tierColor.hex }}>
+                      <Card key={ticket.id} className={cn("overflow-hidden hover:shadow-lg transition-shadow border-l-4")} style={{ borderLeftColor: tierColor.borderHex }}>
                         <CardContent className="p-0">
                           <div className="flex flex-col lg:flex-row">
                             {/* Main Content */}
                             <div className="flex-1 p-4">
                               {/* Tier Name - Prominent Display */}
-                              <div className={cn("inline-block px-4 py-2 rounded-lg mb-3", tierColor.bg, tierColor.text, tierColor.border, "border-2")}>
+                              <div
+                                className="inline-block px-4 py-2 rounded-lg mb-3 border-2"
+                                style={{
+                                  backgroundColor: tierColor.bgHex,
+                                  color: tierColor.textHex,
+                                  borderColor: tierColor.borderHex
+                                }}
+                              >
                                 <h2 className="text-2xl font-black uppercase tracking-wider" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
                                   {ticket.tier?.name}
                                 </h2>
@@ -333,11 +340,20 @@ export default function MyTicketsPage() {
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
-                            <div className={cn(
-                              "w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs",
-                              wasAttended ? "bg-green-500/10" : wasCancelled ? "bg-red-500/10" : tierColor.bg,
-                              wasAttended ? "text-green-600" : wasCancelled ? "text-red-400" : tierColor.text
-                            )} style={{ borderColor: tierColor.hex, borderWidth: '2px', borderStyle: 'solid' }}>
+                            <div
+                              className={cn(
+                                "w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs",
+                                wasAttended && "bg-green-500/10 text-green-600",
+                                wasCancelled && "bg-red-500/10 text-red-400"
+                              )}
+                              style={{
+                                backgroundColor: !wasAttended && !wasCancelled ? tierColor.bgHex : undefined,
+                                color: !wasAttended && !wasCancelled ? tierColor.textHex : undefined,
+                                borderColor: tierColor.borderHex,
+                                borderWidth: '2px',
+                                borderStyle: 'solid'
+                              }}
+                            >
                               {wasAttended ? (
                                 <CheckCircle2 className="h-7 w-7" />
                               ) : wasCancelled ? (
