@@ -52,10 +52,23 @@ export class TicketsService {
         amountPaid: data.amountPaid,
       },
       include: {
-        event: true,
+        event: {
+          include: {
+            tiers: true, // Include all tiers to calculate color ranking
+          },
+        },
         tier: true,
       },
     });
+
+    // Get all tier prices for color ranking
+    const allTierPrices = ticket.event.tiers.map((t: any) =>
+      typeof t.price === 'number' ? t.price : Number(t.price)
+    );
+
+    const currentTierPrice = typeof ticket.tier.price === 'number'
+      ? ticket.tier.price
+      : Number(ticket.tier.price);
 
     // Send ticket email with hosted QR code URL (works in all email clients)
     await this.emailService.sendTicketEmail(data.buyerEmail, {
@@ -66,6 +79,8 @@ export class TicketsService {
       eventLatitude: ticket.event.latitude,
       eventLongitude: ticket.event.longitude,
       tierName: ticket.tier.name,
+      tierPrice: currentTierPrice,
+      allTierPrices: allTierPrices, // Pass all prices for color ranking
       buyerName: `${data.buyerFirstName || ''} ${data.buyerLastName || ''}`.trim() || 'Guest',
       qrCodeUrl: qrCodeUrl, // Use the hosted Cloudinary URL for email
       isOnline: ticket.event.isOnline,

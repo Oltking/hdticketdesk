@@ -13,14 +13,15 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate, cn } from '@/lib/utils';
-import { 
-  Calendar, 
-  MapPin, 
-  QrCode, 
-  Ticket, 
-  Clock, 
-  ChevronRight, 
-  Sparkles, 
+import { getTierColorByPrice, getDefaultTierColor } from '@/lib/tier-colors';
+import {
+  Calendar,
+  MapPin,
+  QrCode,
+  Ticket,
+  Clock,
+  ChevronRight,
+  Sparkles,
   CheckCircle2,
   AlertCircle,
   Download,
@@ -198,15 +199,33 @@ export default function MyTicketsPage() {
                   {upcomingTickets.map((ticket) => {
                     const statusConfig = getStatusConfig(ticket.status);
                     const StatusIcon = statusConfig.icon;
+
+                    // Get tier colors based on price ranking
+                    const allTierPrices = ticket.event?.tiers?.map(t => t.price) || [];
+                    const currentTierPrice = ticket.tier?.price || 0;
+                    const tierColor = allTierPrices.length > 0
+                      ? getTierColorByPrice(currentTierPrice, allTierPrices)
+                      : getDefaultTierColor();
+
                     return (
-                      <Card key={ticket.id} className="overflow-hidden hover:shadow-lg transition-shadow border-l-4 border-l-primary">
+                      <Card key={ticket.id} className={cn("overflow-hidden hover:shadow-lg transition-shadow border-l-[6px]")} style={{ borderLeftColor: tierColor.hex }}>
                         <CardContent className="p-0">
                           <div className="flex flex-col lg:flex-row">
                             {/* Main Content */}
                             <div className="flex-1 p-6">
+                              {/* Tier Name - Prominent Display */}
+                              <div className={cn("inline-block px-6 py-3 rounded-lg mb-4", tierColor.bg, tierColor.text, tierColor.border, "border-2")}>
+                                <h2 className="text-3xl font-black uppercase tracking-wider" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                  {ticket.tier?.name}
+                                </h2>
+                                <p className="text-xs opacity-80 mt-1 uppercase tracking-wide">
+                                  {tierColor.colorName} • Rank #{tierColor.rank}
+                                </p>
+                              </div>
+
                               <div className="flex items-start justify-between gap-4 mb-4">
                                 <div className="flex-1 min-w-0">
-                                  <Link 
+                                  <Link
                                     href={`/events/${ticket.event?.slug}`}
                                     className="group"
                                   >
@@ -215,10 +234,6 @@ export default function MyTicketsPage() {
                                     </h3>
                                   </Link>
                                   <div className="flex items-center gap-2 mt-1">
-                                    <Badge variant="outline" className="font-normal">
-                                      {ticket.tier?.name}
-                                    </Badge>
-                                    <span className="text-xs text-muted-foreground">•</span>
                                     <span className="text-sm text-muted-foreground">
                                       Ticket #{ticket.ticketNumber}
                                     </span>
@@ -254,21 +269,23 @@ export default function MyTicketsPage() {
                             </div>
 
                             {/* QR Code Section */}
-                            <div className="w-full lg:w-56 p-6 bg-gradient-to-br from-muted/50 to-muted/30 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-border">
-                              <div className="relative">
-                                {ticket.qrCodeUrl ? (
-                                  <div className="bg-white p-2 rounded-xl shadow-sm">
-                                    <img src={ticket.qrCodeUrl} alt="QR Code" className="w-32 h-32 rounded-lg" />
-                                  </div>
-                                ) : (
-                                  <div className="w-36 h-36 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                                    <QrCode className="h-16 w-16 text-muted-foreground/40" />
-                                  </div>
-                                )}
+                            <div className={cn("w-full lg:w-56 p-6 flex flex-col items-center justify-center border-t lg:border-t-0 lg:border-l border-border", tierColor.bg)} style={{ opacity: 0.1 }}>
+                              <div style={{ opacity: 10 }}>
+                                <div className="relative">
+                                  {ticket.qrCodeUrl ? (
+                                    <div className="bg-white p-3 rounded-xl shadow-lg" style={{ borderColor: tierColor.hex, borderWidth: '3px', borderStyle: 'solid' }}>
+                                      <img src={ticket.qrCodeUrl} alt="QR Code" className="w-32 h-32 rounded-lg" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-36 h-36 bg-white rounded-xl flex items-center justify-center shadow-sm" style={{ borderColor: tierColor.hex, borderWidth: '3px', borderStyle: 'solid' }}>
+                                      <QrCode className="h-16 w-16 text-muted-foreground/40" />
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-600 mt-3 text-center font-bold">
+                                  Show QR at entrance
+                                </p>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-3 text-center font-medium">
-                                Show QR at entrance
-                              </p>
                             </div>
                           </div>
                         </CardContent>
@@ -296,10 +313,17 @@ export default function MyTicketsPage() {
                     // Unchecked tickets from past events should still be visible normally
                     const wasAttended = ticket.status === 'CHECKED_IN';
                     const wasCancelled = ticket.status === 'CANCELLED' || ticket.status === 'REFUNDED';
-                    
+
+                    // Get tier colors based on price ranking
+                    const allTierPrices = ticket.event?.tiers?.map(t => t.price) || [];
+                    const currentTierPrice = ticket.tier?.price || 0;
+                    const tierColor = allTierPrices.length > 0
+                      ? getTierColorByPrice(currentTierPrice, allTierPrices)
+                      : getDefaultTierColor();
+
                     return (
-                      <Card 
-                        key={ticket.id} 
+                      <Card
+                        key={ticket.id}
                         className={cn(
                           "overflow-hidden transition-all",
                           wasAttended && "opacity-60 hover:opacity-90",
@@ -310,25 +334,26 @@ export default function MyTicketsPage() {
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
                             <div className={cn(
-                              "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0",
-                              wasAttended ? "bg-green-500/10" : wasCancelled ? "bg-red-500/10" : "bg-muted"
-                            )}>
+                              "w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs",
+                              wasAttended ? "bg-green-500/10" : wasCancelled ? "bg-red-500/10" : tierColor.bg,
+                              wasAttended ? "text-green-600" : wasCancelled ? "text-red-400" : tierColor.text
+                            )} style={{ borderColor: tierColor.hex, borderWidth: '2px', borderStyle: 'solid' }}>
                               {wasAttended ? (
-                                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                                <CheckCircle2 className="h-7 w-7" />
+                              ) : wasCancelled ? (
+                                <Ticket className="h-7 w-7" />
                               ) : (
-                                <Ticket className={cn(
-                                  "h-6 w-6",
-                                  wasCancelled ? "text-red-400" : "text-muted-foreground"
-                                )} />
+                                <span className="text-center leading-tight">#{tierColor.rank}</span>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-medium text-sm line-clamp-1">{ticket.event?.title}</h3>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              <div className="flex items-center gap-2 text-xs mt-0.5">
+                                <Badge variant="outline" className="font-bold">{ticket.tier?.name}</Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                                 <Calendar className="h-3 w-3" />
                                 <span>{formatDate(ticket.event?.startDate || new Date())}</span>
-                                <span>•</span>
-                                <span>{ticket.tier?.name}</span>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">

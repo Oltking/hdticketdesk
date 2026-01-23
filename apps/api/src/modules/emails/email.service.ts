@@ -176,12 +176,20 @@ export class EmailService {
       eventLatitude?: number | null;
       eventLongitude?: number | null;
       tierName: string;
+      tierPrice: number;
+      allTierPrices: number[];
       buyerName: string;
       qrCodeUrl: string;
       isOnline?: boolean;
       onlineLink?: string;
     },
   ) {
+    // Import color utility
+    const { getTierColorByPrice } = await import('../../common/utils/tier-colors');
+
+    // Get tier color based on price ranking
+    const tierColor = getTierColorByPrice(data.tierPrice, data.allTierPrices);
+
     const formattedDate = data.eventDate.toLocaleDateString('en-NG', {
       weekday: 'long',
       year: 'numeric',
@@ -211,28 +219,29 @@ export class EmailService {
         <h1 style="color: #1f2937; font-size: 24px; margin-bottom: 8px;">🎉 Ticket Confirmed!</h1>
         <p style="color: #6b7280; margin-bottom: 24px;">Hi ${data.buyerName}, your ticket is ready. See you at the event!</p>
         
-        <div style="background: linear-gradient(135deg, #7c3aed, #a855f7); border-radius: 16px; padding: 24px; color: white; margin-bottom: 24px;">
-          <h2 style="font-size: 20px; margin: 0 0 16px 0; font-weight: 700;">${data.eventTitle}</h2>
-          <table style="width: 100%;" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding: 4px 0;">
-                <span style="opacity: 0.9;">📅 ${formattedDate}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0;">
-                ${data.isOnline 
-                  ? '<span style="opacity: 0.9;">💻 Online Event</span>' 
-                  : `<span style="opacity: 0.9;">📍 ${data.eventLocation}</span>`
-                }
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 0;">
-                <span style="opacity: 0.9;">🎟️ ${data.tierName}</span>
-              </td>
-            </tr>
-          </table>
+        <div style="background: ${tierColor.bg}; border: 3px solid ${tierColor.border}; border-radius: 16px; padding: 32px; color: ${tierColor.text}; margin-bottom: 24px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="font-size: 36px; margin: 0; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">${data.tierName}</h2>
+            <p style="margin: 8px 0 0; font-size: 12px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px;">${tierColor.colorName} Tier • Rank #${tierColor.rank}</p>
+          </div>
+          <div style="border-top: 1px solid ${tierColor.text}20; padding-top: 16px;">
+            <h3 style="font-size: 18px; margin: 0 0 12px 0; font-weight: 600;">${data.eventTitle}</h3>
+            <table style="width: 100%;" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding: 4px 0;">
+                  <span style="opacity: 0.9;">📅 ${formattedDate}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 4px 0;">
+                  ${data.isOnline
+                    ? '<span style="opacity: 0.9;">💻 Online Event</span>'
+                    : `<span style="opacity: 0.9;">📍 ${data.eventLocation}</span>`
+                  }
+                </td>
+              </tr>
+            </table>
+          </div>
         </div>
         
         ${googleMapsUrl ? `
