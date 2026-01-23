@@ -190,7 +190,7 @@ export default function PrivacyPage() {
               {/* Footer Note */}
               <div className="text-center pt-8 border-t">
                 <p className="text-sm text-muted-foreground">
-                  By using hdticketdesk, you agree to this Privacy Policy. We may update this policy 
+                  By using HDTicketDesk, you agree to this Privacy Policy. We may update this policy 
                   from time to time, and will notify you of any significant changes.
                 </p>
               </div>

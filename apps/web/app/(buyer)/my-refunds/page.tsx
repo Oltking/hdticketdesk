@@ -189,7 +189,7 @@ export default function RefundsPage() {
               <div className="relative w-16 h-16 mb-4 opacity-20">
                 <Image
                   src="/icon.svg"
-                  alt="hdticketdesk"
+                  alt="HDTicketDesk"
                   fill
                   className="object-contain"
                 />

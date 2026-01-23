@@ -253,7 +253,7 @@ export default function AdminUsersPage() {
                       <td colSpan={5}>
                         <div className="flex flex-col items-center justify-center py-12">
                           <div className="relative w-16 h-16 mb-4 opacity-20">
-                            <Image src="/icon.svg" alt="hdticketdesk" fill className="object-contain" />
+                            <Image src="/icon.svg" alt="HDTicketDesk" fill className="object-contain" />
                           </div>
                           <p className="text-muted-foreground">
                             {searchQuery || roleFilter !== 'all' || verifiedFilter !== 'all' 

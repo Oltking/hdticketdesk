@@ -1,4 +1,4 @@
-export const APP_NAME = 'hdticketdesk';
+export const APP_NAME = 'HDTicketDesk';
 export const APP_DESCRIPTION = "Africa's Premier Event Ticketing Platform";
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://hdticketdesk.com';
 

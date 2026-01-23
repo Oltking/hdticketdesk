@@ -36,7 +36,7 @@ export default function HelpPage() {
     {
       icon: CreditCard,
       title: 'Payments & Payouts',
-      description: 'Managing money on hdticketdesk',
+      description: 'Managing money on HDTicketDesk',
       color: 'from-green-500 to-emerald-500',
       articles: [
         'Understanding the 5% fee',
@@ -264,7 +264,7 @@ export default function HelpPage() {
               Ready to Get Started?
             </h2>
             <p className="text-white/80 mb-8 max-w-xl mx-auto">
-              Create your account and start exploring hdticketdesk today.
+              Create your account and start exploring HDTicketDesk today.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link href="/signup" className="inline-flex items-center justify-center px-8 py-3 bg-white text-primary font-semibold rounded-full hover:bg-white/90 transition-colors">

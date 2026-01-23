@@ -188,42 +188,42 @@ export default function PaymentHistoryPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-3 md:grid-cols-3 mb-5">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-green-500/10">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Sales</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(totalSales)}</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(totalSales)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Wallet className="h-5 w-5 text-blue-500" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-blue-500/10">
+                  <Wallet className="h-4 w-4 text-blue-500" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Withdrawn</p>
-                  <p className="text-xl font-bold text-blue-600">{formatCurrency(totalWithdrawals)}</p>
+                  <p className="text-lg font-bold text-blue-600">{formatCurrency(totalWithdrawals)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-red-500/10">
-                  <TrendingDown className="h-5 w-5 text-red-500" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-red-500/10">
+                  <TrendingDown className="h-4 w-4 text-red-500" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Refunds</p>
-                  <p className="text-xl font-bold text-red-600">{formatCurrency(totalRefunds)}</p>
+                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalRefunds)}</p>
                 </div>
               </div>
             </CardContent>

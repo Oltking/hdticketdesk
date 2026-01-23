@@ -118,16 +118,16 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 mb-5">
           <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tickets Sold</p>
-                  <p className="text-3xl font-bold">{analytics?.totalSold || 0}</p>
+                  <p className="text-xs text-muted-foreground">Tickets Sold</p>
+                  <p className="text-2xl font-bold">{analytics?.totalSold || 0}</p>
                 </div>
-                <div className="p-3 rounded-full bg-blue-500/10">
-                  <Ticket className="h-6 w-6 text-blue-500" />
+                <div className="p-2 rounded-full bg-blue-500/10">
+                  <Ticket className="h-4 w-4 text-blue-500" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -137,28 +137,28 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-3xl font-bold text-green-600">{formatCurrency(analytics?.totalRevenue || 0)}</p>
+                  <p className="text-xs text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics?.totalRevenue || 0)}</p>
                 </div>
-                <div className="p-3 rounded-full bg-green-500/10">
-                  <DollarSign className="h-6 w-6 text-green-500" />
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <DollarSign className="h-4 w-4 text-green-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Checked In</p>
-                  <p className="text-3xl font-bold">{analytics?.checkedIn || 0}</p>
+                  <p className="text-xs text-muted-foreground">Checked In</p>
+                  <p className="text-2xl font-bold">{analytics?.checkedIn || 0}</p>
                 </div>
-                <div className="p-3 rounded-full bg-purple-500/10">
-                  <UserCheck className="h-6 w-6 text-purple-500" />
+                <div className="p-2 rounded-full bg-purple-500/10">
+                  <UserCheck className="h-4 w-4 text-purple-500" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -168,14 +168,14 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Check-in Rate</p>
-                  <p className="text-3xl font-bold">{analytics?.checkInRate || 0}%</p>
+                  <p className="text-xs text-muted-foreground">Check-in Rate</p>
+                  <p className="text-2xl font-bold">{analytics?.checkInRate || 0}%</p>
                 </div>
-                <div className="p-3 rounded-full bg-orange-500/10">
-                  <Percent className="h-6 w-6 text-orange-500" />
+                <div className="p-2 rounded-full bg-orange-500/10">
+                  <Percent className="h-4 w-4 text-orange-500" />
                 </div>
               </div>
               {/* Progress bar */}

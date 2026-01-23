@@ -20,7 +20,7 @@ export default function AboutPage() {
               <span className="text-sm font-medium text-primary">Africa&apos;s Premier Event Platform</span>
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold mb-6">
-              About <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500">hdticketdesk</span>
+              About <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-pink-500">HDTicketDesk</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               We&apos;re building the future of event ticketing in Africa. Our platform empowers creators, 
@@ -132,7 +132,7 @@ export default function AboutPage() {
               Ready to Create Your Next Event?
             </h2>
             <p className="text-lg text-white/80 mb-8 max-w-2xl mx-auto">
-              Join thousands of creators and organizers who trust hdticketdesk for their events.
+              Join thousands of creators and organizers who trust HDTicketDesk for their events.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="/signup?role=organizer" className="inline-flex items-center justify-center px-8 py-3 bg-white text-primary font-semibold rounded-full hover:bg-white/90 transition-colors">

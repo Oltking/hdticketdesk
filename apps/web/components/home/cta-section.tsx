@@ -38,7 +38,7 @@ export function CTASection() {
           </h2>
           
           <p className="text-lg text-white/80 mb-10 max-w-xl mx-auto">
-            Join thousands of organizers who trust hdticketdesk to power their events. 
+            Join thousands of organizers who trust HDTicketDesk to power their events. 
             Easy setup, secure payments, and instant payouts.
           </p>
           

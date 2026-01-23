@@ -8,7 +8,7 @@ export default function TermsPage() {
       icon: BookOpen,
       title: '1. Acceptance of Terms',
       content: [
-        'By accessing or using hdticketdesk, you agree to be bound by these Terms of Service.',
+        'By accessing or using HDTicketDesk, you agree to be bound by these Terms of Service.',
         'If you do not agree to these terms, please do not use our platform.',
         'We reserve the right to update these terms at any time with notice to users.',
         'Continued use after changes constitutes acceptance of the new terms.',
@@ -62,7 +62,7 @@ export default function TermsPage() {
       icon: Shield,
       title: '6. Intellectual Property',
       content: [
-        'hdticketdesk and its logo are trademarks of our company.',
+        'HDTicketDesk and its logo are trademarks of our company.',
         'Event content remains the property of respective organizers.',
         'You may not copy, modify, or distribute our platform without permission.',
         'We respect intellectual property rights and expect users to do the same.',
@@ -72,7 +72,7 @@ export default function TermsPage() {
       icon: AlertTriangle,
       title: '7. Limitation of Liability',
       content: [
-        'hdticketdesk is provided "as is" without warranties of any kind.',
+        'HDTicketDesk is provided "as is" without warranties of any kind.',
         'We are not liable for event cancellations, changes, or quality.',
         'Our liability is limited to the amount of fees paid to us.',
         'We are not responsible for user-generated content or third-party services.',
@@ -100,7 +100,7 @@ export default function TermsPage() {
                 Terms of Service
               </h1>
               <p className="text-lg text-muted-foreground mb-4">
-                Please read these terms carefully before using hdticketdesk.
+                Please read these terms carefully before using HDTicketDesk.
               </p>
               <p className="text-sm text-muted-foreground">
                 Last updated: January 2025
@@ -198,7 +198,7 @@ export default function TermsPage() {
               {/* Footer Note */}
               <div className="text-center pt-8 border-t">
                 <p className="text-sm text-muted-foreground">
-                  By using hdticketdesk, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
+                  By using HDTicketDesk, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
                 </p>
               </div>
             </div>

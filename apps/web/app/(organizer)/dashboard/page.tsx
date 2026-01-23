@@ -243,24 +243,24 @@ export default function DashboardPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 mb-5">
           <Card className="border-l-4 border-l-primary">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Events</p>
+                  <p className="text-xs text-muted-foreground">Total Events</p>
                   {loading ? (
-                    <Skeleton className="h-8 w-16 mt-1" />
+                    <Skeleton className="h-6 w-12 mt-1" />
                   ) : (
-                    <p className="text-3xl font-bold">{events.length}</p>
+                    <p className="text-2xl font-bold">{events.length}</p>
                   )}
                 </div>
-                <div className="p-3 rounded-full bg-primary/10">
-                  <Calendar className="h-6 w-6 text-primary" />
+                <div className="p-2 rounded-full bg-primary/10">
+                  <Calendar className="h-4 w-4 text-primary" />
                 </div>
               </div>
               {!loading && (
-                <div className="flex gap-3 mt-3 text-xs">
+                <div className="flex gap-2 mt-2 text-xs">
                   <span className="flex items-center gap-1 text-green-600">
                     <CheckCircle2 className="h-3 w-3" />
                     {publishedEvents} Published
@@ -275,22 +275,22 @@ export default function DashboardPage() {
           </Card>
 
           <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tickets Sold</p>
+                  <p className="text-xs text-muted-foreground">Tickets Sold</p>
                   {loading ? (
-                    <Skeleton className="h-8 w-16 mt-1" />
+                    <Skeleton className="h-6 w-12 mt-1" />
                   ) : (
-                    <p className="text-3xl font-bold">{totalSold}</p>
+                    <p className="text-2xl font-bold">{totalSold}</p>
                   )}
                 </div>
-                <div className="p-3 rounded-full bg-blue-500/10">
-                  <Ticket className="h-6 w-6 text-blue-500" />
+                <div className="p-2 rounded-full bg-blue-500/10">
+                  <Ticket className="h-4 w-4 text-blue-500" />
                 </div>
               </div>
               {!loading && totalSold > 0 && (
-                <p className="text-xs text-muted-foreground mt-3">
+                <p className="text-xs text-muted-foreground mt-2">
                   Across all your events
                 </p>
               )}
@@ -298,40 +298,40 @@ export default function DashboardPage() {
           </Card>
 
           <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
+                  <p className="text-xs text-muted-foreground">Total Revenue</p>
                   {loading ? (
-                    <Skeleton className="h-8 w-24 mt-1" />
+                    <Skeleton className="h-6 w-16 mt-1" />
                   ) : (
-                    <p className="text-3xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
                   )}
                 </div>
-                <div className="p-3 rounded-full bg-green-500/10">
-                  <TrendingUp className="h-6 w-6 text-green-500" />
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-yellow-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Available Balance</p>
+                  <p className="text-xs text-muted-foreground">Available Balance</p>
                   {loading ? (
-                    <Skeleton className="h-8 w-24 mt-1" />
+                    <Skeleton className="h-6 w-16 mt-1" />
                   ) : (
-                    <p className="text-3xl font-bold">{formatCurrency(balance.available)}</p>
+                    <p className="text-2xl font-bold">{formatCurrency(balance.available)}</p>
                   )}
                 </div>
-                <div className="p-3 rounded-full bg-yellow-500/10">
-                  <DollarSign className="h-6 w-6 text-yellow-500" />
+                <div className="p-2 rounded-full bg-yellow-500/10">
+                  <DollarSign className="h-4 w-4 text-yellow-500" />
                 </div>
               </div>
               {!loading && balance.pending > 0 && (
-                <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+                <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   {formatCurrency(balance.pending)} pending
                 </p>
@@ -341,46 +341,46 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-3 md:grid-cols-3 mb-5">
           <Link href="/payments" className="block">
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BarChart3 className="h-5 w-5 text-primary" />
+              <CardContent className="p-3 flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <BarChart3 className="h-4 w-4 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">Payment History</p>
-                  <p className="text-xs text-muted-foreground">View all transactions</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Payment History</p>
+                  <p className="text-xs text-muted-foreground truncate">View all transactions</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               </CardContent>
             </Card>
           </Link>
           <Link href="/payouts" className="block">
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <DollarSign className="h-5 w-5 text-green-500" />
+              <CardContent className="p-3 flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-green-500/10">
+                  <DollarSign className="h-4 w-4 text-green-500" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">Payouts</p>
-                  <p className="text-xs text-muted-foreground">Withdraw your earnings</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Payouts</p>
+                  <p className="text-xs text-muted-foreground truncate">Withdraw your earnings</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               </CardContent>
             </Card>
           </Link>
           <Link href="/settings" className="block">
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Users className="h-5 w-5 text-blue-500" />
+              <CardContent className="p-3 flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-blue-500/10">
+                  <Users className="h-4 w-4 text-blue-500" />
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">Settings</p>
-                  <p className="text-xs text-muted-foreground">Manage your profile</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Settings</p>
+                  <p className="text-xs text-muted-foreground truncate">Manage your profile</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
               </CardContent>
             </Card>
           </Link>
