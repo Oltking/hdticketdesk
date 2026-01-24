@@ -34,6 +34,8 @@ export class MonnifyService {
   private apiKey: string;
   private secretKey: string;
   private contractCode: string;
+  private defaultNin: string;
+  private defaultBvn: string;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
 
@@ -42,6 +44,8 @@ export class MonnifyService {
     this.apiKey = this.configService.get<string>('MONNIFY_API_KEY') || '';
     this.secretKey = this.configService.get<string>('MONNIFY_SECRET_KEY') || '';
     this.contractCode = this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '';
+    this.defaultNin = this.configService.get<string>('MONNIFY_DEFAULT_NIN') || '';
+    this.defaultBvn = this.configService.get<string>('MONNIFY_DEFAULT_BVN') || '';
   }
 
   /**
@@ -102,7 +106,8 @@ export class MonnifyService {
       throw new Error('Valid organizer email is required to create virtual account');
     }
 
-    const requestBody = {
+    // Build request body - Monnify requires either NIN or BVN for reserved accounts
+    const requestBody: Record<string, any> = {
       accountReference,
       accountName: sanitizedName, // Monnify will prefix with your business name
       currencyCode: 'NGN',
@@ -112,13 +117,26 @@ export class MonnifyService {
       getAllAvailableBanks: true, // Let Monnify use available banks
     };
 
+    // Add NIN or BVN - required by Monnify for reserved account creation
+    // Priority: NIN > BVN (NIN is preferred by Monnify)
+    if (this.defaultNin) {
+      requestBody.nin = this.defaultNin;
+      this.logger.log(`Using default NIN for virtual account creation`);
+    } else if (this.defaultBvn) {
+      requestBody.bvn = this.defaultBvn;
+      this.logger.log(`Using default BVN for virtual account creation`);
+    } else {
+      this.logger.warn('No NIN or BVN configured - virtual account creation may fail');
+      this.logger.warn('Set MONNIFY_DEFAULT_NIN or MONNIFY_DEFAULT_BVN in your environment');
+    }
+
     this.logger.log(`Creating virtual account for ${organizerId}`);
-    this.logger.log(`Request: ${JSON.stringify(requestBody)}`);
+    this.logger.log(`Request: ${JSON.stringify({ ...requestBody, nin: requestBody.nin ? '***' : undefined, bvn: requestBody.bvn ? '***' : undefined })}`);
     this.logger.log(`Contract Code: ${this.contractCode}`);
     this.logger.log(`Base URL: ${this.baseUrl}`);
 
-    // Try v1 endpoint first (more widely supported)
-    const response = await fetch(`${this.baseUrl}/api/v1/bank-transfer/reserved-accounts`, {
+    // Use v2 endpoint which supports NIN/BVN
+    const response = await fetch(`${this.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -137,7 +155,9 @@ export class MonnifyService {
       // Provide more helpful error messages
       let errorMessage = data.responseMessage || 'Failed to create virtual account';
       
-      if (errorMessage.includes('business category')) {
+      if (errorMessage.toLowerCase().includes('bvn') || errorMessage.toLowerCase().includes('nin')) {
+        errorMessage = 'NIN or BVN is required. Please set MONNIFY_DEFAULT_NIN or MONNIFY_DEFAULT_BVN in your environment configuration.';
+      } else if (errorMessage.includes('business category')) {
         errorMessage = 'Reserved accounts not enabled for your Monnify account. Please contact Monnify support.';
       } else if (errorMessage.includes('contract')) {
         errorMessage = 'Invalid contract code. Please verify MONNIFY_CONTRACT_CODE in your configuration.';

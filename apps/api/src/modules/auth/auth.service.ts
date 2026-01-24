@@ -23,6 +23,7 @@ export interface GoogleUser {
 }
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { timingSafeCompare } from '../../common/utils/security.utils';
 
 // Custom exception for unverified email that includes userId
 export class EmailNotVerifiedException extends ForbiddenException {
@@ -515,7 +516,8 @@ export class AuthService {
       throw new BadRequestException('OTP has expired');
     }
 
-    if (user.loginOtp !== otp) {
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    if (!timingSafeCompare(user.loginOtp, otp)) {
       throw new UnauthorizedException('Invalid OTP');
     }
 

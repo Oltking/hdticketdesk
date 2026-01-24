@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../emails/email.service';
 import { QrService } from '../qr/qr.service';
+import * as crypto from 'crypto';
 
 interface CreateTicketData {
   eventId: string;
@@ -330,12 +331,21 @@ export class TicketsService {
   }
 
   async validateQr(qrCode: string, eventId: string) {
+    // SECURITY: Sanitize input
+    const sanitizedQrCode = qrCode?.trim();
+    if (!sanitizedQrCode || sanitizedQrCode.length > 100) {
+      return {
+        valid: false,
+        message: 'Invalid QR code format',
+      };
+    }
+
     // Find ticket by QR code or ticket number
     const ticket = await this.prisma.ticket.findFirst({
       where: {
         OR: [
-          { qrCode },
-          { ticketNumber: qrCode },
+          { qrCode: sanitizedQrCode },
+          { ticketNumber: sanitizedQrCode },
         ],
         eventId,
       },
@@ -346,6 +356,8 @@ export class TicketsService {
     });
 
     if (!ticket) {
+      // SECURITY: Add small random delay to prevent timing-based enumeration
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
       return {
         valid: false,
         message: 'Invalid QR code or ticket not found for this event',

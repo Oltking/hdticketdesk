@@ -168,12 +168,38 @@ export class WithdrawalsService {
       throw new NotFoundException('Withdrawal request not found');
     }
 
-    if (withdrawal.otpCode !== otp) {
-      throw new BadRequestException('Invalid OTP');
+    // SECURITY: Check OTP attempt limit (max 5 attempts)
+    const maxAttempts = 5;
+    if ((withdrawal.otpAttempts || 0) >= maxAttempts) {
+      // Cancel the withdrawal request after too many failed attempts
+      await this.prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: {
+          status: 'FAILED',
+          failureReason: 'Too many failed OTP attempts',
+          otpCode: null,
+          otpExpiresAt: null,
+        },
+      });
+      throw new BadRequestException('Too many failed attempts. Withdrawal request cancelled for security.');
     }
 
     if (withdrawal.otpExpiresAt && withdrawal.otpExpiresAt < new Date()) {
       throw new BadRequestException('OTP has expired');
+    }
+
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    const otpMatch = withdrawal.otpCode && otp && 
+      crypto.timingSafeEqual(Buffer.from(withdrawal.otpCode), Buffer.from(otp.padEnd(withdrawal.otpCode.length)));
+    
+    if (!otpMatch) {
+      // Increment attempt counter
+      await this.prisma.withdrawal.update({
+        where: { id: withdrawalId },
+        data: { otpAttempts: (withdrawal.otpAttempts || 0) + 1 },
+      });
+      const remaining = maxAttempts - (withdrawal.otpAttempts || 0) - 1;
+      throw new BadRequestException(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
     }
 
     // Update status to processing

@@ -4,6 +4,18 @@ import { Request, Response } from 'express';
 import { PaymentsService } from './payments.service';
 import { MonnifyService } from './monnify.service';
 
+// SECURITY: Monnify IP whitelist for webhook validation
+// These are Monnify's official webhook IP addresses
+// Update this list if Monnify adds new IPs
+const MONNIFY_WEBHOOK_IPS = [
+  '35.242.133.146',  // Monnify production
+  '34.89.50.88',     // Monnify production
+  '34.141.78.93',    // Monnify production  
+  '35.246.66.244',   // Monnify sandbox
+  '127.0.0.1',       // Localhost for development
+  '::1',             // IPv6 localhost
+];
+
 @ApiTags('Webhooks')
 @Controller('webhooks')
 export class WebhooksController {
@@ -15,19 +27,47 @@ export class WebhooksController {
   ) {}
 
   /**
+   * Extract real IP from request, handling proxies
+   */
+  private getClientIp(req: Request): string {
+    const forwardedFor = req.headers['x-forwarded-for'];
+    if (forwardedFor) {
+      const ips = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor).split(',');
+      return ips[0].trim();
+    }
+    const realIp = req.headers['x-real-ip'];
+    if (realIp) {
+      return Array.isArray(realIp) ? realIp[0] : realIp;
+    }
+    return req.socket?.remoteAddress || req.ip || 'unknown';
+  }
+
+  /**
    * Monnify webhook handler
    * Handles: SUCCESSFUL_TRANSACTION, FAILED_TRANSACTION, SUCCESSFUL_DISBURSEMENT, FAILED_DISBURSEMENT
    * 
    * IMPORTANT: Always return 200 OK to Monnify to prevent infinite retries
    * Log all webhook data for debugging payment issues
+   * 
+   * SECURITY: Validates webhook source IP and transaction hash
    */
   @Post('monnify')
   @ApiExcludeEndpoint()
   async handleMonnifyWebhook(@Req() req: Request, @Res() res: Response) {
+    const clientIp = this.getClientIp(req);
     const { eventType, eventData } = req.body;
     
+    // SECURITY: Validate webhook source IP in production
+    if (process.env.NODE_ENV === 'production') {
+      if (!MONNIFY_WEBHOOK_IPS.includes(clientIp)) {
+        this.logger.warn(`SECURITY: Webhook rejected from unauthorized IP: ${clientIp}`);
+        // Return 200 to avoid revealing IP validation exists
+        return res.status(HttpStatus.OK).send('OK');
+      }
+    }
+    
     // Log full webhook payload for debugging (sanitize sensitive data in production)
-    this.logger.log(`Monnify webhook received: ${eventType}`);
+    this.logger.log(`Monnify webhook received: ${eventType} from IP: ${clientIp}`);
     this.logger.debug(`Webhook payload: ${JSON.stringify(eventData)}`);
 
     // Validate webhook has required fields

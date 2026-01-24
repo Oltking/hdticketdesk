@@ -62,10 +62,12 @@ export class AuthController {
 
   // ==================== VERIFY OTP (Generic) ====================
   @Post('verify-otp')
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // SECURITY: Strict limit - 5 OTP attempts per minute to prevent brute force
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP (email verification or login)' })
   @ApiResponse({ status: 200, description: 'OTP verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  @ApiResponse({ status: 429, description: 'Too many attempts' })
   async verifyOtp(
     @Body() body: { userId?: string; email?: string; code: string; type: string },
     @Req() req: Request,
@@ -115,9 +117,11 @@ export class AuthController {
 
   // ==================== RESEND OTP ====================
   @Post('resend-otp')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // SECURITY: 3 resend attempts per minute
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend OTP for email verification or new device login' })
   @ApiResponse({ status: 200, description: 'OTP sent successfully' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async resendOtp(@Body() body: { userId?: string; email?: string; type: string }) {
     // EMAIL_VERIFICATION can accept either userId or email
     if (body.type === 'EMAIL_VERIFICATION') {
@@ -157,9 +161,11 @@ export class AuthController {
 
   // ==================== RESEND VERIFICATION EMAIL ====================
   @Post('resend-verification')
+  @Throttle({ default: { limit: 3, ttl: 60000 } }) // SECURITY: 3 resend attempts per minute
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend verification email' })
   @ApiResponse({ status: 200, description: 'Verification email sent' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async resendVerification(@Body() body: { email: string }) {
     return this.authService.resendVerificationEmail(body.email);
   }
@@ -176,19 +182,23 @@ export class AuthController {
 
   // ==================== FORGOT PASSWORD ====================
   @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 300000 } }) // SECURITY: 3 attempts per 5 minutes to prevent email enumeration attacks
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset' })
   @ApiResponse({ status: 200, description: 'Reset email sent if user exists' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async forgotPassword(@Body() body: { email: string }) {
     return this.authService.forgotPassword(body.email);
   }
 
   // ==================== RESET PASSWORD ====================
   @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 300000 } }) // SECURITY: 5 attempts per 5 minutes
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password with token' })
   @ApiResponse({ status: 200, description: 'Password reset successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
   async resetPassword(@Body() body: { token: string; password: string }) {
     return this.authService.resetPassword(body.token, body.password);
   }

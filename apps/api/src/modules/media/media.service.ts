@@ -30,21 +30,57 @@ export class MediaService {
     file: Express.Multer.File,
     folder: string = 'hdticketdesk',
   ): Promise<UploadedMedia> {
-    // Validate file
+    // Validate file exists
     if (!file) {
       throw new BadRequestException('No file provided');
     }
 
+    // SECURITY: Validate MIME type
     const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedMimes.includes(file.mimetype)) {
       throw new BadRequestException('Invalid file type. Allowed: JPG, PNG, WebP, GIF');
     }
 
-    // Max 5MB
+    // SECURITY: Validate file extension matches MIME type
+    const mimeToExt: Record<string, string[]> = {
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'image/gif': ['.gif'],
+    };
+    const originalName = file.originalname?.toLowerCase() || '';
+    const allowedExts = mimeToExt[file.mimetype] || [];
+    const hasValidExt = allowedExts.some(ext => originalName.endsWith(ext));
+    if (!hasValidExt && originalName) {
+      throw new BadRequestException('File extension does not match file type');
+    }
+
+    // SECURITY: Check magic bytes to verify actual file type
+    const magicBytes: Record<string, number[][]> = {
+      'image/jpeg': [[0xFF, 0xD8, 0xFF]],
+      'image/png': [[0x89, 0x50, 0x4E, 0x47]],
+      'image/gif': [[0x47, 0x49, 0x46, 0x38]],
+      'image/webp': [[0x52, 0x49, 0x46, 0x46]], // RIFF header
+    };
+    const expectedMagic = magicBytes[file.mimetype];
+    if (expectedMagic && file.buffer) {
+      const fileHeader = Array.from(file.buffer.slice(0, 12));
+      const isValidMagic = expectedMagic.some(magic => 
+        magic.every((byte, index) => fileHeader[index] === byte)
+      );
+      if (!isValidMagic) {
+        throw new BadRequestException('File content does not match declared type');
+      }
+    }
+
+    // SECURITY: Max 5MB file size
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       throw new BadRequestException('File too large. Max size: 5MB');
     }
+
+    // SECURITY: Sanitize folder name to prevent path traversal
+    const sanitizedFolder = folder.replace(/[^a-zA-Z0-9/_-]/g, '').substring(0, 100);
 
     try {
       // Upload to Cloudinary
@@ -52,7 +88,7 @@ export class MediaService {
         cloudinary.uploader
           .upload_stream(
             {
-              folder,
+              folder: sanitizedFolder,
               resource_type: 'image',
               transformation: [
                 { width: 1200, height: 1200, crop: 'limit' },

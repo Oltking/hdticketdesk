@@ -34,7 +34,17 @@ export class AdminService {
       }),
     ]);
 
-    // Calculate platform stats from ledger entries
+    // Calculate platform stats from successful payments (gross revenue)
+    const paymentStats = await this.prisma.payment.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        status: 'SUCCESS',
+      },
+    });
+
+    // Calculate organizer earnings from ledger entries (net to organizers)
     const ledgerStats = await this.prisma.ledgerEntry.aggregate({
       _sum: {
         amount: true,
@@ -44,14 +54,26 @@ export class AdminService {
       },
     });
 
-    const totalRevenue = ledgerStats._sum.amount 
+    // Gross revenue = total amount paid by buyers
+    const grossRevenue = paymentStats._sum.amount 
+      ? (paymentStats._sum.amount instanceof Decimal 
+          ? paymentStats._sum.amount.toNumber() 
+          : Number(paymentStats._sum.amount))
+      : 0;
+
+    // Net to organizers = sum of ledger TICKET_SALE entries
+    const organizerEarnings = ledgerStats._sum.amount 
       ? (ledgerStats._sum.amount instanceof Decimal 
           ? ledgerStats._sum.amount.toNumber() 
           : Number(ledgerStats._sum.amount))
       : 0;
 
-    // Calculate platform fee (5% of total revenue collected)
-    const platformFees = totalRevenue * 0.05 / 0.95; // Reverse calculate from net amount
+    // Platform fees = gross revenue - what organizers received
+    // This is accurate because it accounts for both fee models (pass to buyer or absorb)
+    const platformFees = grossRevenue - organizerEarnings;
+
+    // totalRevenue for display = gross revenue (what was collected)
+    const totalRevenue = grossRevenue;
 
     return {
       totalUsers,

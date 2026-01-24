@@ -24,8 +24,31 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
   const frontendUrl = configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
 
-  // Security
-  app.use(helmet());
+  // Security - Enhanced Helmet Configuration
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+        scriptSrc: ["'self'"],
+        connectSrc: ["'self'", frontendUrl],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Allow embedding for payment iframes
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    noSniff: true,
+    xssFilter: true,
+    hidePoweredBy: true,
+  }));
 
   // Cookie parser for OAuth state management
   app.use(cookieParser());
