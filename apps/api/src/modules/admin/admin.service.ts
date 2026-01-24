@@ -34,7 +34,14 @@ export class AdminService {
       }),
     ]);
 
-    // Calculate platform stats from successful payments (gross revenue)
+    // =============================================================================
+    // PLATFORM FEE CALCULATION - SIMPLE METHOD
+    // =============================================================================
+    // Platform fee = 5% of the TOTAL AMOUNT PAID by buyers
+    // This is straightforward: whatever entered the account, take 5% of it.
+    // =============================================================================
+
+    // Get total amount paid from successful payments
     const paymentStats = await this.prisma.payment.aggregate({
       _sum: {
         amount: true,
@@ -44,36 +51,15 @@ export class AdminService {
       },
     });
 
-    // Calculate organizer earnings from ledger entries (net to organizers)
-    const ledgerStats = await this.prisma.ledgerEntry.aggregate({
-      _sum: {
-        amount: true,
-      },
-      where: {
-        type: 'TICKET_SALE',
-      },
-    });
-
-    // Gross revenue = total amount paid by buyers
-    const grossRevenue = paymentStats._sum.amount 
+    // Total revenue = total amount paid by buyers
+    const totalRevenue = paymentStats._sum.amount 
       ? (paymentStats._sum.amount instanceof Decimal 
           ? paymentStats._sum.amount.toNumber() 
           : Number(paymentStats._sum.amount))
       : 0;
 
-    // Net to organizers = sum of ledger TICKET_SALE entries
-    const organizerEarnings = ledgerStats._sum.amount 
-      ? (ledgerStats._sum.amount instanceof Decimal 
-          ? ledgerStats._sum.amount.toNumber() 
-          : Number(ledgerStats._sum.amount))
-      : 0;
-
-    // Platform fees = gross revenue - what organizers received
-    // This is accurate because it accounts for both fee models (pass to buyer or absorb)
-    const platformFees = grossRevenue - organizerEarnings;
-
-    // totalRevenue for display = gross revenue (what was collected)
-    const totalRevenue = grossRevenue;
+    // Platform fee = 5% of total revenue (simple and straightforward)
+    const platformFees = totalRevenue * 0.05;
 
     return {
       totalUsers,
