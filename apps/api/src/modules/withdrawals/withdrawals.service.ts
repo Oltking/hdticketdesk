@@ -233,12 +233,15 @@ export class WithdrawalsService {
       return;
     }
 
-    try {
-      // Get withdrawal amount
-      const withdrawalAmount = withdrawal.amount instanceof Decimal 
-        ? withdrawal.amount.toNumber() 
-        : Number(withdrawal.amount);
+    // Get withdrawal amount
+    const withdrawalAmount = withdrawal.amount instanceof Decimal 
+      ? withdrawal.amount.toNumber() 
+      : Number(withdrawal.amount);
 
+    // Track if balance was deducted (for rollback on failure)
+    let balanceDeducted = false;
+
+    try {
       this.logger.log(`Initiating Monnify transfer of ${withdrawalAmount} to ${withdrawal.accountNumber}`);
       
       // Initiate transfer via Monnify
@@ -262,15 +265,16 @@ export class WithdrawalsService {
         },
       });
 
-      // Deduct from available balance immediately (will be restored if transfer fails via webhook)
+      // Deduct from available balance ONLY after Monnify accepts the transfer
       await this.prisma.organizerProfile.update({
         where: { id: withdrawal.organizerId },
         data: { 
           availableBalance: { decrement: withdrawal.amount },
         },
       });
+      balanceDeducted = true;
 
-      // Record in ledger
+      // Record in ledger ONLY after balance is deducted
       await this.ledgerService.recordWithdrawal(
         withdrawal.organizerId, 
         withdrawalId, 
@@ -311,6 +315,22 @@ export class WithdrawalsService {
     } catch (error: any) {
       this.logger.error(`Withdrawal ${withdrawalId} failed:`, error);
       
+      // CRITICAL: Restore balance if it was deducted before the failure
+      if (balanceDeducted) {
+        try {
+          await this.prisma.organizerProfile.update({
+            where: { id: withdrawal.organizerId },
+            data: { 
+              availableBalance: { increment: withdrawal.amount },
+            },
+          });
+          this.logger.log(`Balance restored for failed withdrawal ${withdrawalId}`);
+        } catch (restoreError) {
+          // Critical error - manual intervention needed
+          this.logger.error(`CRITICAL: Failed to restore balance for withdrawal ${withdrawalId}:`, restoreError);
+        }
+      }
+      
       // Update withdrawal status to failed
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
@@ -319,10 +339,6 @@ export class WithdrawalsService {
           failureReason: error.message || 'Transfer failed',
         },
       });
-
-      const withdrawalAmount = withdrawal.amount instanceof Decimal 
-        ? withdrawal.amount.toNumber() 
-        : Number(withdrawal.amount);
 
       // Send failure email
       await this.emailService.sendWithdrawalEmail(withdrawal.organizer.user.email, {
