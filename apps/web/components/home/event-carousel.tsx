@@ -93,9 +93,9 @@ function EventCard({ event }: { event: Event }) {
   return (
     <Link href={`/events/${event.slug}`} className="block flex-shrink-0 group">
       <div className={cn(
-        "relative w-72 h-48 rounded-2xl overflow-hidden transition-all duration-300",
-        "bg-card border shadow-lg",
-        "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1",
+        "relative w-64 h-40 rounded-xl overflow-hidden transition-all duration-300",
+        "bg-card border shadow-md",
+        "hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1",
         isStartingSoon && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}>
         {/* Background Image */}
@@ -115,22 +115,22 @@ function EventCard({ event }: { event: Event }) {
         
         {/* Starting Soon Badge */}
         {isStartingSoon && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
-            <span className="relative flex h-2 w-2">
+          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+            <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
             </span>
-            Starting Soon
+            Soon
           </div>
         )}
         
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-4">
-          <h3 className="font-display font-semibold text-white text-lg mb-2 line-clamp-1 group-hover:text-primary-foreground transition-colors">
+        <div className="absolute inset-x-0 bottom-0 p-3">
+          <h3 className="font-display font-semibold text-white text-base mb-1.5 line-clamp-1 group-hover:text-primary-foreground transition-colors">
             {event.title}
           </h3>
           
-          <div className="flex items-center gap-3 text-xs text-white/80">
+          <div className="flex items-center gap-2 text-[11px] text-white/80">
             <span className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               {formatDate(event.startDate, 'short')}
@@ -140,18 +140,11 @@ function EventCard({ event }: { event: Event }) {
               {formatTimeUntil(event.startDate)}
             </span>
           </div>
-          
-          {(event.location || event.isLocationPublic === false) && (
-            <div className="flex items-center gap-1 text-xs text-white/60 mt-1">
-              <MapPin className="w-3 h-3" />
-              <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : event.location}</span>
-            </div>
-          )}
         </div>
         
         {/* Hover Arrow */}
-        <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-          <ArrowRight className="w-4 h-4 text-white" />
+        <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/10 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowRight className="w-3.5 h-3.5 text-white" />
         </div>
       </div>
     </Link>

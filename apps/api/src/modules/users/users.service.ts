@@ -21,6 +21,40 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   }
 
+  /**
+   * Update user role (for new OAuth users who need to select their role)
+   * Only allows updating from BUYER to ORGANIZER for new users
+   */
+  async updateUserRole(userId: string, role: 'BUYER' | 'ORGANIZER') {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { organizerProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Prevent role change if user already has an organizer profile
+    if (user.organizerProfile) {
+      throw new BadRequestException('Role cannot be changed once organizer profile is set up');
+    }
+
+    // Update user role
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
+      include: { organizerProfile: true },
+    });
+
+    const { password: _, ...userWithoutPassword } = updatedUser;
+
+    return {
+      message: `Role updated to ${role}`,
+      user: userWithoutPassword,
+    };
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     await this.prisma.user.update({
       where: { id: userId },

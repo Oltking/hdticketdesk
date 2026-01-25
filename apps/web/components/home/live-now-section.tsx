@@ -46,7 +46,7 @@ export function LiveNowSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 380; // Card width + gap
+      const scrollAmount = 304; // Card width (288) + gap (16)
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
@@ -115,16 +115,16 @@ export function LiveNowSection() {
 
         {/* Live Events Carousel */}
         {loading ? (
-          <div className="flex gap-6 overflow-hidden">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[356px] h-64 rounded-2xl bg-muted animate-pulse" />
+          <div className="flex gap-4 overflow-hidden">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-shrink-0 w-72 h-44 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : (
           <div
             ref={scrollRef}
             onScroll={checkScrollability}
-            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+            className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
           >
             {events.map((event, index) => (
               <LiveEventCard key={event.id} event={event} index={index} />
@@ -144,11 +144,11 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
   return (
     <Link 
       href={`/events/${event.slug}`}
-      className="block group animate-in flex-shrink-0 w-[356px] snap-start"
+      className="block group animate-in flex-shrink-0 w-72 snap-start"
       style={{ animationDelay: `${index * 0.1}s` }}
     >
       <div className={cn(
-        "relative h-64 rounded-2xl overflow-hidden",
+        "relative h-44 rounded-xl overflow-hidden",
         "bg-card border-2 border-red-500/30",
         "transition-all duration-300",
         "hover:border-red-500 hover:shadow-lg hover:shadow-red-500/20",

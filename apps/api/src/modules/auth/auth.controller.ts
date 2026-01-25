@@ -283,6 +283,18 @@ export class AuthController {
 
       const result = await this.authService.googleLogin(googleUser, ip, userAgent, intendedRole);
 
+      // Check if this is a new user who needs to select their role
+      if (result.needsRoleSelection) {
+        const params = new URLSearchParams({
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          userId: result.user.id,
+          setupRequired: 'role-selection',
+        });
+        this.logger.log(`Google OAuth: New user needs role selection: ${result.user.email}`);
+        return res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+      }
+
       // Check if this is a new organizer who needs to complete profile
       if (result.needsOrganizerSetup) {
         const params = new URLSearchParams({

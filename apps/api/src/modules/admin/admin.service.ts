@@ -144,7 +144,9 @@ export class AdminService {
       this.prisma.event.count(),
     ]);
 
-    // Calculate total revenue for each event from successful payments
+    // Calculate total revenue and platform fees for each event from successful payments
+    const platformFeePercent = 5; // 5% platform fee
+    
     const eventsWithRevenue = events.map((event: any) => {
       const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
         const amount =
@@ -154,17 +156,106 @@ export class AdminService {
         return sum + amount;
       }, 0);
 
+      // Calculate platform fees for this event (5% of total revenue)
+      const platformFees = totalRevenue * (platformFeePercent / 100);
+      const organizerEarnings = totalRevenue - platformFees;
+
       // Remove payments array from response (we only needed it for calculation)
       const { payments, ...eventWithoutPayments } = event;
 
       return {
         ...eventWithoutPayments,
         totalRevenue,
+        platformFees,
+        organizerEarnings,
+        ticketsSold: event._count?.tickets || 0,
       };
     });
 
     return {
       events: eventsWithRevenue,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Get platform fees summary for all events
+   * Shows each event with its revenue, platform fees earned, and organizer earnings
+   */
+  async getPlatformFeesSummary(page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+    const platformFeePercent = 5;
+
+    // Get events with successful payments
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          payments: {
+            where: { status: 'SUCCESS' },
+            select: { amount: true, createdAt: true },
+          },
+          _count: {
+            select: { tickets: true },
+          },
+        },
+      }),
+      this.prisma.event.count(),
+    ]);
+
+    // Calculate totals
+    let totalPlatformFees = 0;
+    let totalRevenue = 0;
+    let totalOrganizerEarnings = 0;
+
+    const eventsWithFees = events.map((event: any) => {
+      const eventRevenue = event.payments.reduce((sum: any, p: any) => {
+        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount) || 0;
+        return sum + amount;
+      }, 0);
+
+      const eventPlatformFees = eventRevenue * (platformFeePercent / 100);
+      const eventOrganizerEarnings = eventRevenue - eventPlatformFees;
+
+      totalRevenue += eventRevenue;
+      totalPlatformFees += eventPlatformFees;
+      totalOrganizerEarnings += eventOrganizerEarnings;
+
+      return {
+        id: event.id,
+        title: event.title,
+        status: event.status,
+        organizer: event.organizer,
+        ticketsSold: event._count.tickets,
+        totalRevenue: Math.round(eventRevenue * 100) / 100,
+        platformFees: Math.round(eventPlatformFees * 100) / 100,
+        organizerEarnings: Math.round(eventOrganizerEarnings * 100) / 100,
+        createdAt: event.createdAt,
+        startDate: event.startDate,
+      };
+    });
+
+    // Sort by platform fees earned (highest first)
+    eventsWithFees.sort((a, b) => b.platformFees - a.platformFees);
+
+    return {
+      events: eventsWithFees,
+      summary: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalPlatformFees: Math.round(totalPlatformFees * 100) / 100,
+        totalOrganizerEarnings: Math.round(totalOrganizerEarnings * 100) / 100,
+        platformFeePercent,
+      },
       total,
       page,
       totalPages: Math.ceil(total / limit),

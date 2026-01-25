@@ -936,6 +936,8 @@ export class AuthService {
 
     return {
       user: userWithoutSensitive,
+      isNewUser,
+      needsRoleSelection: isNewUser && !intendedRole, // New user without pre-selected role needs to choose
       needsOrganizerSetup,
       ...tokens,
     };

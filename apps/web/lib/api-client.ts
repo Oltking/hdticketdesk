@@ -654,6 +654,16 @@ class ApiClient {
   }
 
   // ==================== USER ====================
+  /**
+   * Update user role (for new OAuth users selecting their role)
+   */
+  async updateUserRole(role: 'BUYER' | 'ORGANIZER') {
+    return this.request<{ message: string; user: any }>('/users/update-role', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    });
+  }
+
   async updateProfile(data: any) {
     return this.request<any>('/users/profile', {
       method: 'PUT',

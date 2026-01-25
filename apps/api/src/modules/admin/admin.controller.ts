@@ -50,9 +50,15 @@ export class AdminController {
   }
 
   @Get('events')
-  @ApiOperation({ summary: 'Get all events' })
+  @ApiOperation({ summary: 'Get all events with revenue and platform fees' })
   async getEvents(@Query('page') page = 1, @Query('limit') limit = 20) {
     return this.adminService.getAllEvents(+page, +limit);
+  }
+
+  @Get('platform-fees')
+  @ApiOperation({ summary: 'Get platform fees summary for all events' })
+  async getPlatformFees(@Query('page') page = 1, @Query('limit') limit = 50) {
+    return this.adminService.getPlatformFeesSummary(+page, +limit);
   }
 
   @Get('ledger')

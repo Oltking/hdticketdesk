@@ -37,6 +37,13 @@ function CallbackContent() {
         localStorage.setItem('refreshToken', refreshToken);
         api.setToken(accessToken);
 
+        // Check if new user needs to select their role
+        if (setupRequired === 'role-selection') {
+          // Redirect to role selection page for new users
+          router.replace('/auth/role-selection');
+          return;
+        }
+
         // Check if organizer needs to complete setup
         if (setupRequired === 'organizer') {
           // Redirect to organizer setup page to collect organization name

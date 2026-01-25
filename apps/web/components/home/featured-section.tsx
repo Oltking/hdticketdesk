@@ -46,7 +46,7 @@ export function FeaturedSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 420; // Card width + gap
+      const scrollAmount = 336; // Card width (320) + gap (16)
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
@@ -114,16 +114,16 @@ export function FeaturedSection() {
 
         {/* Featured Events Carousel */}
         {loading ? (
-          <div className="flex gap-6 overflow-hidden">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[400px] h-80 rounded-2xl bg-card animate-pulse" />
+          <div className="flex gap-4 overflow-hidden">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-shrink-0 w-80 h-52 rounded-xl bg-card animate-pulse" />
             ))}
           </div>
         ) : (
           <div
             ref={scrollRef}
             onScroll={checkScrollability}
-            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+            className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
           >
             {events.map((event, index) => (
               <FeaturedEventCard key={event.id} event={event} index={index} />
@@ -143,10 +143,10 @@ function FeaturedEventCard({ event, index }: { event: Event; index: number }) {
   return (
     <Link 
       href={`/events/${event.slug}`} 
-      className="block group flex-shrink-0 w-[400px] snap-start"
+      className="block group flex-shrink-0 w-80 snap-start"
     >
       <div className={cn(
-        "relative h-80 rounded-2xl overflow-hidden",
+        "relative h-52 rounded-xl overflow-hidden",
         "bg-card border-2 border-yellow-500/20",
         "transition-all duration-300",
         "hover:border-yellow-500/50 hover:shadow-xl hover:shadow-yellow-500/10"
