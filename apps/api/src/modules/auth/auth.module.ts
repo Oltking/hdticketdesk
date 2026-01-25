@@ -11,8 +11,9 @@ import { EmailModule } from '../emails/email.module';
 // Conditionally import Google Strategy to prevent module crash if it fails
 let GoogleOAuthStrategy: any = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   GoogleOAuthStrategy = require('./strategies/google.strategy').GoogleOAuthStrategy;
-} catch (error) {
+} catch (error: any) {
   console.warn('[AuthModule] Google OAuth disabled:', error.message);
 }
 

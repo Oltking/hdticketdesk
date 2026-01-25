@@ -135,19 +135,13 @@ export class EventsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER)
-  async create(
-    @Request() req: AuthenticatedRequest,
-    @Body() createEventDto: CreateEventDto,
-  ) {
+  async create(@Request() req: AuthenticatedRequest, @Body() createEventDto: CreateEventDto) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
-    return this.eventsService.create(
-      req.user.organizerProfileId,
-      createEventDto,
-    );
+    return this.eventsService.create(req.user.organizerProfileId, createEventDto);
   }
 
   /**
@@ -164,14 +158,10 @@ export class EventsController {
   ) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
-    return this.eventsService.update(
-      id,
-      req.user.organizerProfileId,
-      updateEventDto,
-    );
+    return this.eventsService.update(id, req.user.organizerProfileId, updateEventDto);
   }
 
   /**
@@ -184,7 +174,7 @@ export class EventsController {
   async publish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
     return this.eventsService.publish(id, req.user.organizerProfileId);
@@ -200,7 +190,7 @@ export class EventsController {
   async unpublish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
     return this.eventsService.unpublish(id, req.user.organizerProfileId);
@@ -213,13 +203,10 @@ export class EventsController {
   @Get(':id/analytics')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER)
-  async getAnalytics(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-  ) {
+  async getAnalytics(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
     return this.eventsService.getAnalytics(id, req.user.organizerProfileId);
@@ -235,7 +222,7 @@ export class EventsController {
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     if (!req.user.organizerProfileId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
     return this.eventsService.remove(id, req.user.organizerProfileId);

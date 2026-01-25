@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from '../payments/monnify.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -57,10 +52,7 @@ export class EventsService {
     const recentlyEndedEvents = await this.prisma.event.findMany({
       where: {
         status: 'PUBLISHED',
-        OR: [
-          { endDate: { lt: now } },
-          { endDate: null, startDate: { lt: now } },
-        ],
+        OR: [{ endDate: { lt: now } }, { endDate: null, startDate: { lt: now } }],
       },
       orderBy: { startDate: 'desc' },
       take: 6,
@@ -93,10 +85,7 @@ export class EventsService {
       where: {
         status: 'PUBLISHED',
         startDate: { lte: now },
-        OR: [
-          { endDate: { gte: now } },
-          { endDate: null, startDate: { gte: startOfDay } },
-        ],
+        OR: [{ endDate: { gte: now } }, { endDate: null, startDate: { gte: startOfDay } }],
       },
       orderBy: { startDate: 'asc' },
       take: 6,
@@ -352,9 +341,7 @@ export class EventsService {
 
   async findBySlug(slug: string, includeUnpublished = false) {
     // Build the where condition - include unpublished for organizer edit pages
-    const statusCondition = includeUnpublished 
-      ? {} 
-      : { status: 'PUBLISHED' as const };
+    const statusCondition = includeUnpublished ? {} : { status: 'PUBLISHED' as const };
 
     // Try to find by slug first, then by ID
     let event = await this.prisma.event.findFirst({
@@ -378,8 +365,8 @@ export class EventsService {
     // If still not found and we're only looking at published, try including drafts
     if (!event && !includeUnpublished) {
       event = await this.prisma.event.findFirst({
-        where: { 
-          OR: [{ slug }, { id: slug }]
+        where: {
+          OR: [{ slug }, { id: slug }],
         },
         include: {
           organizer: { select: { id: true, title: true } },
@@ -426,7 +413,7 @@ export class EventsService {
     // Validate that organizerId is provided
     if (!organizerId) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
 
@@ -437,7 +424,7 @@ export class EventsService {
 
     if (!organizerProfile) {
       throw new ForbiddenException(
-        'Organizer profile not found. Please complete your organizer profile setup first.'
+        'Organizer profile not found. Please complete your organizer profile setup first.',
       );
     }
 
@@ -513,9 +500,9 @@ export class EventsService {
   }
 
   async update(id: string, organizerId: string, dto: UpdateEventDto) {
-    const event = await this.prisma.event.findUnique({ 
+    const event = await this.prisma.event.findUnique({
       where: { id },
-      include: { 
+      include: {
         tiers: true,
         tickets: {
           where: { status: { in: ['ACTIVE', 'CHECKED_IN'] } },
@@ -536,18 +523,18 @@ export class EventsService {
 
     // Build update data, handling null/undefined correctly
     const updateData: any = {};
-    
+
     if (dto.title !== undefined) updateData.title = dto.title;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.startDate !== undefined) updateData.startDate = new Date(dto.startDate);
-    
+
     // Handle endDate - allow explicit null to clear the field
     if (dto.endDate === null) {
       updateData.endDate = null;
     } else if (dto.endDate !== undefined && dto.endDate !== '') {
       updateData.endDate = new Date(dto.endDate);
     }
-    
+
     if (dto.location !== undefined) updateData.location = dto.location;
     if (dto.latitude !== undefined) updateData.latitude = dto.latitude;
     if (dto.longitude !== undefined) updateData.longitude = dto.longitude;
@@ -667,7 +654,7 @@ export class EventsService {
     if (!published.organizer.virtualAccount) {
       try {
         this.logger.log(`Creating virtual account for organizer ${published.organizer.id}`);
-        
+
         const vaResponse = await this.monnifyService.createVirtualAccount(
           published.organizer.id,
           published.organizer.title || 'Organizer',
@@ -690,7 +677,10 @@ export class EventsService {
         this.logger.log(`Virtual account created: ${vaResponse.accountNumber}`);
       } catch (error) {
         // Log but don't fail the publish - VA can be created later
-        this.logger.error(`Failed to create virtual account for organizer ${published.organizer.id}:`, error);
+        this.logger.error(
+          `Failed to create virtual account for organizer ${published.organizer.id}:`,
+          error,
+        );
       }
     }
 
@@ -700,7 +690,7 @@ export class EventsService {
   async unpublish(id: string, organizerId: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
-      include: { 
+      include: {
         tiers: true,
         tickets: {
           where: {
@@ -725,7 +715,7 @@ export class EventsService {
     // Check if there are any sales
     if (event.tickets.length > 0) {
       throw new ForbiddenException(
-        'Cannot unpublish event with ticket sales. Please contact support at support@hdticketdesk.com for assistance.'
+        'Cannot unpublish event with ticket sales. Please contact support at support@hdticketdesk.com for assistance.',
       );
     }
 
@@ -769,9 +759,7 @@ export class EventsService {
     }
 
     if (event.organizerId !== organizerId) {
-      throw new ForbiddenException(
-        'You can only view analytics for your own events',
-      );
+      throw new ForbiddenException('You can only view analytics for your own events');
     }
 
     const activeTickets = event.tickets.filter((t: { status: string }) =>
@@ -785,27 +773,32 @@ export class EventsService {
 
     // Calculate total revenue based on tier prices (not amountPaid which includes service fees)
     // Organizers only receive the tier price, service fees go to the platform
-    const totalRevenue = activeTickets.reduce((sum: number, t: { tier: { price: Decimal | number } }) => {
-      const amount = t.tier.price instanceof Decimal
-        ? t.tier.price.toNumber()
-        : Number(t.tier.price);
-      return sum + amount;
-    }, 0);
+    const totalRevenue = activeTickets.reduce(
+      (sum: number, t: { tier: { price: Decimal | number } }) => {
+        const amount =
+          t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+        return sum + amount;
+      },
+      0,
+    );
 
-    const tierBreakdown = event.tiers.map((tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
-      const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-      // Calculate revenue based on tier price only (excludes service fees)
-      const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
-      const tierRevenue = tierTickets.length * tierPrice;
+    const tierBreakdown = event.tiers.map(
+      (tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
+        const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
+        // Calculate revenue based on tier price only (excludes service fees)
+        const tierPrice =
+          tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
+        const tierRevenue = tierTickets.length * tierPrice;
 
-      return {
-        name: tier.name,
-        price: tierPrice,
-        capacity: tier.capacity,
-        sold: tierTickets.length,
-        revenue: tierRevenue,
-      };
-    });
+        return {
+          name: tier.name,
+          price: tierPrice,
+          capacity: tier.capacity,
+          sold: tierTickets.length,
+          revenue: tierRevenue,
+        };
+      },
+    );
 
     return {
       totalSold,
@@ -818,12 +811,12 @@ export class EventsService {
 
   async remove(id: string, organizerId: string) {
     // Fetch event with ALL related tickets and payments (not just active ones)
-    const event = await this.prisma.event.findUnique({ 
+    const event = await this.prisma.event.findUnique({
       where: { id },
       include: {
-        tickets: true,  // Get ALL tickets regardless of status
+        tickets: true, // Get ALL tickets regardless of status
         payments: true, // Get ALL payments regardless of status
-        tiers: true,    // Get tiers for deletion
+        tiers: true, // Get tiers for deletion
       },
     });
 
@@ -838,21 +831,21 @@ export class EventsService {
     // Only allow deleting draft events
     if (event.status !== 'DRAFT') {
       throw new ForbiddenException(
-        'Only draft events can be deleted. Please unpublish the event first, or contact support if there are ticket sales.'
+        'Only draft events can be deleted. Please unpublish the event first, or contact support if there are ticket sales.',
       );
     }
 
     // Check for ANY tickets (regardless of status) - preserves financial records integrity
     if (event.tickets.length > 0) {
       throw new ForbiddenException(
-        'Cannot delete event with ticket records. Please contact support at support@hdticketdesk.com for assistance.'
+        'Cannot delete event with ticket records. Please contact support at support@hdticketdesk.com for assistance.',
       );
     }
 
     // Check for ANY payments (regardless of status) - preserves financial records integrity
     if (event.payments.length > 0) {
       throw new ForbiddenException(
-        'Cannot delete event with payment records. Please contact support at support@hdticketdesk.com for assistance.'
+        'Cannot delete event with payment records. Please contact support at support@hdticketdesk.com for assistance.',
       );
     }
 
@@ -871,16 +864,11 @@ export class EventsService {
   private addComputedFields(events: any[]) {
     return events.map((event) => {
       const totalTicketsSold =
-        event.tiers?.reduce(
-          (sum: number, tier: any) => sum + (tier.sold || 0),
-          0,
-        ) || 0;
+        event.tiers?.reduce((sum: number, tier: any) => sum + (tier.sold || 0), 0) || 0;
 
       const totalRevenue =
         event.tiers?.reduce((sum: number, tier: any) => {
-          const price = tier.price instanceof Decimal 
-            ? tier.price.toNumber() 
-            : Number(tier.price);
+          const price = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
           return sum + (tier.sold || 0) * price;
         }, 0) || 0;
 

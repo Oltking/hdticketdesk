@@ -78,7 +78,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
           message = 'A database error occurred. Please try again later.';
       }
       // Log full error details for debugging (server-side only)
-      this.logger.error(`Prisma error [${prismaError.code}]: ${prismaError.message}`, prismaError.stack);
+      this.logger.error(
+        `Prisma error [${prismaError.code}]: ${prismaError.message}`,
+        prismaError.stack,
+      );
     }
     // Handle Prisma validation errors
     else if (exception instanceof PrismaClientValidationError) {
@@ -91,7 +94,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     else if (exception instanceof Error) {
       // SECURITY: In production, don't expose internal error details
       const isProduction = process.env.NODE_ENV === 'production';
-      message = isProduction ? 'Internal server error' : (exception.message || 'Internal server error');
+      message = isProduction
+        ? 'Internal server error'
+        : exception.message || 'Internal server error';
       this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
     }
 

@@ -17,8 +17,7 @@ export class EmailService {
     /* ==================== READ CONFIG FIRST ==================== */
     const apiKey = this.configService.get<string>('MAILGUN_API_KEY');
     const domain = this.configService.get<string>('MAILGUN_DOMAIN');
-    const mailgunHost =
-      this.configService.get<string>('MAILGUN_HOST') ?? 'api.eu.mailgun.net';
+    const mailgunHost = this.configService.get<string>('MAILGUN_HOST') ?? 'api.eu.mailgun.net';
 
     /* ==================== HARD FAIL (NO SILENT MISCONFIG) ==================== */
     if (!apiKey) throw new Error('MAILGUN_API_KEY is missing');
@@ -26,17 +25,11 @@ export class EmailService {
 
     this.domain = domain;
 
-    this.fromEmail =
-      this.configService.get<string>('MAILGUN_FROM_EMAIL') ??
-      `noreply@${domain}`;
+    this.fromEmail = this.configService.get<string>('MAILGUN_FROM_EMAIL') ?? `noreply@${domain}`;
 
-    this.fromName =
-      this.configService.get<string>('MAILGUN_FROM_NAME') ??
-      'HD Ticket Desk';
+    this.fromName = this.configService.get<string>('MAILGUN_FROM_NAME') ?? 'HD Ticket Desk';
 
-    this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ??
-      'http://localhost:3000';
+    this.frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
 
     /* ==================== DOMAIN ↔ FROM SAFETY CHECK ==================== */
     // Mailgun WILL reject mismatched domains
@@ -234,9 +227,10 @@ export class EmailService {
               </tr>
               <tr>
                 <td style="padding: 4px 0;">
-                  ${data.isOnline
-                    ? '<span style="opacity: 0.9;">💻 Online Event</span>'
-                    : `<span style="opacity: 0.9;">📍 ${data.eventLocation}</span>`
+                  ${
+                    data.isOnline
+                      ? '<span style="opacity: 0.9;">💻 Online Event</span>'
+                      : `<span style="opacity: 0.9;">📍 ${data.eventLocation}</span>`
                   }
                 </td>
               </tr>
@@ -244,13 +238,17 @@ export class EmailService {
           </div>
         </div>
         
-        ${googleMapsUrl ? `
+        ${
+          googleMapsUrl
+            ? `
         <div style="text-align: center; margin-bottom: 24px;">
           <a href="${googleMapsUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4285f4; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 8px;">
             📍 View Location on Google Maps
           </a>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
         
         <div style="text-align: center; background: #f9fafb; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
           <p style="color: #6b7280; font-size: 14px; margin: 0 0 16px 0;">Scan this QR code at the venue</p>
@@ -258,12 +256,16 @@ export class EmailService {
           <p style="color: #7c3aed; font-size: 16px; font-weight: 600; margin: 16px 0 0 0; font-family: 'Courier New', monospace;">#${data.ticketNumber}</p>
         </div>
         
-        ${data.isOnline && data.onlineLink ? `
+        ${
+          data.isOnline && data.onlineLink
+            ? `
         <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
           <p style="color: #065f46; font-size: 14px; margin: 0 0 8px 0;"><strong>🔗 Join Online</strong></p>
           <a href="${data.onlineLink}" style="color: #10b981; word-break: break-all;">${data.onlineLink}</a>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
         
         <div style="background: #f3f4f6; border-radius: 8px; padding: 16px;">
           <p style="color: #6b7280; font-size: 12px; margin: 0;">
@@ -570,7 +572,9 @@ export class EmailService {
         <h1 style="color: #1f2937; font-size: 24px; margin-bottom: 8px;">Welcome, ${firstName}! 🎉</h1>
         <p style="color: #6b7280; margin-bottom: 24px;">Your hdticketdesk account is now active and ready to use.</p>
         
-        ${role === 'ORGANIZER' ? `
+        ${
+          role === 'ORGANIZER'
+            ? `
         <div style="background: linear-gradient(135deg, #7c3aed, #a855f7); border-radius: 16px; padding: 24px; color: white; margin-bottom: 24px;">
           <h2 style="font-size: 18px; margin: 0 0 16px 0;">🎫 Start Selling Tickets</h2>
           <ul style="margin: 0; padding-left: 20px; opacity: 0.9;">
@@ -583,7 +587,8 @@ export class EmailService {
         <div style="text-align: center; margin-bottom: 24px;">
           <a href="${this.frontendUrl}/dashboard" style="display: inline-block; background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to Dashboard</a>
         </div>
-        ` : `
+        `
+            : `
         <div style="background: linear-gradient(135deg, #7c3aed, #a855f7); border-radius: 16px; padding: 24px; color: white; margin-bottom: 24px;">
           <h2 style="font-size: 18px; margin: 0 0 16px 0;">🎉 Discover Amazing Events</h2>
           <ul style="margin: 0; padding-left: 20px; opacity: 0.9;">
@@ -596,7 +601,8 @@ export class EmailService {
         <div style="text-align: center; margin-bottom: 24px;">
           <a href="${this.frontendUrl}/events" style="display: inline-block; background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; padding: 14px 40px; border-radius: 8px; text-decoration: none; font-weight: 600;">Explore Events</a>
         </div>
-        `}
+        `
+        }
         
         <p style="color: #6b7280; font-size: 14px; text-align: center;">Need help? Just reply to this email - we're here for you!</p>
       `,
@@ -624,7 +630,7 @@ export class EmailService {
 
       // Generate unique message ID for tracking
       const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2)}@${this.domain}>`;
-      
+
       const params: any = {
         from: this.from,
         to: [to],
@@ -646,7 +652,9 @@ export class EmailService {
         'o:tracking-opens': 'yes',
       };
 
-      this.logger.debug(`Mailgun params (preview): ${JSON.stringify({ to, subject, from: this.from })}`);
+      this.logger.debug(
+        `Mailgun params (preview): ${JSON.stringify({ to, subject, from: this.from })}`,
+      );
 
       const response = await this.mg.messages.create(this.domain, params);
 
@@ -767,12 +775,12 @@ export class EmailService {
         .replace(/[ \t]+/g, ' ')
         .replace(/\n\s*\n\s*\n/g, '\n\n')
         .trim();
-      
+
       // Add footer for plain text
-      text += '\n\n---\nhdticketdesk - Africa\'s Premier Event Ticketing Platform\n';
+      text += "\n\n---\nhdticketdesk - Africa's Premier Event Ticketing Platform\n";
       text += `Visit us: ${this.frontendUrl}\n`;
       text += 'Questions? Reply to this email or contact support@hdticketdesk.com\n';
-      
+
       return text;
     } catch (e) {
       return 'Please view this email in an HTML-compatible email client.';

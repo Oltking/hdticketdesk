@@ -1,6 +1,6 @@
 export function getVerificationEmailTemplate(code: string, userName?: string): string {
   const greeting = userName ? `Hi ${userName},` : 'Hello,';
-  
+
   return `
 <!DOCTYPE html>
 <html lang="en">

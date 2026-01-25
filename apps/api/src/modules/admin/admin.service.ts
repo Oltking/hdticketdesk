@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from '../payments/monnify.service';
@@ -16,23 +23,18 @@ export class AdminService {
   ) {}
 
   async getDashboardStats() {
-    const [
-      totalUsers,
-      totalOrganizers,
-      totalEvents,
-      totalTickets,
-      recentPayments,
-    ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.organizerProfile.count(),
-      this.prisma.event.count(),
-      this.prisma.ticket.count(),
-      this.prisma.payment.findMany({
-        where: { status: 'SUCCESS' },
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
+    const [totalUsers, totalOrganizers, totalEvents, totalTickets, recentPayments] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.organizerProfile.count(),
+        this.prisma.event.count(),
+        this.prisma.ticket.count(),
+        this.prisma.payment.findMany({
+          where: { status: 'SUCCESS' },
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
 
     // =============================================================================
     // PLATFORM FEE CALCULATION - SIMPLE METHOD
@@ -52,10 +54,10 @@ export class AdminService {
     });
 
     // Total revenue = total amount paid by buyers
-    const totalRevenue = paymentStats._sum.amount 
-      ? (paymentStats._sum.amount instanceof Decimal 
-          ? paymentStats._sum.amount.toNumber() 
-          : Number(paymentStats._sum.amount))
+    const totalRevenue = paymentStats._sum.amount
+      ? paymentStats._sum.amount instanceof Decimal
+        ? paymentStats._sum.amount.toNumber()
+        : Number(paymentStats._sum.amount)
       : 0;
 
     // Platform fee = 5% of total revenue (simple and straightforward)
@@ -145,15 +147,16 @@ export class AdminService {
     // Calculate total revenue for each event from successful payments
     const eventsWithRevenue = events.map((event: any) => {
       const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
-        const amount = payment.amount instanceof Decimal 
-          ? payment.amount.toNumber() 
-          : Number(payment.amount) || 0;
+        const amount =
+          payment.amount instanceof Decimal
+            ? payment.amount.toNumber()
+            : Number(payment.amount) || 0;
         return sum + amount;
       }, 0);
-      
+
       // Remove payments array from response (we only needed it for calculation)
       const { payments, ...eventWithoutPayments } = event;
-      
+
       return {
         ...eventWithoutPayments,
         totalRevenue,
@@ -417,7 +420,12 @@ export class AdminService {
    * Create a new admin user (admin-only)
    * This is the secure way to create additional admin accounts
    */
-  async createAdminUser(dto: { email: string; password: string; firstName: string; lastName: string }) {
+  async createAdminUser(dto: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -655,7 +663,8 @@ export class AdminService {
 
     // Calculate totals
     const totalSales = ticketSales.reduce((sum: any, entry: any) => {
-      const amount = entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
+      const amount =
+        entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
       return sum + amount;
     }, 0);
 
@@ -665,21 +674,25 @@ export class AdminService {
     }, 0);
 
     const totalRefunded = refunds.reduce((sum: any, r: any) => {
-      const amount = r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
+      const amount =
+        r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
       return sum + amount;
     }, 0);
 
-    const pendingBalance = organizer.pendingBalance instanceof Decimal
-      ? organizer.pendingBalance.toNumber()
-      : Number(organizer.pendingBalance);
+    const pendingBalance =
+      organizer.pendingBalance instanceof Decimal
+        ? organizer.pendingBalance.toNumber()
+        : Number(organizer.pendingBalance);
 
-    const availableBalance = organizer.availableBalance instanceof Decimal
-      ? organizer.availableBalance.toNumber()
-      : Number(organizer.availableBalance);
+    const availableBalance =
+      organizer.availableBalance instanceof Decimal
+        ? organizer.availableBalance.toNumber()
+        : Number(organizer.availableBalance);
 
-    const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
-      ? organizer.withdrawnBalance.toNumber()
-      : Number(organizer.withdrawnBalance);
+    const withdrawnBalance =
+      organizer.withdrawnBalance instanceof Decimal
+        ? organizer.withdrawnBalance.toNumber()
+        : Number(organizer.withdrawnBalance);
 
     return {
       organizer: {
@@ -714,7 +727,8 @@ export class AdminService {
       })),
       recentRefunds: refunds.slice(0, 10).map((r: any) => ({
         id: r.id,
-        amount: r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
+        amount:
+          r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
         ticketNumber: r.ticket.ticketNumber,
         eventTitle: r.ticket.event.title,
         processedAt: r.processedAt,
@@ -769,7 +783,9 @@ export class AdminService {
         },
       });
 
-      this.logger.log(`Virtual account created by admin: ${vaResponse.accountNumber} for organizer ${organizerId}`);
+      this.logger.log(
+        `Virtual account created by admin: ${vaResponse.accountNumber} for organizer ${organizerId}`,
+      );
 
       return {
         message: 'Virtual account created successfully',
@@ -877,24 +893,31 @@ export class AdminService {
         });
 
         const totalSales = salesSum._sum.amount
-          ? (salesSum._sum.amount instanceof Decimal ? salesSum._sum.amount.toNumber() : Number(salesSum._sum.amount))
+          ? salesSum._sum.amount instanceof Decimal
+            ? salesSum._sum.amount.toNumber()
+            : Number(salesSum._sum.amount)
           : 0;
 
         const totalRefunded = refundsSum._sum.refundAmount
-          ? (refundsSum._sum.refundAmount instanceof Decimal ? refundsSum._sum.refundAmount.toNumber() : Number(refundsSum._sum.refundAmount))
+          ? refundsSum._sum.refundAmount instanceof Decimal
+            ? refundsSum._sum.refundAmount.toNumber()
+            : Number(refundsSum._sum.refundAmount)
           : 0;
 
-        const pendingBalance = organizer.pendingBalance instanceof Decimal
-          ? organizer.pendingBalance.toNumber()
-          : Number(organizer.pendingBalance);
+        const pendingBalance =
+          organizer.pendingBalance instanceof Decimal
+            ? organizer.pendingBalance.toNumber()
+            : Number(organizer.pendingBalance);
 
-        const availableBalance = organizer.availableBalance instanceof Decimal
-          ? organizer.availableBalance.toNumber()
-          : Number(organizer.availableBalance);
+        const availableBalance =
+          organizer.availableBalance instanceof Decimal
+            ? organizer.availableBalance.toNumber()
+            : Number(organizer.availableBalance);
 
-        const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
-          ? organizer.withdrawnBalance.toNumber()
-          : Number(organizer.withdrawnBalance);
+        const withdrawnBalance =
+          organizer.withdrawnBalance instanceof Decimal
+            ? organizer.withdrawnBalance.toNumber()
+            : Number(organizer.withdrawnBalance);
 
         return {
           id: organizer.id,
@@ -911,7 +934,7 @@ export class AdminService {
             netEarnings: totalSales - totalRefunded,
           },
         };
-      })
+      }),
     );
 
     return {
@@ -979,7 +1002,9 @@ export class AdminService {
       }
     }
 
-    this.logger.log(`Bulk VA creation complete: ${results.successful} successful, ${results.failed} failed`);
+    this.logger.log(
+      `Bulk VA creation complete: ${results.successful} successful, ${results.failed} failed`,
+    );
 
     return {
       message: 'Bulk virtual account creation completed',
@@ -1082,7 +1107,7 @@ export class AdminService {
         orderBy: { createdAt: 'desc' },
         select: { reference: true, monnifyTransactionRef: true, buyerEmail: true, createdAt: true },
       });
-      
+
       throw new NotFoundException({
         message: `Payment not found with reference: ${reference}`,
         suggestion: 'Try using the HD-xxx reference, MNFY_xxx reference, or payment ID',
@@ -1102,9 +1127,14 @@ export class AdminService {
 
     try {
       // Verify with Monnify - pass both transaction ref and payment ref
-      const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
+      const monnifyData = await this.monnifyService.verifyTransaction(
+        transactionRef,
+        payment.reference,
+      );
 
-      this.logger.log(`Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`);
+      this.logger.log(
+        `Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`,
+      );
 
       if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
         // Import PaymentsService to process payment
@@ -1172,7 +1202,7 @@ export class AdminService {
    * ADMIN FORCE CONFIRM PAYMENT
    * Use this when you've manually verified payment in Monnify dashboard
    * This bypasses Monnify API verification and directly creates the ticket
-   * 
+   *
    * @param reference - HD payment reference, Monnify ref, or payment ID
    * @param confirmedAmount - The amount confirmed in Monnify dashboard (for logging)
    * @param adminNotes - Optional notes explaining why force confirm was used
@@ -1231,13 +1261,13 @@ export class AdminService {
         where: { status: 'PENDING' },
         take: 10,
         orderBy: { createdAt: 'desc' },
-        select: { 
+        select: {
           id: true,
-          reference: true, 
-          monnifyTransactionRef: true, 
-          buyerEmail: true, 
+          reference: true,
+          monnifyTransactionRef: true,
+          buyerEmail: true,
           amount: true,
-          createdAt: true 
+          createdAt: true,
         },
       });
 
@@ -1262,16 +1292,17 @@ export class AdminService {
     }
 
     // Calculate amounts
-    const tierPrice = payment.tier.price instanceof Decimal
-      ? payment.tier.price.toNumber()
-      : Number(payment.tier.price);
+    const tierPrice =
+      payment.tier.price instanceof Decimal
+        ? payment.tier.price.toNumber()
+        : Number(payment.tier.price);
 
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const passFeeTobuyer = (payment.event as any).passFeeTobuyer ?? false;
     const serviceFee = tierPrice * (platformFeePercent / 100);
 
     // Calculate what buyer should have paid
-    const expectedBuyerPayment = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
+    const expectedBuyerPayment = passFeeTobuyer ? tierPrice + serviceFee : tierPrice;
 
     // Calculate organizer earnings
     let organizerAmount: number;
@@ -1339,12 +1370,14 @@ export class AdminService {
         where: { id: payment.event.organizerId },
       });
 
-      const currentPending = organizer?.pendingBalance instanceof Decimal
-        ? organizer.pendingBalance.toNumber()
-        : Number(organizer?.pendingBalance || 0);
-      const currentAvailable = organizer?.availableBalance instanceof Decimal
-        ? organizer.availableBalance.toNumber()
-        : Number(organizer?.availableBalance || 0);
+      const currentPending =
+        organizer?.pendingBalance instanceof Decimal
+          ? organizer.pendingBalance.toNumber()
+          : Number(organizer?.pendingBalance || 0);
+      const currentAvailable =
+        organizer?.availableBalance instanceof Decimal
+          ? organizer.availableBalance.toNumber()
+          : Number(organizer?.availableBalance || 0);
 
       // 6. Create ledger entry
       await prisma.ledgerEntry.create({
@@ -1418,7 +1451,10 @@ export class AdminService {
         const transactionRef = payment.monnifyTransactionRef || payment.reference;
 
         // Verify with Monnify - pass both transaction ref and payment ref
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
+        const monnifyData = await this.monnifyService.verifyTransaction(
+          transactionRef,
+          payment.reference,
+        );
 
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Import PaymentsService to process payment
@@ -1475,7 +1511,9 @@ export class AdminService {
       }
     }
 
-    this.logger.log(`Bulk verification complete: ${results.verified} verified, ${results.failed} failed`);
+    this.logger.log(
+      `Bulk verification complete: ${results.verified} verified, ${results.failed} failed`,
+    );
 
     return {
       message: 'Bulk payment verification completed',
@@ -1551,19 +1589,26 @@ export class AdminService {
         return {
           error: 'Payment not found in database',
           searchedReference: reference,
-          searchedBy: ['reference', 'monnifyTransactionRef', 'id', reference.includes('@') ? 'buyerEmail' : null].filter(Boolean),
+          searchedBy: [
+            'reference',
+            'monnifyTransactionRef',
+            'id',
+            reference.includes('@') ? 'buyerEmail' : null,
+          ].filter(Boolean),
           recentPayments,
         };
       }
 
       // Calculate what the amounts should be
-      const tierPrice = payment.tier?.price 
-        ? (typeof payment.tier.price === 'object' ? Number(payment.tier.price) : payment.tier.price)
+      const tierPrice = payment.tier?.price
+        ? typeof payment.tier.price === 'object'
+          ? Number(payment.tier.price)
+          : payment.tier.price
         : 0;
       const passFeeTobuyer = (payment.event as any)?.passFeeTobuyer ?? false;
       const platformFeePercent = 5;
       const serviceFee = tierPrice * (platformFeePercent / 100);
-      const expectedBuyerPayment = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
+      const expectedBuyerPayment = passFeeTobuyer ? tierPrice + serviceFee : tierPrice;
 
       const debug = {
         payment: {
@@ -1582,7 +1627,7 @@ export class AdminService {
           serviceFee,
           passFeeTobuyer,
           expectedBuyerPayment,
-          note: passFeeTobuyer 
+          note: passFeeTobuyer
             ? `Buyer should pay ₦${expectedBuyerPayment} (tier ₦${tierPrice} + fee ₦${serviceFee})`
             : `Buyer should pay ₦${expectedBuyerPayment} (tier price only, fee deducted from organizer)`,
         },
@@ -1665,7 +1710,7 @@ export class AdminService {
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 

@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from './monnify.service';
@@ -25,12 +20,7 @@ export class PaymentsService {
     private tasksService: TasksService,
   ) {}
 
-  async initializePayment(
-    eventId: string,
-    tierId: string,
-    userId: string | null,
-    email: string,
-  ) {
+  async initializePayment(eventId: string, tierId: string, userId: string | null, email: string) {
     // Get event and tier
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -143,19 +133,19 @@ export class PaymentsService {
     //   - Buyer pays: just tierPrice
     //   - Organizer gets: tierPrice - 5%
     // =============================================================================
-    
+
     const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const passFeeTobuyer = (event as any).passFeeTobuyer ?? false;
-    
+
     // Calculate service fee (5% of tier price)
     const serviceFee = tierPrice * (platformFeePercent / 100);
-    
+
     // Total amount buyer will pay
     // If fee is passed to buyer: tierPrice + serviceFee
     // If organizer absorbs fee: just tierPrice (organizer gets tierPrice - serviceFee)
-    const totalAmountForBuyer = passFeeTobuyer ? (tierPrice + serviceFee) : tierPrice;
-    
+    const totalAmountForBuyer = passFeeTobuyer ? tierPrice + serviceFee : tierPrice;
+
     this.logger.log(`Payment initialized for event ${event.title}:`);
     this.logger.log(`  - Tier: ${tier.name}, Price: ₦${tierPrice}`);
     this.logger.log(`  - Service fee (${platformFeePercent}%): ₦${serviceFee.toFixed(2)}`);
@@ -232,7 +222,9 @@ export class PaymentsService {
 
     // Get user info for customer name
     const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
-    const customerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer' : 'Customer';
+    const customerName = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer'
+      : 'Customer';
 
     // Initialize Monnify transaction with total amount buyer will pay
     const monnifyResponse = await this.monnifyService.initializeTransaction(
@@ -244,10 +236,10 @@ export class PaymentsService {
         tierId,
         paymentId: payment.id,
         organizerId: event.organizerId,
-        tierPrice: tierPrice.toString(),              // Original ticket price
-        serviceFee: serviceFee.toString(),            // 5% fee amount
+        tierPrice: tierPrice.toString(), // Original ticket price
+        serviceFee: serviceFee.toString(), // 5% fee amount
         passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
-        totalAmount: totalAmountForBuyer.toString(),  // What buyer is paying
+        totalAmount: totalAmountForBuyer.toString(), // What buyer is paying
         customerName,
         description: `Ticket for ${event.title} - ${tier.name}`,
       },
@@ -269,14 +261,14 @@ export class PaymentsService {
       transactionReference: monnifyResponse.transactionReference,
       // Return breakdown for frontend display
       breakdown: {
-        tierPrice,                          // Base ticket price
-        serviceFee,                         // 5% service fee amount
+        tierPrice, // Base ticket price
+        serviceFee, // 5% service fee amount
         serviceFeePercent: platformFeePercent,
-        passFeeTobuyer,                     // Whether buyer pays the fee
-        totalAmount: totalAmountForBuyer,   // What buyer actually pays
+        passFeeTobuyer, // Whether buyer pays the fee
+        totalAmount: totalAmountForBuyer, // What buyer actually pays
         // For display purposes:
         buyerPays: totalAmountForBuyer,
-        organizerReceives: passFeeTobuyer ? tierPrice : (tierPrice - serviceFee),
+        organizerReceives: passFeeTobuyer ? tierPrice : tierPrice - serviceFee,
       },
       // Keep legacy fields for backward compatibility
       tierPrice,
@@ -292,7 +284,9 @@ export class PaymentsService {
   async handleMonnifyPaymentSuccess(eventData: any) {
     const { paymentReference, transactionReference, amountPaid, paidOn, customer } = eventData;
 
-    this.logger.log(`Processing successful payment: ${paymentReference}, amount: ${amountPaid}, customer: ${customer?.email}`);
+    this.logger.log(
+      `Processing successful payment: ${paymentReference}, amount: ${amountPaid}, customer: ${customer?.email}`,
+    );
 
     // Find payment record by reference
     const payment = await this.prisma.payment.findUnique({
@@ -310,7 +304,9 @@ export class PaymentsService {
     }
 
     if (payment.status === 'FAILED') {
-      this.logger.warn(`Received success webhook for failed payment: ${paymentReference} - Re-processing...`);
+      this.logger.warn(
+        `Received success webhook for failed payment: ${paymentReference} - Re-processing...`,
+      );
       // If Monnify says it's successful, process it even if we previously marked it failed
       // This handles cases where we marked it failed due to amount mismatch but payment actually went through
     }
@@ -345,7 +341,9 @@ export class PaymentsService {
 
     // Don't overwrite if already processed successfully
     if (payment.status === 'SUCCESS') {
-      this.logger.warn(`Received failed webhook for successful payment: ${paymentReference} - ignoring`);
+      this.logger.warn(
+        `Received failed webhook for successful payment: ${paymentReference} - ignoring`,
+      );
       return;
     }
 
@@ -470,7 +468,9 @@ export class PaymentsService {
   private async handleSuccessfulPayment(data: any) {
     const { reference, amount, customer } = data;
 
-    this.logger.log(`handleSuccessfulPayment called: ${reference}, amount: ${amount}, customer: ${customer?.email}`);
+    this.logger.log(
+      `handleSuccessfulPayment called: ${reference}, amount: ${amount}, customer: ${customer?.email}`,
+    );
 
     // Find payment record - try by reference first
     let payment = await this.prisma.payment.findUnique({
@@ -493,14 +493,19 @@ export class PaymentsService {
 
       // Try to match by amount
       if (recentPayments.length > 0) {
-        this.logger.log(`Found ${recentPayments.length} recent pending payments for ${customer.email}`);
+        this.logger.log(
+          `Found ${recentPayments.length} recent pending payments for ${customer.email}`,
+        );
 
         // Find payment with matching or close amount
         for (const p of recentPayments) {
-          const paymentAmount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+          const paymentAmount =
+            p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
           const amountDiff = Math.abs(amount - paymentAmount);
 
-          this.logger.log(`Checking payment ${p.reference}: amount ${paymentAmount}, diff: ${amountDiff}`);
+          this.logger.log(
+            `Checking payment ${p.reference}: amount ${paymentAmount}, diff: ${amountDiff}`,
+          );
 
           // If amount matches within ₦2 tolerance, use this payment
           if (amountDiff <= 2) {
@@ -567,17 +572,15 @@ export class PaymentsService {
 
     // Get the expected amount from payment record
     // NOTE: payment.amount now stores the TOTAL amount buyer paid (tier price + service fee if applicable)
-    const storedAmount = payment.amount instanceof Decimal
-      ? payment.amount.toNumber()
-      : Number(payment.amount);
-    
+    const storedAmount =
+      payment.amount instanceof Decimal ? payment.amount.toNumber() : Number(payment.amount);
+
     const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
     const eventPassFeeTobuyer = (event as any).passFeeTobuyer ?? false;
 
     // Get the actual tier price for organizer earnings calculation
-    const actualTierPrice = tier.price instanceof Decimal
-      ? tier.price.toNumber()
-      : Number(tier.price);
+    const actualTierPrice =
+      tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
 
     // Log amount details for debugging
     this.logger.log(`Amount verification for ${reference}:`);
@@ -595,19 +598,27 @@ export class PaymentsService {
       // Try to match against tier price as fallback (for old payments before this fix)
       const tierPriceDiff = Math.abs(amount - actualTierPrice);
       this.logger.log(`  - Difference from tier price: ₦${tierPriceDiff}`);
-      
+
       // Also check if it matches tier price + calculated service fee
-      const calculatedServiceFee = eventPassFeeTobuyer ? actualTierPrice * (platformFeePercent / 100) : 0;
+      const calculatedServiceFee = eventPassFeeTobuyer
+        ? actualTierPrice * (platformFeePercent / 100)
+        : 0;
       const calculatedTotal = actualTierPrice + calculatedServiceFee;
       const calculatedTotalDiff = Math.abs(amount - calculatedTotal);
-      this.logger.log(`  - Calculated total (tier + fee): ₦${calculatedTotal}, diff: ₦${calculatedTotalDiff}`);
+      this.logger.log(
+        `  - Calculated total (tier + fee): ₦${calculatedTotal}, diff: ₦${calculatedTotalDiff}`,
+      );
 
       if (tierPriceDiff <= 5 || calculatedTotalDiff <= 5) {
         this.logger.log(`Amount matches tier price or calculated total (within ₦5), proceeding...`);
       } else {
         this.logger.error(`Amount mismatch for ${reference}:`);
-        this.logger.error(`  Stored: ₦${storedAmount}, Tier: ₦${actualTierPrice}, Calculated: ₦${calculatedTotal}, Paid: ₦${amount}`);
-        this.logger.error(`  Diffs - Stored: ₦${amountDifference}, Tier: ₦${tierPriceDiff}, Calculated: ₦${calculatedTotalDiff}`);
+        this.logger.error(
+          `  Stored: ₦${storedAmount}, Tier: ₦${actualTierPrice}, Calculated: ₦${calculatedTotal}, Paid: ₦${amount}`,
+        );
+        this.logger.error(
+          `  Diffs - Stored: ₦${amountDifference}, Tier: ₦${tierPriceDiff}, Calculated: ₦${calculatedTotalDiff}`,
+        );
         // Don't mark as failed - just log the warning
         // The payment was successful on Monnify, so we should still create the ticket
         this.logger.warn(`Proceeding despite amount mismatch since Monnify confirmed payment`);
@@ -617,7 +628,7 @@ export class PaymentsService {
     }
 
     // Get buyer info
-    const user = payment.buyerId 
+    const user = payment.buyerId
       ? await this.prisma.user.findUnique({ where: { id: payment.buyerId } })
       : null;
 
@@ -625,15 +636,14 @@ export class PaymentsService {
     const ticket = await this.ticketsService.createTicket({
       eventId: payment.eventId,
       tierId: payment.tierId,
-      buyerId: payment.buyerId || null,  // Pass null for guest checkouts, not empty string
+      buyerId: payment.buyerId || null, // Pass null for guest checkouts, not empty string
       buyerEmail: payment.buyerEmail,
       buyerFirstName: user?.firstName || undefined,
       buyerLastName: user?.lastName || undefined,
       paymentId: payment.id,
       paymentRef: reference,
-      amountPaid: payment.amount instanceof Decimal
-        ? payment.amount.toNumber()
-        : Number(payment.amount),
+      amountPaid:
+        payment.amount instanceof Decimal ? payment.amount.toNumber() : Number(payment.amount),
     });
 
     // =============================================================================
@@ -655,14 +665,14 @@ export class PaymentsService {
     //   - Organizer receives: ₦400 - ₦20 = ₦380
     //   - Platform keeps: ₦20
     // =============================================================================
-    
+
     let organizerAmount: number;
     let platformFee: number;
     let buyerPaidTotal: number;
-    
+
     // Calculate service fee (5% of tier price)
     const serviceFeeAmount = actualTierPrice * (platformFeePercent / 100);
-    
+
     if (eventPassFeeTobuyer) {
       // SCENARIO 1: Buyer pays the service fee on top of tier price
       // - Buyer paid: tierPrice + serviceFee
@@ -680,11 +690,13 @@ export class PaymentsService {
       platformFee = serviceFeeAmount;
       organizerAmount = actualTierPrice - platformFee;
     }
-    
+
     this.logger.log(`=== Organizer Earnings Calculation for ${reference} ===`);
     this.logger.log(`  Tier price: ₦${actualTierPrice.toFixed(2)}`);
     this.logger.log(`  Service fee (${platformFeePercent}%): ₦${serviceFeeAmount.toFixed(2)}`);
-    this.logger.log(`  Fee paid by: ${eventPassFeeTobuyer ? 'BUYER (added to total)' : 'ORGANIZER (deducted from earnings)'}`);
+    this.logger.log(
+      `  Fee paid by: ${eventPassFeeTobuyer ? 'BUYER (added to total)' : 'ORGANIZER (deducted from earnings)'}`,
+    );
     this.logger.log(`  ---`);
     this.logger.log(`  Buyer paid total: ₦${buyerPaidTotal.toFixed(2)}`);
     this.logger.log(`  Platform keeps: ₦${platformFee.toFixed(2)}`);
@@ -692,7 +704,7 @@ export class PaymentsService {
     this.logger.log(`  ================================================`);
 
     // All new payments go to pendingBalance first
-    // The cron job (tasks.service.ts) handles moving funds to availableBalance 
+    // The cron job (tasks.service.ts) handles moving funds to availableBalance
     // after 24 hours based on each individual ledger entry's createdAt timestamp
     await this.prisma.organizerProfile.update({
       where: { id: event.organizerId },
@@ -729,7 +741,10 @@ export class PaymentsService {
       await this.tasksService.processOrganizerPendingBalance(event.organizerId);
     } catch (error) {
       // Log but don't fail the payment process
-      this.logger.warn(`Failed to process pending balance for organizer ${event.organizerId}:`, error);
+      this.logger.warn(
+        `Failed to process pending balance for organizer ${event.organizerId}:`,
+        error,
+      );
     }
   }
 
@@ -740,7 +755,7 @@ export class PaymentsService {
   async checkPendingPayments(userId: string) {
     // Find all pending payments for this user (within last 24 hours to avoid stale data)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    
+
     const pendingPayments = await this.prisma.payment.findMany({
       where: {
         buyerId: userId,
@@ -766,7 +781,10 @@ export class PaymentsService {
       try {
         // Use Monnify transaction reference if available, otherwise use payment reference
         const transactionRef = payment.monnifyTransactionRef || payment.reference;
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
+        const monnifyData = await this.monnifyService.verifyTransaction(
+          transactionRef,
+          payment.reference,
+        );
 
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Process the payment using the same logic as webhook
@@ -777,7 +795,7 @@ export class PaymentsService {
             paid_at: monnifyData.paidOn,
             customer: monnifyData.customer,
           });
-          
+
           verificationResults.push({
             reference: payment.reference,
             status: 'verified',
@@ -838,7 +856,9 @@ export class PaymentsService {
         // Get transaction reference for Monnify verification
         const transactionRef = payment.monnifyTransactionRef || reference;
 
-        this.logger.log(`Verifying payment ${reference} with Monnify transaction ref: ${transactionRef}`);
+        this.logger.log(
+          `Verifying payment ${reference} with Monnify transaction ref: ${transactionRef}`,
+        );
 
         // Verify transaction with Monnify with retry logic
         let monnifyData;
@@ -848,8 +868,13 @@ export class PaymentsService {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             // Pass both transaction ref and payment ref to try both
-            monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
-            this.logger.log(`Monnify verification attempt ${attempt} result: ${JSON.stringify(monnifyData)}`);
+            monnifyData = await this.monnifyService.verifyTransaction(
+              transactionRef,
+              payment.reference,
+            );
+            this.logger.log(
+              `Monnify verification attempt ${attempt} result: ${JSON.stringify(monnifyData)}`,
+            );
 
             // If we got a successful status, break out of retry loop
             if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
@@ -858,8 +883,10 @@ export class PaymentsService {
 
             // If status is still pending on first attempts, wait and retry
             if (monnifyData.status === 'pending' && attempt < 3) {
-              this.logger.log(`Payment still pending on Monnify, waiting ${attempt * 2} seconds before retry...`);
-              await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // 2s, 4s delays
+              this.logger.log(
+                `Payment still pending on Monnify, waiting ${attempt * 2} seconds before retry...`,
+              );
+              await new Promise((resolve) => setTimeout(resolve, attempt * 2000)); // 2s, 4s delays
               continue;
             }
 
@@ -871,7 +898,7 @@ export class PaymentsService {
 
             // Wait before retrying (except on last attempt)
             if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, attempt * 1500)); // 1.5s, 3s delays
+              await new Promise((resolve) => setTimeout(resolve, attempt * 1500)); // 1.5s, 3s delays
             }
           }
         }
@@ -881,8 +908,8 @@ export class PaymentsService {
           this.logger.error(`All verification attempts failed for payment ${reference}`, lastError);
           throw new BadRequestException(
             'Unable to verify payment with Monnify at this time. ' +
-            'If you were charged, your ticket will be issued shortly. ' +
-            'Please check your tickets page in a few minutes or contact support.'
+              'If you were charged, your ticket will be issued shortly. ' +
+              'Please check your tickets page in a few minutes or contact support.',
           );
         }
 
@@ -924,9 +951,9 @@ export class PaymentsService {
           this.logger.warn(`Payment ${reference} verification returned status: ${statusMsg}`);
           throw new BadRequestException(
             `Payment verification returned status: ${statusMsg}. ` +
-            (monnifyData.status === 'pending'
-              ? 'Payment is still being processed. Please check your tickets page in a few minutes.'
-              : 'Payment was not completed. Please try again or contact support if you were charged.')
+              (monnifyData.status === 'pending'
+                ? 'Payment is still being processed. Please check your tickets page in a few minutes.'
+                : 'Payment was not completed. Please try again or contact support if you were charged.'),
           );
         }
       } catch (error) {
@@ -944,9 +971,9 @@ export class PaymentsService {
         // Otherwise, provide a generic but helpful error
         throw new BadRequestException(
           'Unable to verify payment with Monnify. ' +
-          'If you completed payment and were charged, your ticket will be issued automatically. ' +
-          'Please check your tickets page in a few minutes or contact support. ' +
-          `Error: ${errorMessage}`
+            'If you completed payment and were charged, your ticket will be issued automatically. ' +
+            'Please check your tickets page in a few minutes or contact support. ' +
+            `Error: ${errorMessage}`,
         );
       }
     }

@@ -11,7 +11,7 @@ export class TasksService {
 
   /**
    * Cron job that runs every 5 minutes to move pending balances to available balances.
-   * 
+   *
    * Logic: Sum up all ticket sales that are older than 24 hours for each organizer,
    * add back refunds (which are stored as negative amounts),
    * subtract what's already been moved to available (withdrawals + current available),
@@ -55,10 +55,10 @@ export class TasksService {
           _sum: { amount: true },
         });
 
-        const totalMaturedSales = maturedSalesResult._sum.amount 
-          ? (maturedSalesResult._sum.amount instanceof Decimal 
-              ? maturedSalesResult._sum.amount.toNumber() 
-              : Number(maturedSalesResult._sum.amount))
+        const totalMaturedSales = maturedSalesResult._sum.amount
+          ? maturedSalesResult._sum.amount instanceof Decimal
+            ? maturedSalesResult._sum.amount.toNumber()
+            : Number(maturedSalesResult._sum.amount)
           : 0;
 
         // Sum all refunds - note: refunds are stored as NEGATIVE amounts in ledger
@@ -72,23 +72,27 @@ export class TasksService {
         });
 
         // Refunds are negative, so Math.abs to get the actual refund amount
-        const totalRefunds = refundsResult._sum.amount 
-          ? Math.abs(refundsResult._sum.amount instanceof Decimal 
-              ? refundsResult._sum.amount.toNumber() 
-              : Number(refundsResult._sum.amount))
+        const totalRefunds = refundsResult._sum.amount
+          ? Math.abs(
+              refundsResult._sum.amount instanceof Decimal
+                ? refundsResult._sum.amount.toNumber()
+                : Number(refundsResult._sum.amount),
+            )
           : 0;
 
         // Calculate what should be available (matured sales minus absolute refunds)
         const shouldBeAvailableOrWithdrawn = totalMaturedSales - totalRefunds;
 
         // Current available + withdrawn is what's already been released
-        const currentAvailable = organizer.availableBalance instanceof Decimal
-          ? organizer.availableBalance.toNumber()
-          : Number(organizer.availableBalance) || 0;
-        
-        const currentWithdrawn = organizer.withdrawnBalance instanceof Decimal
-          ? organizer.withdrawnBalance.toNumber()
-          : Number(organizer.withdrawnBalance) || 0;
+        const currentAvailable =
+          organizer.availableBalance instanceof Decimal
+            ? organizer.availableBalance.toNumber()
+            : Number(organizer.availableBalance) || 0;
+
+        const currentWithdrawn =
+          organizer.withdrawnBalance instanceof Decimal
+            ? organizer.withdrawnBalance.toNumber()
+            : Number(organizer.withdrawnBalance) || 0;
 
         const alreadyReleased = currentAvailable + currentWithdrawn;
 
@@ -96,9 +100,10 @@ export class TasksService {
         const amountToMove = Math.max(0, shouldBeAvailableOrWithdrawn - alreadyReleased);
 
         // Also cap it at current pending balance (safety check)
-        const currentPending = organizer.pendingBalance instanceof Decimal
-          ? organizer.pendingBalance.toNumber()
-          : Number(organizer.pendingBalance) || 0;
+        const currentPending =
+          organizer.pendingBalance instanceof Decimal
+            ? organizer.pendingBalance.toNumber()
+            : Number(organizer.pendingBalance) || 0;
 
         const finalAmountToMove = Math.min(amountToMove, currentPending);
 
@@ -154,9 +159,10 @@ export class TasksService {
         return { processed: false, reason: 'Organizer not found' };
       }
 
-      const currentPending = organizer.pendingBalance instanceof Decimal
-        ? organizer.pendingBalance.toNumber()
-        : Number(organizer.pendingBalance) || 0;
+      const currentPending =
+        organizer.pendingBalance instanceof Decimal
+          ? organizer.pendingBalance.toNumber()
+          : Number(organizer.pendingBalance) || 0;
 
       if (currentPending <= 0) {
         return { processed: false, reason: 'No pending balance' };
@@ -176,10 +182,14 @@ export class TasksService {
         return { processed: false, reason: 'No paid sales found' };
       }
 
-      const hoursSinceFirstSale = (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
-      
+      const hoursSinceFirstSale =
+        (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
+
       if (hoursSinceFirstSale < 24) {
-        return { processed: false, reason: `Only ${hoursSinceFirstSale.toFixed(1)} hours since first sale` };
+        return {
+          processed: false,
+          reason: `Only ${hoursSinceFirstSale.toFixed(1)} hours since first sale`,
+        };
       }
 
       // Sum all ticket sales older than 24 hours (matured sales)
@@ -192,10 +202,10 @@ export class TasksService {
         _sum: { amount: true },
       });
 
-      const totalMaturedSales = maturedSalesResult._sum.amount 
-        ? (maturedSalesResult._sum.amount instanceof Decimal 
-            ? maturedSalesResult._sum.amount.toNumber() 
-            : Number(maturedSalesResult._sum.amount))
+      const totalMaturedSales = maturedSalesResult._sum.amount
+        ? maturedSalesResult._sum.amount instanceof Decimal
+          ? maturedSalesResult._sum.amount.toNumber()
+          : Number(maturedSalesResult._sum.amount)
         : 0;
 
       // Sum all refunds (absolute value since they're stored as negative)
@@ -207,21 +217,25 @@ export class TasksService {
         _sum: { amount: true },
       });
 
-      const totalRefunds = refundsResult._sum.amount 
-        ? Math.abs(refundsResult._sum.amount instanceof Decimal 
-            ? refundsResult._sum.amount.toNumber() 
-            : Number(refundsResult._sum.amount))
+      const totalRefunds = refundsResult._sum.amount
+        ? Math.abs(
+            refundsResult._sum.amount instanceof Decimal
+              ? refundsResult._sum.amount.toNumber()
+              : Number(refundsResult._sum.amount),
+          )
         : 0;
 
       const shouldBeAvailableOrWithdrawn = totalMaturedSales - totalRefunds;
 
-      const currentAvailable = organizer.availableBalance instanceof Decimal
-        ? organizer.availableBalance.toNumber()
-        : Number(organizer.availableBalance) || 0;
-      
-      const currentWithdrawn = organizer.withdrawnBalance instanceof Decimal
-        ? organizer.withdrawnBalance.toNumber()
-        : Number(organizer.withdrawnBalance) || 0;
+      const currentAvailable =
+        organizer.availableBalance instanceof Decimal
+          ? organizer.availableBalance.toNumber()
+          : Number(organizer.availableBalance) || 0;
+
+      const currentWithdrawn =
+        organizer.withdrawnBalance instanceof Decimal
+          ? organizer.withdrawnBalance.toNumber()
+          : Number(organizer.withdrawnBalance) || 0;
 
       const alreadyReleased = currentAvailable + currentWithdrawn;
       const amountToMove = Math.max(0, shouldBeAvailableOrWithdrawn - alreadyReleased);
@@ -329,7 +343,10 @@ export class TasksService {
           const transactionRef = payment.monnifyTransactionRef || payment.reference;
 
           // Verify with Monnify - pass both transaction ref and payment ref
-          const monnifyData = await monnifyService.verifyTransaction(transactionRef, payment.reference);
+          const monnifyData = await monnifyService.verifyTransaction(
+            transactionRef,
+            payment.reference,
+          );
 
           if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
             // Process the payment
@@ -344,7 +361,9 @@ export class TasksService {
             results.recovered++;
             this.logger.log(`Auto-recovered stuck payment: ${payment.reference}`);
           } else {
-            this.logger.log(`Payment ${payment.reference} status on Monnify: ${monnifyData.status}`);
+            this.logger.log(
+              `Payment ${payment.reference} status on Monnify: ${monnifyData.status}`,
+            );
           }
         } catch (error) {
           results.failed++;
@@ -355,7 +374,7 @@ export class TasksService {
       }
 
       this.logger.log(
-        `Stuck payment check complete: ${results.recovered} recovered, ${results.failed} failed out of ${results.checked} checked`
+        `Stuck payment check complete: ${results.recovered} recovered, ${results.failed} failed out of ${results.checked} checked`,
       );
 
       return results;

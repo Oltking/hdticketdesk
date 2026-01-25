@@ -23,13 +23,11 @@ export class MediaController {
    */
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    
+
     // Upload to Cloudinary with default folder
     return this.mediaService.uploadImage(file);
   }
@@ -47,7 +45,7 @@ export class MediaController {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-    
+
     return this.mediaService.uploadImage(file, folder);
   }
 

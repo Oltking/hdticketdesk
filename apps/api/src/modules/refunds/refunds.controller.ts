@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -47,10 +39,7 @@ export class RefundsController {
   @Post(':id/approve')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
-  async approveRefund(
-    @Param('id') id: string,
-    @Request() req: AuthenticatedRequest,
-  ) {
+  async approveRefund(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.refundsService.approveRefund(id, req.user.organizerProfileId || '');
   }
 

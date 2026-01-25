@@ -18,7 +18,13 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { Request, Response } from 'express';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiExcludeEndpoint } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Auth')
@@ -216,7 +222,16 @@ export class AuthController {
     if (!user) {
       return null;
     }
-    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+    const {
+      password,
+      verificationToken,
+      verificationTokenExpiry,
+      loginOtp,
+      loginOtpExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = user;
     return userWithoutSensitive;
   }
 
@@ -243,7 +258,7 @@ export class AuthController {
 
   // ==================== GOOGLE OAUTH ====================
   // Note: More specific routes (/google/callback) must come BEFORE /google
-  
+
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
   @ApiExcludeEndpoint() // Hide from Swagger as it's a callback
@@ -254,18 +269,18 @@ export class AuthController {
 
     // Get intended role from cookie (set during /google initiation)
     const intendedRole = req.cookies?.oauth_intended_role || null;
-    
+
     // Clear the role cookie
     res.clearCookie('oauth_intended_role');
 
     try {
       const googleUser = req.user as any;
-      
+
       if (!googleUser) {
         this.logger.error('Google OAuth: No user data received');
         return res.redirect(`${frontendUrl}/login?error=no_user_data`);
       }
-      
+
       const result = await this.authService.googleLogin(googleUser, ip, userAgent, intendedRole);
 
       // Check if this is a new organizer who needs to complete profile
@@ -325,10 +340,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Complete organizer profile setup after OAuth signup' })
   @ApiResponse({ status: 200, description: 'Organizer profile created successfully' })
-  async completeOrganizerSetup(
-    @Req() req: Request,
-    @Body() body: { organizationName: string },
-  ) {
+  async completeOrganizerSetup(@Req() req: Request, @Body() body: { organizationName: string }) {
     const userId = (req.user as any)?.sub || (req.user as any)?.id;
     if (!userId) {
       throw new BadRequestException('User ID not found in token');

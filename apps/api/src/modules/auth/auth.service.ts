@@ -59,7 +59,7 @@ export class AuthService {
     // Note: We check the string value since ADMIN is not in the RegisterDto enum
     if ((dto.role as string) === 'ADMIN') {
       throw new ForbiddenException(
-        'Admin accounts cannot be created through registration. Please contact system administrator.'
+        'Admin accounts cannot be created through registration. Please contact system administrator.',
       );
     }
 
@@ -104,9 +104,15 @@ export class AuthService {
     });
 
     // Send verification OTP email
-    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    const emailResult = await this.emailService.sendVerificationOtp(
+      user.email,
+      otp,
+      user.firstName ?? undefined,
+    );
     if (!emailResult.success) {
-      this.logger.error(`Failed to send verification OTP during registration: ${emailResult.error}`);
+      this.logger.error(
+        `Failed to send verification OTP during registration: ${emailResult.error}`,
+      );
     }
 
     this.logger.log(`Registered user: ${user.email} (role=${user.role})`);
@@ -116,7 +122,7 @@ export class AuthService {
       const guestTickets = await this.prisma.ticket.updateMany({
         where: {
           buyerEmail: user.email.toLowerCase(),
-          buyerId: null, // Only link tickets that were guest purchases
+          buyerId: null as any, // Only link tickets that were guest purchases
         },
         data: {
           buyerId: user.id,
@@ -159,11 +165,18 @@ export class AuthService {
           },
         });
 
-        this.logger.log(`Virtual account created for organizer ${user.organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
+        this.logger.log(
+          `Virtual account created for organizer ${user.organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`,
+        );
       } catch (error) {
         // Log but don't fail registration if VA creation fails
-        this.logger.error(`Failed to create virtual account for organizer ${user.organizerProfile.id}:`, error);
-        this.logger.warn('Organizer can still create events. Virtual account will be created on first event publish.');
+        this.logger.error(
+          `Failed to create virtual account for organizer ${user.organizerProfile.id}:`,
+          error,
+        );
+        this.logger.warn(
+          'Organizer can still create events. Virtual account will be created on first event publish.',
+        );
       }
     }
 
@@ -194,14 +207,14 @@ export class AuthService {
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const minutesRemaining = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
       throw new ForbiddenException(
-        `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`
+        `Account temporarily locked due to too many failed login attempts. Please try again in ${minutesRemaining} minute${minutesRemaining > 1 ? 's' : ''}.`,
       );
     }
 
     // Check if user has a password (social-only accounts don't)
     if (!user.password) {
       throw new BadRequestException(
-        'This account uses Google sign-in. Please click "Continue with Google" to log in.'
+        'This account uses Google sign-in. Please click "Continue with Google" to log in.',
       );
     }
 
@@ -211,20 +224,20 @@ export class AuthService {
       // Increment failed login attempts
       const newFailedAttempts = (user.failedLoginAttempts || 0) + 1;
       const maxAttempts = 5;
-      
+
       const updateData: any = { failedLoginAttempts: newFailedAttempts };
-      
+
       // Lock account after max attempts (30 minutes lockout)
       if (newFailedAttempts >= maxAttempts) {
         updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
         this.logger.warn(`Account locked due to failed attempts: ${user.email}`);
       }
-      
+
       await this.prisma.user.update({
         where: { id: user.id },
         data: updateData,
       });
-      
+
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -251,7 +264,11 @@ export class AuthService {
       });
 
       // Send new verification OTP
-      const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+      const emailResult = await this.emailService.sendVerificationOtp(
+        user.email,
+        otp,
+        user.firstName ?? undefined,
+      );
       if (!emailResult.success) {
         this.logger.error(`Failed to send verification OTP during login: ${emailResult.error}`);
       }
@@ -283,7 +300,16 @@ export class AuthService {
       data: { lastLoginAt: new Date(), lastLoginIp: ip },
     });
 
-    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+    const {
+      password,
+      verificationToken,
+      verificationTokenExpiry,
+      loginOtp,
+      loginOtpExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = user;
 
     return {
       user: userWithoutSensitive,
@@ -314,7 +340,8 @@ export class AuthService {
       throw new BadRequestException('Verification code has expired. Please request a new one.');
     }
 
-    if (user.verificationToken !== otp) {
+    // SECURITY: Use timing-safe comparison to prevent timing attacks
+    if (!timingSafeCompare(user.verificationToken, otp)) {
       throw new UnauthorizedException('Invalid verification code');
     }
 
@@ -331,7 +358,11 @@ export class AuthService {
 
     // Send welcome email (best-effort)
     try {
-      const welcomeResult = await this.emailService.sendWelcomeEmail(user.email, user.firstName ?? '', user.role as any);
+      const welcomeResult = await this.emailService.sendWelcomeEmail(
+        user.email,
+        user.firstName ?? '',
+        user.role as any,
+      );
       if (!welcomeResult.success) {
         this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
       }
@@ -343,7 +374,16 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
 
-    const { password, verificationToken, verificationTokenExpiry, loginOtp, loginOtpExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+    const {
+      password,
+      verificationToken,
+      verificationTokenExpiry,
+      loginOtp,
+      loginOtpExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = user;
 
     return {
       message: 'Email verified successfully',
@@ -377,7 +417,11 @@ export class AuthService {
       },
     });
 
-    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    const emailResult = await this.emailService.sendVerificationOtp(
+      user.email,
+      otp,
+      user.firstName ?? undefined,
+    );
     if (!emailResult.success) {
       this.logger.error(`Failed to send verification OTP (resend): ${emailResult.error}`);
       throw new BadRequestException('Failed to send verification code. Please try again.');
@@ -463,13 +507,17 @@ export class AuthService {
       },
     });
 
-    const emailResult = await this.emailService.sendVerificationOtp(user.email, otp, user.firstName ?? undefined);
+    const emailResult = await this.emailService.sendVerificationOtp(
+      user.email,
+      otp,
+      user.firstName ?? undefined,
+    );
     if (!emailResult.success) {
       this.logger.error(`Failed to send verification OTP (resend email): ${emailResult.error}`);
       throw new BadRequestException('Failed to send verification code. Please try again.');
     }
 
-    return { 
+    return {
       message: 'Verification code sent',
       userId: user.id, // Return userId so frontend can redirect to verify page
     };
@@ -479,8 +527,7 @@ export class AuthService {
   async sendLoginOtp(userId: string, email: string) {
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(
-      Date.now() +
-        (this.configService.get<number>('otpExpiryMinutes') || 10) * 60 * 1000,
+      Date.now() + (this.configService.get<number>('otpExpiryMinutes') || 10) * 60 * 1000,
     );
 
     await this.prisma.user.update({
@@ -534,7 +581,16 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken, ip, userAgent);
 
-    const { password, loginOtp: lo, loginOtpExpiry: loe, verificationToken, verificationTokenExpiry, passwordResetToken, passwordResetExp, ...userWithoutSensitive } = user;
+    const {
+      password,
+      loginOtp: lo,
+      loginOtpExpiry: loe,
+      verificationToken,
+      verificationTokenExpiry,
+      passwordResetToken,
+      passwordResetExp,
+      ...userWithoutSensitive
+    } = user;
 
     return {
       user: userWithoutSensitive,
@@ -579,24 +635,29 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('jwt.secret') || this.configService.get<string>('JWT_SECRET'),
-        expiresIn: this.configService.get<string>('jwt.accessExpiresIn') || this.configService.get<string>('JWT_EXPIRY') || '15m',
+        secret:
+          this.configService.get<string>('jwt.secret') ||
+          this.configService.get<string>('JWT_SECRET'),
+        expiresIn:
+          this.configService.get<string>('jwt.accessExpiresIn') ||
+          this.configService.get<string>('JWT_EXPIRY') ||
+          '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('jwt.refreshSecret') || this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get<string>('jwt.refreshExpiresIn') || this.configService.get<string>('JWT_REFRESH_EXPIRY') || '7d',
+        secret:
+          this.configService.get<string>('jwt.refreshSecret') ||
+          this.configService.get<string>('JWT_REFRESH_SECRET'),
+        expiresIn:
+          this.configService.get<string>('jwt.refreshExpiresIn') ||
+          this.configService.get<string>('JWT_REFRESH_EXPIRY') ||
+          '7d',
       }),
     ]);
 
     return { accessToken, refreshToken };
   }
 
-  async storeRefreshToken(
-    userId: string,
-    token: string,
-    ip: string,
-    userAgent: string,
-  ) {
+  async storeRefreshToken(userId: string, token: string, ip: string, userAgent: string) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     await this.prisma.refreshToken.create({
@@ -613,7 +674,9 @@ export class AuthService {
   async refreshAccessToken(refreshToken: string) {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get<string>('jwt.refreshSecret') || this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret:
+          this.configService.get<string>('jwt.refreshSecret') ||
+          this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
 
       const storedToken = await this.prisma.refreshToken.findFirst({
@@ -736,8 +799,15 @@ export class AuthService {
   }
 
   // ==================== GOOGLE OAUTH ====================
-  async googleLogin(googleUser: GoogleUser, ip: string, userAgent: string, intendedRole?: string | null) {
-    this.logger.log(`Google login attempt for: ${googleUser.email}, intended role: ${intendedRole || 'none'}`);
+  async googleLogin(
+    googleUser: GoogleUser,
+    ip: string,
+    userAgent: string,
+    intendedRole?: string | null,
+  ) {
+    this.logger.log(
+      `Google login attempt for: ${googleUser.email}, intended role: ${intendedRole || 'none'}`,
+    );
 
     let isNewUser = false;
     let needsOrganizerSetup = false;
@@ -774,7 +844,9 @@ export class AuthService {
         isNewUser = true;
         const isOrganizer = intendedRole === 'organizer';
 
-        this.logger.log(`Creating new user from Google: ${googleUser.email}, role: ${isOrganizer ? 'ORGANIZER' : 'BUYER'}`);
+        this.logger.log(
+          `Creating new user from Google: ${googleUser.email}, role: ${isOrganizer ? 'ORGANIZER' : 'BUYER'}`,
+        );
         user = await this.prisma.user.create({
           data: {
             email: googleUser.email.toLowerCase(),
@@ -794,7 +866,7 @@ export class AuthService {
           const guestTickets = await this.prisma.ticket.updateMany({
             where: {
               buyerEmail: user.email.toLowerCase(),
-              buyerId: null, // Only link tickets that were guest purchases
+              buyerId: null as any, // Only link tickets that were guest purchases
             },
             data: {
               buyerId: user.id,
@@ -802,7 +874,9 @@ export class AuthService {
           });
 
           if (guestTickets.count > 0) {
-            this.logger.log(`Linked ${guestTickets.count} guest tickets to new OAuth user: ${user.email}`);
+            this.logger.log(
+              `Linked ${guestTickets.count} guest tickets to new OAuth user: ${user.email}`,
+            );
           }
         } catch (error) {
           // Log but don't fail registration if ticket linking fails
@@ -927,11 +1001,18 @@ export class AuthService {
         },
       });
 
-      this.logger.log(`Virtual account created for organizer ${organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`);
+      this.logger.log(
+        `Virtual account created for organizer ${organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`,
+      );
     } catch (error) {
       // Log but don't fail organizer setup if VA creation fails
-      this.logger.error(`Failed to create virtual account for organizer ${organizerProfile.id}:`, error);
-      this.logger.warn('Organizer can still create events. Virtual account will be created on first event publish.');
+      this.logger.error(
+        `Failed to create virtual account for organizer ${organizerProfile.id}:`,
+        error,
+      );
+      this.logger.warn(
+        'Organizer can still create events. Virtual account will be created on first event publish.',
+      );
     }
 
     // Return updated user

@@ -68,7 +68,9 @@ export class AdminController {
   }
 
   @Post('events/:id/delete')
-  @ApiOperation({ summary: 'Admin force delete an event (use with caution - deletes all related records)' })
+  @ApiOperation({
+    summary: 'Admin force delete an event (use with caution - deletes all related records)',
+  })
   async adminDeleteEvent(@Param('id') id: string) {
     return this.adminService.adminDeleteEvent(id);
   }
@@ -116,7 +118,9 @@ export class AdminController {
   }
 
   @Post('organizers/create-all-virtual-accounts')
-  @ApiOperation({ summary: 'Create virtual accounts for all organizers without one (bulk operation)' })
+  @ApiOperation({
+    summary: 'Create virtual accounts for all organizers without one (bulk operation)',
+  })
   async createAllVirtualAccounts() {
     return this.adminService.createVirtualAccountsForAllOrganizers();
   }
@@ -146,14 +150,19 @@ export class AdminController {
   }
 
   @Post('payments/:reference/force-confirm')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Force confirm payment - bypasses Monnify verification',
-    description: 'Use when you have manually verified the payment in Monnify dashboard. Creates ticket and credits organizer immediately. Accepts HD reference, MNFY reference, payment ID, or buyer email.'
+    description:
+      'Use when you have manually verified the payment in Monnify dashboard. Creates ticket and credits organizer immediately. Accepts HD reference, MNFY reference, payment ID, or buyer email.',
   })
   async forceConfirmPayment(
     @Param('reference') reference: string,
     @Body() body: { confirmedAmount?: number; adminNotes?: string },
   ) {
-    return this.adminService.forceConfirmPayment(reference, body?.confirmedAmount, body?.adminNotes);
+    return this.adminService.forceConfirmPayment(
+      reference,
+      body?.confirmedAmount,
+      body?.adminNotes,
+    );
   }
 }

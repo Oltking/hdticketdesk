@@ -53,4 +53,20 @@ export class UsersController {
   ) {
     return this.usersService.updateOrganizerProfile(userId, dto);
   }
+
+  @Get('virtual-account')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Get organizer virtual account (reserved account) details' })
+  async getVirtualAccount(@CurrentUser('id') userId: string) {
+    return this.usersService.getOrganizerVirtualAccount(userId);
+  }
+
+  @Get('dashboard')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Get organizer dashboard data (balances, virtual account, stats)' })
+  async getDashboard(@CurrentUser('id') userId: string) {
+    return this.usersService.getOrganizerDashboard(userId);
+  }
 }

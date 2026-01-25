@@ -1,15 +1,11 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from '../payments/monnify.service';
 import { LedgerService } from '../ledger/ledger.service';
 import { EmailService } from '../emails/email.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { timingSafeCompare } from '../../common/utils/security.utils';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -33,17 +29,20 @@ export class WithdrawalsService {
       throw new NotFoundException('Organizer not found');
     }
 
-    const pendingBalance = organizer.pendingBalance instanceof Decimal 
-      ? organizer.pendingBalance.toNumber() 
-      : Number(organizer.pendingBalance);
-      
-    const availableBalance = organizer.availableBalance instanceof Decimal 
-      ? organizer.availableBalance.toNumber() 
-      : Number(organizer.availableBalance);
-      
-    const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal 
-      ? organizer.withdrawnBalance.toNumber() 
-      : Number(organizer.withdrawnBalance);
+    const pendingBalance =
+      organizer.pendingBalance instanceof Decimal
+        ? organizer.pendingBalance.toNumber()
+        : Number(organizer.pendingBalance);
+
+    const availableBalance =
+      organizer.availableBalance instanceof Decimal
+        ? organizer.availableBalance.toNumber()
+        : Number(organizer.availableBalance);
+
+    const withdrawnBalance =
+      organizer.withdrawnBalance instanceof Decimal
+        ? organizer.withdrawnBalance.toNumber()
+        : Number(organizer.withdrawnBalance);
 
     return {
       pending: pendingBalance,
@@ -80,7 +79,8 @@ export class WithdrawalsService {
     });
 
     if (firstPaidSale) {
-      const hoursSinceFirstSale = (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
+      const hoursSinceFirstSale =
+        (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
       if (hoursSinceFirstSale < 24) {
         const hoursRemaining = Math.ceil(24 - hoursSinceFirstSale);
         throw new BadRequestException(
@@ -89,14 +89,17 @@ export class WithdrawalsService {
       }
     }
 
-    const availableBalance = organizer.availableBalance instanceof Decimal 
-      ? organizer.availableBalance.toNumber() 
-      : Number(organizer.availableBalance);
+    const availableBalance =
+      organizer.availableBalance instanceof Decimal
+        ? organizer.availableBalance.toNumber()
+        : Number(organizer.availableBalance);
 
     // Minimum withdrawal amount (₦1,000)
     const minimumWithdrawal = 1000;
     if (amount < minimumWithdrawal) {
-      throw new BadRequestException(`Minimum withdrawal amount is ₦${minimumWithdrawal.toLocaleString()}`);
+      throw new BadRequestException(
+        `Minimum withdrawal amount is ₦${minimumWithdrawal.toLocaleString()}`,
+      );
     }
 
     // Check available balance
@@ -113,14 +116,15 @@ export class WithdrawalsService {
     });
 
     if (pendingWithdrawal) {
-      throw new BadRequestException('You have a pending withdrawal. Please wait for it to complete before requesting another.');
+      throw new BadRequestException(
+        'You have a pending withdrawal. Please wait for it to complete before requesting another.',
+      );
     }
 
     // Generate OTP - cryptographically secure
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(
-      Date.now() +
-        (this.configService.get<number>('OTP_EXPIRY_MINUTES') || 10) * 60 * 1000,
+      Date.now() + (this.configService.get<number>('OTP_EXPIRY_MINUTES') || 10) * 60 * 1000,
     );
 
     // Create withdrawal request
@@ -139,11 +143,7 @@ export class WithdrawalsService {
     });
 
     // Send OTP email
-    await this.emailService.sendWithdrawalOtpEmail(
-      organizer.user.email,
-      otp,
-      amount,
-    );
+    await this.emailService.sendWithdrawalOtpEmail(organizer.user.email, otp, amount);
 
     return {
       withdrawalId: withdrawal.id,
@@ -151,11 +151,7 @@ export class WithdrawalsService {
     };
   }
 
-  async verifyWithdrawalOtp(
-    organizerId: string,
-    withdrawalId: string,
-    otp: string,
-  ) {
+  async verifyWithdrawalOtp(organizerId: string, withdrawalId: string, otp: string) {
     const withdrawal = await this.prisma.withdrawal.findFirst({
       where: {
         id: withdrawalId,
@@ -181,7 +177,9 @@ export class WithdrawalsService {
           otpExpiresAt: null,
         },
       });
-      throw new BadRequestException('Too many failed attempts. Withdrawal request cancelled for security.');
+      throw new BadRequestException(
+        'Too many failed attempts. Withdrawal request cancelled for security.',
+      );
     }
 
     if (withdrawal.otpExpiresAt && withdrawal.otpExpiresAt < new Date()) {
@@ -189,9 +187,8 @@ export class WithdrawalsService {
     }
 
     // SECURITY: Use timing-safe comparison to prevent timing attacks
-    const otpMatch = withdrawal.otpCode && otp && 
-      crypto.timingSafeEqual(Buffer.from(withdrawal.otpCode), Buffer.from(otp.padEnd(withdrawal.otpCode.length)));
-    
+    const otpMatch = timingSafeCompare(withdrawal.otpCode, otp);
+
     if (!otpMatch) {
       // Increment attempt counter
       await this.prisma.withdrawal.update({
@@ -199,7 +196,9 @@ export class WithdrawalsService {
         data: { otpAttempts: (withdrawal.otpAttempts || 0) + 1 },
       });
       const remaining = maxAttempts - (withdrawal.otpAttempts || 0) - 1;
-      throw new BadRequestException(`Invalid OTP. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
+      throw new BadRequestException(
+        `Invalid OTP. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`,
+      );
     }
 
     // Update status to processing
@@ -234,16 +233,19 @@ export class WithdrawalsService {
     }
 
     // Get withdrawal amount
-    const withdrawalAmount = withdrawal.amount instanceof Decimal 
-      ? withdrawal.amount.toNumber() 
-      : Number(withdrawal.amount);
+    const withdrawalAmount =
+      withdrawal.amount instanceof Decimal
+        ? withdrawal.amount.toNumber()
+        : Number(withdrawal.amount);
 
     // Track if balance was deducted (for rollback on failure)
     let balanceDeducted = false;
 
     try {
-      this.logger.log(`Initiating Monnify transfer of ${withdrawalAmount} to ${withdrawal.accountNumber}`);
-      
+      this.logger.log(
+        `Initiating Monnify transfer of ${withdrawalAmount} to ${withdrawal.accountNumber}`,
+      );
+
       // Initiate transfer via Monnify
       const transferResult = await this.monnifyService.initiateTransfer(
         withdrawalAmount,
@@ -258,8 +260,8 @@ export class WithdrawalsService {
       // Update withdrawal status to PROCESSING (will be updated to COMPLETED by webhook)
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },
-        data: { 
-          status: 'PROCESSING', 
+        data: {
+          status: 'PROCESSING',
           monnifyTransferRef: transferResult.reference,
           monnifyTransferStatus: transferResult.status,
         },
@@ -268,7 +270,7 @@ export class WithdrawalsService {
       // Deduct from available balance ONLY after Monnify accepts the transfer
       await this.prisma.organizerProfile.update({
         where: { id: withdrawal.organizerId },
-        data: { 
+        data: {
           availableBalance: { decrement: withdrawal.amount },
         },
       });
@@ -276,17 +278,17 @@ export class WithdrawalsService {
 
       // Record in ledger ONLY after balance is deducted
       await this.ledgerService.recordWithdrawal(
-        withdrawal.organizerId, 
-        withdrawalId, 
-        withdrawalAmount
+        withdrawal.organizerId,
+        withdrawalId,
+        withdrawalAmount,
       );
 
       // If transfer is already successful (some transfers complete immediately)
       if (transferResult.status === 'SUCCESS') {
         await this.prisma.withdrawal.update({
           where: { id: withdrawalId },
-          data: { 
-            status: 'COMPLETED', 
+          data: {
+            status: 'COMPLETED',
             processedAt: new Date(),
           },
         });
@@ -294,7 +296,7 @@ export class WithdrawalsService {
         // Update withdrawn balance
         await this.prisma.organizerProfile.update({
           where: { id: withdrawal.organizerId },
-          data: { 
+          data: {
             withdrawnBalance: { increment: withdrawal.amount },
           },
         });
@@ -314,23 +316,26 @@ export class WithdrawalsService {
       }
     } catch (error: any) {
       this.logger.error(`Withdrawal ${withdrawalId} failed:`, error);
-      
+
       // CRITICAL: Restore balance if it was deducted before the failure
       if (balanceDeducted) {
         try {
           await this.prisma.organizerProfile.update({
             where: { id: withdrawal.organizerId },
-            data: { 
+            data: {
               availableBalance: { increment: withdrawal.amount },
             },
           });
           this.logger.log(`Balance restored for failed withdrawal ${withdrawalId}`);
         } catch (restoreError) {
           // Critical error - manual intervention needed
-          this.logger.error(`CRITICAL: Failed to restore balance for withdrawal ${withdrawalId}:`, restoreError);
+          this.logger.error(
+            `CRITICAL: Failed to restore balance for withdrawal ${withdrawalId}:`,
+            restoreError,
+          );
         }
       }
-      
+
       // Update withdrawal status to failed
       await this.prisma.withdrawal.update({
         where: { id: withdrawalId },

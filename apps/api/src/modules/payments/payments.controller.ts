@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Body, Param, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+  BadRequestException,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { MonnifyService } from './monnify.service';
@@ -68,7 +78,10 @@ export class PaymentsController {
   @Post('resolve-account')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Resolve bank account' })
-  async resolveAccount(@Body('accountNumber') accountNumber: string, @Body('bankCode') bankCode: string) {
+  async resolveAccount(
+    @Body('accountNumber') accountNumber: string,
+    @Body('bankCode') bankCode: string,
+  ) {
     return this.monnifyService.resolveAccountNumber(accountNumber, bankCode);
   }
 

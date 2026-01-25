@@ -55,13 +55,16 @@ export class RefundsService {
     }
 
     // Calculate ticket amount
-    const ticketAmount = ticket.amountPaid instanceof Decimal 
-      ? ticket.amountPaid.toNumber() 
-      : Number(ticket.amountPaid);
+    const ticketAmount =
+      ticket.amountPaid instanceof Decimal
+        ? ticket.amountPaid.toNumber()
+        : Number(ticket.amountPaid);
 
     // Check for free tickets - no refund for free tickets
     if (ticketAmount === 0) {
-      throw new BadRequestException('Free tickets cannot be refunded. Please cancel the ticket instead.');
+      throw new BadRequestException(
+        'Free tickets cannot be refunded. Please cancel the ticket instead.',
+      );
     }
 
     // Calculate refund amount (minus platform fee - 5%)
@@ -123,14 +126,12 @@ export class RefundsService {
     // Process refund via Monnify
     try {
       if (refund.ticket.paymentRef) {
-        const refundAmount = refund.refundAmount instanceof Decimal
-          ? refund.refundAmount.toNumber()
-          : Number(refund.refundAmount);
-          
-        await this.monnifyService.refundTransaction(
-          refund.ticket.paymentRef,
-          refundAmount,
-        );
+        const refundAmount =
+          refund.refundAmount instanceof Decimal
+            ? refund.refundAmount.toNumber()
+            : Number(refund.refundAmount);
+
+        await this.monnifyService.refundTransaction(refund.ticket.paymentRef, refundAmount);
       }
 
       // Update ticket status
@@ -146,9 +147,10 @@ export class RefundsService {
       });
 
       // Update organizer balance
-      const refundAmount = refund.refundAmount instanceof Decimal
-        ? refund.refundAmount.toNumber()
-        : Number(refund.refundAmount);
+      const refundAmount =
+        refund.refundAmount instanceof Decimal
+          ? refund.refundAmount.toNumber()
+          : Number(refund.refundAmount);
 
       await this.prisma.organizerProfile.update({
         where: { id: organizerId },
@@ -158,11 +160,7 @@ export class RefundsService {
       });
 
       // Record in ledger
-      await this.ledgerService.recordRefund(
-        organizerId,
-        refund.ticketId,
-        refundAmount,
-      );
+      await this.ledgerService.recordRefund(organizerId, refund.ticketId, refundAmount);
 
       // Send email to buyer
       await this.emailService.sendRefundEmail(refund.ticket.buyerEmail, {
@@ -222,9 +220,10 @@ export class RefundsService {
     });
 
     // Send email to buyer
-    const refundAmount = refund.refundAmount instanceof Decimal
-      ? refund.refundAmount.toNumber()
-      : Number(refund.refundAmount);
+    const refundAmount =
+      refund.refundAmount instanceof Decimal
+        ? refund.refundAmount.toNumber()
+        : Number(refund.refundAmount);
 
     await this.emailService.sendRefundEmail(refund.ticket.buyerEmail, {
       ticketNumber: refund.ticket.ticketNumber,

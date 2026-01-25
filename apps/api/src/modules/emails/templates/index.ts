@@ -110,13 +110,40 @@ export interface RefundEmailData {
 
 export function getRefundEmailTemplate(data: RefundEmailData): string {
   const statusConfig = {
-    requested: { bg: '#e0f2fe', color: '#0369a1', icon: '📝', title: 'Refund Requested', message: 'Your refund request has been submitted and is pending review.' },
-    approved: { bg: '#d1fae5', color: '#065f46', icon: '✅', title: 'Refund Approved', message: 'Great news! Your refund request has been approved.' },
-    rejected: { bg: '#fee2e2', color: '#991b1b', icon: '❌', title: 'Refund Declined', message: 'Unfortunately, your refund request could not be approved.' },
-    completed: { bg: '#dbeafe', color: '#1e40af', icon: '💰', title: 'Refund Completed', message: 'Your refund has been processed and sent to your account.' },
+    requested: {
+      bg: '#e0f2fe',
+      color: '#0369a1',
+      icon: '📝',
+      title: 'Refund Requested',
+      message: 'Your refund request has been submitted and is pending review.',
+    },
+    approved: {
+      bg: '#d1fae5',
+      color: '#065f46',
+      icon: '✅',
+      title: 'Refund Approved',
+      message: 'Great news! Your refund request has been approved.',
+    },
+    rejected: {
+      bg: '#fee2e2',
+      color: '#991b1b',
+      icon: '❌',
+      title: 'Refund Declined',
+      message: 'Unfortunately, your refund request could not be approved.',
+    },
+    completed: {
+      bg: '#dbeafe',
+      color: '#1e40af',
+      icon: '💰',
+      title: 'Refund Completed',
+      message: 'Your refund has been processed and sent to your account.',
+    },
   };
   const config = statusConfig[data.status];
-  const formattedAmount = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(data.refundAmount);
+  const formattedAmount = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+  }).format(data.refundAmount);
   const greeting = data.buyerName ? `Hi ${data.buyerName},` : 'Hello,';
 
   return `
@@ -175,21 +202,29 @@ export function getRefundEmailTemplate(data: RefundEmailData): string {
                 </table>
               </div>
               
-              ${data.reason ? `
+              ${
+                data.reason
+                  ? `
               <div style="background: #fef3c7; border-radius: 8px; padding: 16px; border-left: 4px solid #f59e0b;">
                 <p style="margin: 0; font-size: 13px; color: #92400e;">
                   <strong>Note:</strong> ${data.reason}
                 </p>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
-              ${data.status === 'completed' ? `
+              ${
+                data.status === 'completed'
+                  ? `
               <div style="background: #d1fae5; border-radius: 8px; padding: 16px; margin-top: 16px;">
                 <p style="margin: 0; font-size: 13px; color: #065f46;">
                   💳 The refund should appear in your original payment method within 5-10 business days.
                 </p>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </td>
           </tr>
           <tr>
@@ -229,13 +264,40 @@ export interface WithdrawalEmailData {
 
 export function getWithdrawalEmailTemplate(data: WithdrawalEmailData): string {
   const statusConfig = {
-    pending: { bg: '#e0f2fe', color: '#0369a1', icon: '📝', title: 'Withdrawal Initiated', message: 'Your withdrawal request has been received and is awaiting verification.' },
-    processing: { bg: '#fef3c7', color: '#92400e', icon: '⏳', title: 'Withdrawal Processing', message: 'Your withdrawal is being processed and will be sent to your bank shortly.' },
-    completed: { bg: '#d1fae5', color: '#065f46', icon: '✅', title: 'Withdrawal Successful', message: 'Your withdrawal has been completed and sent to your bank account.' },
-    failed: { bg: '#fee2e2', color: '#991b1b', icon: '❌', title: 'Withdrawal Failed', message: 'Unfortunately, your withdrawal could not be processed.' },
+    pending: {
+      bg: '#e0f2fe',
+      color: '#0369a1',
+      icon: '📝',
+      title: 'Withdrawal Initiated',
+      message: 'Your withdrawal request has been received and is awaiting verification.',
+    },
+    processing: {
+      bg: '#fef3c7',
+      color: '#92400e',
+      icon: '⏳',
+      title: 'Withdrawal Processing',
+      message: 'Your withdrawal is being processed and will be sent to your bank shortly.',
+    },
+    completed: {
+      bg: '#d1fae5',
+      color: '#065f46',
+      icon: '✅',
+      title: 'Withdrawal Successful',
+      message: 'Your withdrawal has been completed and sent to your bank account.',
+    },
+    failed: {
+      bg: '#fee2e2',
+      color: '#991b1b',
+      icon: '❌',
+      title: 'Withdrawal Failed',
+      message: 'Unfortunately, your withdrawal could not be processed.',
+    },
   };
   const config = statusConfig[data.status];
-  const formattedAmount = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(data.amount);
+  const formattedAmount = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+  }).format(data.amount);
   const maskedAccount = '****' + data.accountNumber.slice(-4);
   const greeting = data.organizerName ? `Hi ${data.organizerName},` : 'Hello,';
 
@@ -292,40 +354,56 @@ export function getWithdrawalEmailTemplate(data: WithdrawalEmailData): string {
                       <p style="margin: 4px 0 0; font-size: 15px; color: #333; font-weight: 500;">${maskedAccount}</p>
                     </td>
                   </tr>
-                  ${data.reference ? `
+                  ${
+                    data.reference
+                      ? `
                   <tr>
                     <td style="padding: 8px 0;">
                       <p style="margin: 0; font-size: 12px; color: #999; text-transform: uppercase;">Reference</p>
                       <p style="margin: 4px 0 0; font-size: 13px; color: #333; font-family: monospace;">${data.reference}</p>
                     </td>
                   </tr>
-                  ` : ''}
+                  `
+                      : ''
+                  }
                 </table>
               </div>
               
-              ${data.failureReason ? `
+              ${
+                data.failureReason
+                  ? `
               <div style="background: #fee2e2; border-radius: 8px; padding: 16px; border-left: 4px solid #ef4444;">
                 <p style="margin: 0; font-size: 13px; color: #991b1b;">
                   <strong>Reason:</strong> ${data.failureReason}
                 </p>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
-              ${data.status === 'completed' ? `
+              ${
+                data.status === 'completed'
+                  ? `
               <div style="background: #d1fae5; border-radius: 8px; padding: 16px; margin-top: 16px;">
                 <p style="margin: 0; font-size: 13px; color: #065f46;">
                   ✨ Funds should reflect in your account within 24 hours depending on your bank.
                 </p>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
-              ${data.status === 'failed' ? `
+              ${
+                data.status === 'failed'
+                  ? `
               <div style="background: #fef3c7; border-radius: 8px; padding: 16px; margin-top: 16px;">
                 <p style="margin: 0; font-size: 13px; color: #92400e;">
                   💡 Please verify your bank details and try again, or contact support if the issue persists.
                 </p>
               </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </td>
           </tr>
           <tr>

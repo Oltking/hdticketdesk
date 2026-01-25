@@ -1,8 +1,40 @@
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Session expiry event - components can listen to this
+export const SESSION_EXPIRED_EVENT = 'session-expired';
+
+// Token refresh timing constants
+const TOKEN_REFRESH_THRESHOLD = 2 * 60 * 1000; // Refresh 2 minutes before expiry
+const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
+const INACTIVITY_THRESHOLD = 14 * 60 * 1000; // Consider inactive after 14 minutes (just under 15min token expiry)
+
+// Dispatch session expired event so the app can handle it
+function dispatchSessionExpired() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, {
+      detail: { message: 'Your session has expired. Please log in again.' }
+    }));
+  }
+}
+
+// Parse JWT to get expiration time
+function getTokenExpiration(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+  } catch {
+    return null;
+  }
+}
+
 class ApiClient {
   private accessToken: string | null = null;
+  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
+  private lastActivityTime: number = Date.now();
+  private activityCheckInterval: NodeJS.Timeout | null = null;
+  private activityListenersAdded = false;
 
     async updateOrganizerBank(data: { bankCode: string; accountNumber: string; accountName: string; bankName?: string }) {
       return this.request<{ message: string; organizerProfile: any }>(
@@ -18,10 +50,92 @@ class ApiClient {
     if (token) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('accessToken', token);
+        // Start activity tracking when we have a token
+        this.startActivityTracking();
       }
     } else {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
+        // Stop activity tracking when token is cleared
+        this.stopActivityTracking();
+      }
+    }
+  }
+
+  /**
+   * Record user activity - call this on user interactions
+   */
+  recordActivity() {
+    this.lastActivityTime = Date.now();
+  }
+
+  /**
+   * Check if user is currently active (has interacted recently)
+   */
+  isUserActive(): boolean {
+    return Date.now() - this.lastActivityTime < INACTIVITY_THRESHOLD;
+  }
+
+  /**
+   * Start tracking user activity and proactively refresh tokens
+   */
+  private startActivityTracking() {
+    if (typeof window === 'undefined' || this.activityListenersAdded) return;
+
+    // Track user activity
+    const activityHandler = () => this.recordActivity();
+    
+    window.addEventListener('click', activityHandler, { passive: true });
+    window.addEventListener('keydown', activityHandler, { passive: true });
+    window.addEventListener('scroll', activityHandler, { passive: true });
+    window.addEventListener('mousemove', activityHandler, { passive: true });
+    window.addEventListener('touchstart', activityHandler, { passive: true });
+    
+    this.activityListenersAdded = true;
+
+    // Periodically check if we need to refresh the token
+    this.activityCheckInterval = setInterval(() => {
+      this.checkAndRefreshToken();
+    }, ACTIVITY_CHECK_INTERVAL);
+
+    // Initial activity timestamp
+    this.recordActivity();
+  }
+
+  /**
+   * Stop tracking user activity
+   */
+  private stopActivityTracking() {
+    if (typeof window === 'undefined') return;
+
+    if (this.activityCheckInterval) {
+      clearInterval(this.activityCheckInterval);
+      this.activityCheckInterval = null;
+    }
+    
+    // Note: We don't remove event listeners to avoid complexity
+    // They will just update lastActivityTime which is harmless
+  }
+
+  /**
+   * Check if token is about to expire and refresh it proactively if user is active
+   */
+  private async checkAndRefreshToken() {
+    const token = this.getToken();
+    if (!token) return;
+
+    const expiration = getTokenExpiration(token);
+    if (!expiration) return;
+
+    const timeUntilExpiry = expiration - Date.now();
+    
+    // If token expires soon and user is active, refresh proactively
+    if (timeUntilExpiry < TOKEN_REFRESH_THRESHOLD && timeUntilExpiry > 0) {
+      if (this.isUserActive()) {
+        console.log('[Auth] Proactively refreshing token - user is active');
+        await this.tryRefreshToken();
+      } else {
+        console.log('[Auth] Token expiring soon but user is inactive - will prompt on next action');
       }
     }
   }
@@ -32,12 +146,19 @@ class ApiClient {
       const storedToken = localStorage.getItem('accessToken');
       if (storedToken) {
         this.accessToken = storedToken;
+        // Ensure activity tracking is running when we have a token
+        if (!this.activityListenersAdded) {
+          this.startActivityTracking();
+        }
       }
     }
     return this.accessToken;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}, skipAuthRetry = false): Promise<T> {
+    // Record activity on every API request - user is clearly active
+    this.recordActivity();
+    
     const token = this.getToken();
     
     const headers: Record<string, string> = {
@@ -58,6 +179,21 @@ class ApiClient {
       const error = await response.json().catch(() => ({}));
       // Handle wrapped error response
       const errorData = error.data || error;
+
+      // Handle 401 Unauthorized - try to refresh token
+      if (response.status === 401 && !skipAuthRetry && endpoint !== '/auth/refresh' && endpoint !== '/auth/login') {
+        const refreshed = await this.tryRefreshToken();
+        if (refreshed) {
+          // Retry the original request with new token
+          return this.request<T>(endpoint, options, true);
+        }
+        
+        // Refresh failed - session is expired
+        this.handleSessionExpired();
+        const err = new Error('Your session has expired. Please log in again.');
+        (err as any).response = { data: errorData, status: 401, sessionExpired: true };
+        throw err;
+      }
 
       // Provide more helpful error messages for common status codes
       let errorMessage = errorData.message || error.message;
@@ -99,6 +235,66 @@ class ApiClient {
     }
     
     return json as T;
+  }
+
+  /**
+   * Try to refresh the access token using the refresh token
+   */
+  private async tryRefreshToken(): Promise<boolean> {
+    // Prevent multiple simultaneous refresh attempts
+    if (this.isRefreshing) {
+      return this.refreshPromise || Promise.resolve(false);
+    }
+
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    if (!refreshToken) {
+      return false;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const data = await response.json();
+        const result = data.data || data;
+        
+        if (result.accessToken) {
+          this.setToken(result.accessToken);
+          if (result.refreshToken && typeof window !== 'undefined') {
+            localStorage.setItem('refreshToken', result.refreshToken);
+          }
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
+   * Handle session expiration - clear tokens and notify the app
+   */
+  private handleSessionExpired() {
+    this.setToken(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('refreshToken');
+    }
+    dispatchSessionExpired();
   }
 
   // ==================== AUTH ====================
@@ -776,6 +972,108 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ confirmedAmount, adminNotes }),
     });
+  }
+
+  // ==================== ORGANIZER DASHBOARD & RECONCILIATION ====================
+  
+  /**
+   * Get organizer dashboard data including balances, virtual account, and stats
+   */
+  async getOrganizerDashboard() {
+    return this.request<{
+      balances: {
+        pending: number;
+        available: number;
+        withdrawn: number;
+        total: number;
+        withdrawable: number;
+      };
+      virtualAccount: {
+        accountNumber: string;
+        accountName: string;
+        bankName: string;
+        isActive: boolean;
+      } | null;
+      bankDetails: {
+        bankName: string | null;
+        accountNumber: string | null;
+        accountName: string | null;
+        isVerified: boolean;
+      };
+      stats: {
+        publishedEvents: number;
+      };
+    }>('/users/dashboard');
+  }
+
+  /**
+   * Get organizer's virtual account (reserved account) details
+   */
+  async getOrganizerVirtualAccount() {
+    return this.request<{
+      hasVirtualAccount: boolean;
+      message?: string;
+      virtualAccount?: {
+        accountNumber: string;
+        accountName: string;
+        bankName: string;
+        bankCode: string;
+        isActive: boolean;
+        createdAt: string;
+      };
+    }>('/users/virtual-account');
+  }
+
+  /**
+   * Get reconciliation report for the organizer
+   */
+  async getReconciliationReport(startDate?: string, endDate?: string) {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const query = params.toString();
+    return this.request<{
+      organizerId: string;
+      organizerName: string;
+      period: { start: string; end: string };
+      summary: {
+        totalTicketSales: number;
+        totalRefunds: number;
+        totalWithdrawals: number;
+        platformFees: number;
+        netRevenue: number;
+        pendingBalance: number;
+        availableBalance: number;
+        withdrawnBalance: number;
+        calculatedBalance: number;
+        balanceDiscrepancy: number;
+      };
+      transactions: {
+        ticketSales: any[];
+        refunds: any[];
+        withdrawals: any[];
+      };
+      virtualAccount?: {
+        accountNumber: string;
+        accountName: string;
+        bankName: string;
+      };
+    }>(`/reconciliation/report${query ? `?${query}` : ''}`);
+  }
+
+  /**
+   * Get daily transaction summary for the organizer
+   */
+  async getDailyTransactionSummary(date?: string) {
+    const query = date ? `?date=${date}` : '';
+    return this.request<{
+      date: string;
+      ticketSales: number;
+      refunds: number;
+      withdrawals: number;
+      netChange: number;
+      transactions: number;
+    }>(`/reconciliation/daily-summary${query}`);
   }
 }
 

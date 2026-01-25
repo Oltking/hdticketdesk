@@ -23,7 +23,10 @@ export class WithdrawalsController {
 
   @Post('request')
   @ApiOperation({ summary: 'Request withdrawal' })
-  async requestWithdrawal(@CurrentUser('organizerProfileId') organizerId: string, @Body('amount') amount: number) {
+  async requestWithdrawal(
+    @CurrentUser('organizerProfileId') organizerId: string,
+    @Body('amount') amount: number,
+  ) {
     return this.withdrawalsService.requestWithdrawal(organizerId, amount);
   }
 

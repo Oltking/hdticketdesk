@@ -1,6 +1,6 @@
 /**
  * Security Utilities for HD Ticket Desk
- * 
+ *
  * Contains helper functions for input sanitization, validation,
  * and security-related operations.
  */
@@ -11,7 +11,10 @@ import * as crypto from 'crypto';
  * Timing-safe string comparison to prevent timing attacks
  * Used for comparing OTPs, tokens, and other sensitive values
  */
-export function timingSafeCompare(a: string | null | undefined, b: string | null | undefined): boolean {
+export function timingSafeCompare(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
   if (!a || !b) return false;
   if (a.length !== b.length) {
     // Still do a comparison to maintain constant time

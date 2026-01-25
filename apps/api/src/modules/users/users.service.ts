@@ -55,12 +55,12 @@ export class UsersService {
       include: { organizerProfile: true },
     });
     if (!user?.organizerProfile) throw new NotFoundException('Organizer profile not found');
-    
+
     const profile = user.organizerProfile;
     const pending = Number(profile.pendingBalance) || 0;
     const available = Number(profile.availableBalance) || 0;
     const withdrawn = Number(profile.withdrawnBalance) || 0;
-    
+
     return {
       pending,
       available,
@@ -84,9 +84,107 @@ export class UsersService {
       },
     });
 
-    return { 
+    return {
       message: 'Organizer profile updated successfully',
       organizerProfile: updatedProfile,
+    };
+  }
+
+  /**
+   * Get organizer's virtual account details
+   * This is the reserved account used for receiving payments
+   */
+  async getOrganizerVirtualAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        organizerProfile: {
+          include: {
+            virtualAccount: true,
+          },
+        },
+      },
+    });
+
+    if (!user?.organizerProfile) {
+      throw new NotFoundException('Organizer profile not found');
+    }
+
+    const virtualAccount = user.organizerProfile.virtualAccount;
+
+    if (!virtualAccount) {
+      return {
+        hasVirtualAccount: false,
+        message: 'Virtual account will be created when you publish your first event.',
+      };
+    }
+
+    return {
+      hasVirtualAccount: true,
+      virtualAccount: {
+        accountNumber: virtualAccount.accountNumber,
+        accountName: virtualAccount.accountName,
+        bankName: virtualAccount.bankName,
+        bankCode: virtualAccount.bankCode,
+        isActive: virtualAccount.isActive,
+        createdAt: virtualAccount.createdAt,
+      },
+    };
+  }
+
+  /**
+   * Get full organizer dashboard data including balances, virtual account, and bank details
+   */
+  async getOrganizerDashboard(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        organizerProfile: {
+          include: {
+            virtualAccount: true,
+            events: {
+              where: { status: 'PUBLISHED' },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user?.organizerProfile) {
+      throw new NotFoundException('Organizer profile not found');
+    }
+
+    const profile = user.organizerProfile;
+    const pending = Number(profile.pendingBalance) || 0;
+    const available = Number(profile.availableBalance) || 0;
+    const withdrawn = Number(profile.withdrawnBalance) || 0;
+
+    return {
+      balances: {
+        pending,
+        available,
+        withdrawn,
+        total: pending + available,
+        withdrawable: available,
+      },
+      virtualAccount: profile.virtualAccount
+        ? {
+            accountNumber: profile.virtualAccount.accountNumber,
+            accountName: profile.virtualAccount.accountName,
+            bankName: profile.virtualAccount.bankName,
+            isActive: profile.virtualAccount.isActive,
+          }
+        : null,
+      bankDetails: {
+        bankName: profile.bankName,
+        accountNumber: profile.accountNumber ? `****${profile.accountNumber.slice(-4)}` : null,
+        accountName: profile.accountName,
+        isVerified: profile.bankVerified,
+      },
+      stats: {
+        publishedEvents: profile.events.length,
+      },
     };
   }
 }
