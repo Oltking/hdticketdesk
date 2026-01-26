@@ -46,7 +46,7 @@ export function LiveNowSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 380; // Card width + gap
+      const scrollAmount = 324; // Card width + gap
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
@@ -117,7 +117,7 @@ export function LiveNowSection() {
         {loading ? (
           <div className="flex gap-6 overflow-hidden">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[356px] h-64 rounded-2xl bg-muted animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-[300px] h-56 rounded-2xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : (
@@ -142,13 +142,13 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
   );
 
   return (
-    <Link 
+    <Link
       href={`/events/${event.slug}`}
-      className="block group animate-in flex-shrink-0 w-[356px] snap-start"
+      className="block group animate-in flex-shrink-0 w-[300px] snap-start"
       style={{ animationDelay: `${index * 0.1}s` }}
     >
       <div className={cn(
-        "relative h-64 rounded-2xl overflow-hidden",
+        "relative h-56 rounded-2xl overflow-hidden",
         "bg-card border-2 border-red-500/30",
         "transition-all duration-300",
         "hover:border-red-500 hover:shadow-lg hover:shadow-red-500/20",
@@ -169,34 +169,34 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
         </div>
         
         {/* Live Badge */}
-        <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500 text-white text-sm font-semibold shadow-lg">
-          <Radio className="w-4 h-4 animate-pulse" />
+        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-semibold shadow-lg">
+          <Radio className="w-3.5 h-3.5 animate-pulse" />
           LIVE
         </div>
-        
+
         {/* Attendees count */}
         {(event.totalTicketsSold || 0) > 0 && (
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur text-white text-sm">
-            <Users className="w-4 h-4" />
-            {event.totalTicketsSold} attending
+          <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur text-white text-xs">
+            <Users className="w-3.5 h-3.5" />
+            {event.totalTicketsSold}
           </div>
         )}
-        
+
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-5">
-          <h3 className="font-display font-bold text-white text-xl mb-2 line-clamp-2 group-hover:text-red-100 transition-colors">
+        <div className="absolute inset-x-0 bottom-0 p-4">
+          <h3 className="font-display font-bold text-white text-lg mb-1.5 line-clamp-2 group-hover:text-red-100 transition-colors">
             {event.title}
           </h3>
-          
+
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm text-white/80">
-              <MapPin className="w-4 h-4" />
+            <div className="flex items-center gap-1 text-xs text-white/80">
+              <MapPin className="w-3.5 h-3.5" />
               <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online Event' : event.location || 'TBA')}</span>
             </div>
-            
+
             <div className="text-right">
-              <p className="text-xs text-white/60">From</p>
-              <p className="font-display font-bold text-white">
+              <p className="text-[10px] text-white/60">From</p>
+              <p className="font-display font-bold text-white text-sm">
                 {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
