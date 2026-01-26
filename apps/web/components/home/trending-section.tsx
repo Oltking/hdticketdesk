@@ -60,15 +60,15 @@ export function TrendingSection() {
   }
 
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="py-12 relative overflow-hidden">
       {/* Beautiful gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-orange-50 to-pink-100 dark:from-orange-950/40 dark:via-background dark:to-pink-950/40" />
       <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
-      
+
       <div className="container relative z-10">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-orange-500/10">
               <Flame className="w-6 h-6 text-orange-500" />
@@ -144,7 +144,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
   }, 0) || 0) / (event.tiers?.length || 1);
 
   return (
-    <Link 
+    <Link
       href={`/events/${event.slug}`}
       className="block group animate-in flex-shrink-0 w-64 snap-start"
       style={{ animationDelay: `${rank * 0.1}s` }}
@@ -156,18 +156,18 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1"
       )}>
         {/* Rank Badge */}
-        <div className="absolute top-4 left-4 z-10 w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-display font-bold text-lg shadow-lg">
+        <div className="absolute top-3 left-3 z-10 w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-display font-bold text-base shadow-lg">
           {rank}
         </div>
-        
+
         {/* Trending indicator */}
-        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/90 text-white text-xs font-semibold">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90 text-white text-xs font-semibold">
           <TrendingUp className="w-3 h-3" />
           Hot
         </div>
-        
+
         {/* Image */}
-        <div className="h-40 overflow-hidden">
+        <div className="h-36 overflow-hidden">
           {event.coverImage ? (
             <img
               src={event.coverImage}
@@ -182,25 +182,25 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         </div>
         
         {/* Content */}
-        <div className="p-4 flex flex-col h-[calc(22rem-10rem)]">
-          <h3 className="font-display font-bold text-base mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+        <div className="p-3.5 flex flex-col h-[calc(20rem-9rem)]">
+          <h3 className="font-display font-bold text-sm mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
             {event.title}
           </h3>
-          
-          <div className="flex flex-col gap-1 text-sm text-muted-foreground mb-2">
+
+          <div className="flex flex-col gap-0.5 text-xs text-muted-foreground mb-2">
             <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4 flex-shrink-0" />
+              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{formatDate(event.startDate, 'short')}</span>
             </span>
             <span className="flex items-center gap-1">
-              <MapPin className="w-4 h-4 flex-shrink-0" />
+              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
               <span className="truncate">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
             </span>
           </div>
-          
+
           {/* Progress bar */}
           <div className="mb-2">
-            <div className="flex items-center justify-between text-xs mb-1">
+            <div className="flex items-center justify-between text-[10px] mb-1">
               <span className="text-muted-foreground">{event.totalTicketsSold} sold</span>
               <span className={cn(
                 "font-semibold",
@@ -209,8 +209,8 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
                 {soldPercentage >= 80 ? 'Almost gone!' : soldPercentage >= 50 ? 'Selling fast' : 'Available'}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div 
+            <div className="h-1 rounded-full bg-muted overflow-hidden">
+              <div
                 className={cn(
                   "h-full rounded-full transition-all duration-500",
                   soldPercentage >= 80 ? "bg-red-500" : soldPercentage >= 50 ? "bg-orange-500" : "bg-green-500"
@@ -219,16 +219,16 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
               />
             </div>
           </div>
-          
+
           {/* Price */}
           <div className="flex items-center justify-between mt-auto">
             <div>
-              <p className="text-xs text-muted-foreground">From</p>
-              <p className="font-display font-bold text-base">
+              <p className="text-[10px] text-muted-foreground">From</p>
+              <p className="font-display font-bold text-sm">
                 {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
-            <Button size="sm" className="rounded-full text-sm">
+            <Button size="sm" className="rounded-full text-xs h-7 px-3">
               Get Tickets
             </Button>
           </div>
