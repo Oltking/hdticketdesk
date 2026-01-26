@@ -1,9 +1,9 @@
 /**
  * Migration Script: Create Virtual Accounts for Existing Organizers
- * 
+ *
  * This script creates Monnify virtual accounts for all organizers who have
  * at least one published event but don't have a virtual account yet.
- * 
+ *
  * Run with: npx ts-node -r tsconfig-paths/register src/scripts/migrate-virtual-accounts.ts
  * Or add to package.json: "migrate:va": "ts-node -r tsconfig-paths/register src/scripts/migrate-virtual-accounts.ts"
  */
@@ -58,7 +58,9 @@ class MonnifyMigration {
     this.contractCode = process.env.MONNIFY_CONTRACT_CODE || '';
 
     if (!this.apiKey || !this.secretKey || !this.contractCode) {
-      throw new Error('Missing Monnify credentials. Please set MONNIFY_API_KEY, MONNIFY_SECRET_KEY, and MONNIFY_CONTRACT_CODE');
+      throw new Error(
+        'Missing Monnify credentials. Please set MONNIFY_API_KEY, MONNIFY_SECRET_KEY, and MONNIFY_CONTRACT_CODE',
+      );
     }
   }
 
@@ -72,7 +74,7 @@ class MonnifyMigration {
     const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
+        Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/json',
       },
     });
@@ -84,7 +86,7 @@ class MonnifyMigration {
     }
 
     this.accessToken = data.responseBody.accessToken;
-    this.tokenExpiry = Date.now() + (data.responseBody.expiresIn * 1000);
+    this.tokenExpiry = Date.now() + data.responseBody.expiresIn * 1000;
 
     return this.accessToken!;
   }
@@ -106,7 +108,7 @@ class MonnifyMigration {
     const response = await fetch(`${this.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -210,7 +212,7 @@ async function migrateVirtualAccounts() {
       successCount++;
 
       // Add a small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error: any) {
       console.log(`   ❌ Failed: ${error.message}`);
       failCount++;

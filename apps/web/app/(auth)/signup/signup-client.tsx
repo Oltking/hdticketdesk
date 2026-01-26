@@ -229,7 +229,7 @@ function SignupContent() {
           <CardDescription>
             {isOrganizer 
               ? 'Start selling tickets and managing events today' 
-              : 'Join hdticketdesk to discover and attend amazing events'
+              : 'Join HDTicketDesk to discover and attend amazing events'
             }
           </CardDescription>
         </CardHeader>

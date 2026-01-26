@@ -28,7 +28,7 @@ export class GoogleOAuthStrategy extends PassportStrategy(GoogleStrategy, 'googl
       if (!clientID) missingVars.push('GOOGLE_CLIENT_ID');
       if (!clientSecret) missingVars.push('GOOGLE_CLIENT_SECRET');
       if (!callbackURL) missingVars.push('GOOGLE_CALLBACK_URL');
-      
+
       throw new Error(`Missing Google OAuth config: ${missingVars.join(', ')}`);
     }
 
@@ -40,11 +40,7 @@ export class GoogleOAuthStrategy extends PassportStrategy(GoogleStrategy, 'googl
     });
   }
 
-  async validate(
-    accessToken: string,
-    refreshToken: string,
-    profile: any,
-  ): Promise<GoogleUser> {
+  async validate(accessToken: string, refreshToken: string, profile: any): Promise<GoogleUser> {
     this.logger.debug(`Google OAuth validate called for: ${profile.emails?.[0]?.value}`);
 
     const { id, name, emails, photos } = profile;

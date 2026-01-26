@@ -29,24 +29,26 @@ export function getTicketEmailTemplate(data: TicketEmailData): string {
     timeZone: 'Africa/Lagos',
   }).format(new Date(data.eventDate));
 
-  const formattedEndDate = data.eventEndDate ? new Intl.DateTimeFormat('en-NG', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Africa/Lagos',
-  }).format(new Date(data.eventEndDate)) : null;
+  const formattedEndDate = data.eventEndDate
+    ? new Intl.DateTimeFormat('en-NG', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Lagos',
+      }).format(new Date(data.eventEndDate))
+    : null;
 
-  const formattedPrice = new Intl.NumberFormat('en-NG', { 
-    style: 'currency', 
-    currency: 'NGN' 
+  const formattedPrice = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
   }).format(data.tierPrice);
 
-  const totalPrice = new Intl.NumberFormat('en-NG', { 
-    style: 'currency', 
-    currency: 'NGN' 
+  const totalPrice = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
   }).format(data.tierPrice * (data.quantity || 1));
 
   // Generate Google Maps URL
@@ -62,19 +64,23 @@ export function getTicketEmailTemplate(data: TicketEmailData): string {
 
   const googleMapsUrl = getGoogleMapsUrl();
 
-  const locationSection = data.isOnline 
+  const locationSection = data.isOnline
     ? `<tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
           <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Event Type</p>
           <p style="margin: 0; font-size: 15px; color: #1a1a1a; font-weight: 500;">🌐 Online Event</p>
         </td>
       </tr>
-      ${data.onlineLink ? `<tr>
+      ${
+        data.onlineLink
+          ? `<tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
           <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Join Link</p>
           <p style="margin: 0; font-size: 15px;"><a href="${data.onlineLink}" style="color: #667eea; text-decoration: none; font-weight: 500;">Click here to join the event</a></p>
         </td>
-      </tr>` : ''}`
+      </tr>`
+          : ''
+      }`
     : `<tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
           <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Venue</p>
@@ -154,12 +160,16 @@ export function getTicketEmailTemplate(data: TicketEmailData): string {
                       <p style="margin: 4px 0 0; font-size: 13px; color: #666666;">${data.buyerEmail}</p>
                     </td>
                   </tr>
-                  ${data.organizerName ? `<tr>
+                  ${
+                    data.organizerName
+                      ? `<tr>
                     <td style="padding: 12px 0; border-bottom: 1px solid #e8e8e8;">
                       <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Organized by</p>
                       <p style="margin: 0; font-size: 15px; color: #1a1a1a; font-weight: 500;">${data.organizerName}</p>
                     </td>
-                  </tr>` : ''}
+                  </tr>`
+                      : ''
+                  }
                   <tr>
                     <td style="padding: 12px 0; border-bottom: 1px solid #e8e8e8;">
                       <p style="margin: 0 0 4px; font-size: 12px; color: #999999; text-transform: uppercase;">Date & Time</p>

@@ -34,6 +34,8 @@ export class MonnifyService {
   private apiKey: string;
   private secretKey: string;
   private contractCode: string;
+  private defaultNin: string;
+  private defaultBvn: string;
   private accessToken: string | null = null;
   private tokenExpiry: number = 0;
 
@@ -42,6 +44,8 @@ export class MonnifyService {
     this.apiKey = this.configService.get<string>('MONNIFY_API_KEY') || '';
     this.secretKey = this.configService.get<string>('MONNIFY_SECRET_KEY') || '';
     this.contractCode = this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '';
+    this.defaultNin = this.configService.get<string>('MONNIFY_DEFAULT_NIN') || '';
+    this.defaultBvn = this.configService.get<string>('MONNIFY_DEFAULT_BVN') || '';
   }
 
   /**
@@ -58,7 +62,7 @@ export class MonnifyService {
     const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${credentials}`,
+        Authorization: `Basic ${credentials}`,
         'Content-Type': 'application/json',
       },
     });
@@ -71,7 +75,7 @@ export class MonnifyService {
     }
 
     this.accessToken = data.responseBody.accessToken;
-    this.tokenExpiry = Date.now() + (data.responseBody.expiresIn * 1000);
+    this.tokenExpiry = Date.now() + data.responseBody.expiresIn * 1000;
 
     return this.accessToken!;
   }
@@ -79,7 +83,7 @@ export class MonnifyService {
   /**
    * Create a reserved (virtual) account for an organizer
    * Monnify API: POST /api/v1/bank-transfer/reserved-accounts
-   * 
+   *
    * Note: Uses v1 endpoint as v2 may have different requirements
    */
   async createVirtualAccount(
@@ -91,10 +95,11 @@ export class MonnifyService {
     const accountReference = `HD-ORG-${organizerId}-${Date.now()}`;
 
     // Sanitize organizer name - Monnify has restrictions on account names
-    const sanitizedName = organizerName
-      .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
-      .substring(0, 50) // Max 50 chars
-      .trim() || 'Organizer';
+    const sanitizedName =
+      organizerName
+        .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
+        .substring(0, 50) // Max 50 chars
+        .trim() || 'Organizer';
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -102,7 +107,8 @@ export class MonnifyService {
       throw new Error('Valid organizer email is required to create virtual account');
     }
 
-    const requestBody = {
+    // Build request body - Monnify requires either NIN or BVN for reserved accounts
+    const requestBody: Record<string, any> = {
       accountReference,
       accountName: sanitizedName, // Monnify will prefix with your business name
       currencyCode: 'NGN',
@@ -112,16 +118,31 @@ export class MonnifyService {
       getAllAvailableBanks: true, // Let Monnify use available banks
     };
 
+    // Add NIN or BVN - required by Monnify for reserved account creation
+    // Priority: NIN > BVN (NIN is preferred by Monnify)
+    if (this.defaultNin) {
+      requestBody.nin = this.defaultNin;
+      this.logger.log(`Using default NIN for virtual account creation`);
+    } else if (this.defaultBvn) {
+      requestBody.bvn = this.defaultBvn;
+      this.logger.log(`Using default BVN for virtual account creation`);
+    } else {
+      this.logger.warn('No NIN or BVN configured - virtual account creation may fail');
+      this.logger.warn('Set MONNIFY_DEFAULT_NIN or MONNIFY_DEFAULT_BVN in your environment');
+    }
+
     this.logger.log(`Creating virtual account for ${organizerId}`);
-    this.logger.log(`Request: ${JSON.stringify(requestBody)}`);
+    this.logger.log(
+      `Request: ${JSON.stringify({ ...requestBody, nin: requestBody.nin ? '***' : undefined, bvn: requestBody.bvn ? '***' : undefined })}`,
+    );
     this.logger.log(`Contract Code: ${this.contractCode}`);
     this.logger.log(`Base URL: ${this.baseUrl}`);
 
-    // Try v1 endpoint first (more widely supported)
-    const response = await fetch(`${this.baseUrl}/api/v1/bank-transfer/reserved-accounts`, {
+    // Use v2 endpoint which supports NIN/BVN
+    const response = await fetch(`${this.baseUrl}/api/v2/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -133,18 +154,26 @@ export class MonnifyService {
 
     if (!data.requestSuccessful) {
       this.logger.error('Failed to create virtual account:', JSON.stringify(data));
-      
+
       // Provide more helpful error messages
       let errorMessage = data.responseMessage || 'Failed to create virtual account';
-      
-      if (errorMessage.includes('business category')) {
-        errorMessage = 'Reserved accounts not enabled for your Monnify account. Please contact Monnify support.';
+
+      if (
+        errorMessage.toLowerCase().includes('bvn') ||
+        errorMessage.toLowerCase().includes('nin')
+      ) {
+        errorMessage =
+          'NIN or BVN is required. Please set MONNIFY_DEFAULT_NIN or MONNIFY_DEFAULT_BVN in your environment configuration.';
+      } else if (errorMessage.includes('business category')) {
+        errorMessage =
+          'Reserved accounts not enabled for your Monnify account. Please contact Monnify support.';
       } else if (errorMessage.includes('contract')) {
-        errorMessage = 'Invalid contract code. Please verify MONNIFY_CONTRACT_CODE in your configuration.';
+        errorMessage =
+          'Invalid contract code. Please verify MONNIFY_CONTRACT_CODE in your configuration.';
       } else if (errorMessage.includes('email')) {
         errorMessage = 'Invalid email format provided.';
       }
-      
+
       throw new Error(errorMessage);
     }
 
@@ -169,7 +198,7 @@ export class MonnifyService {
       {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -217,7 +246,7 @@ export class MonnifyService {
     const response = await fetch(`${this.baseUrl}/api/v1/merchant/transactions/init-transaction`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -254,7 +283,7 @@ export class MonnifyService {
       `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(reference)}`,
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -270,7 +299,7 @@ export class MonnifyService {
         `${this.baseUrl}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         },
       );
@@ -287,7 +316,9 @@ export class MonnifyService {
 
     if (!data.requestSuccessful) {
       this.logger.error('Failed to verify transaction:', JSON.stringify(data));
-      this.logger.error(`Tried references: ${reference}${paymentReference ? `, ${paymentReference}` : ''}`);
+      this.logger.error(
+        `Tried references: ${reference}${paymentReference ? `, ${paymentReference}` : ''}`,
+      );
       throw new Error(data.responseMessage || 'Failed to verify transaction');
     }
 
@@ -297,7 +328,11 @@ export class MonnifyService {
     let normalizedStatus = 'pending';
     if (paymentStatus === 'PAID' || paymentStatus === 'SUCCESS') {
       normalizedStatus = 'paid';
-    } else if (paymentStatus === 'FAILED' || paymentStatus === 'EXPIRED' || paymentStatus === 'CANCELLED') {
+    } else if (
+      paymentStatus === 'FAILED' ||
+      paymentStatus === 'EXPIRED' ||
+      paymentStatus === 'CANCELLED'
+    ) {
       normalizedStatus = 'failed';
     }
 
@@ -335,7 +370,7 @@ export class MonnifyService {
     const response = await fetch(`${this.baseUrl}/api/v1/refunds/initiate-refund`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -359,7 +394,7 @@ export class MonnifyService {
 
     const response = await fetch(`${this.baseUrl}/api/v1/banks`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -381,14 +416,17 @@ export class MonnifyService {
   /**
    * Validate/resolve bank account
    */
-  async resolveAccountNumber(accountNumber: string, bankCode: string): Promise<{ accountNumber: string; accountName: string }> {
+  async resolveAccountNumber(
+    accountNumber: string,
+    bankCode: string,
+  ): Promise<{ accountNumber: string; accountName: string }> {
     const token = await this.getAccessToken();
 
     const response = await fetch(
       `${this.baseUrl}/api/v1/disbursements/account/validate?accountNumber=${accountNumber}&bankCode=${bankCode}`,
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -419,9 +457,9 @@ export class MonnifyService {
   ): Promise<MonnifyTransferResponse> {
     const token = await this.getAccessToken();
     const reference = `WD-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-    
+
     const sourceAccountNumber = this.configService.get<string>('MONNIFY_WALLET_ACCOUNT_NUMBER');
-    
+
     if (!sourceAccountNumber) {
       this.logger.error('MONNIFY_WALLET_ACCOUNT_NUMBER not configured');
       throw new Error('Withdrawal system not properly configured. Please contact support.');
@@ -441,12 +479,14 @@ export class MonnifyService {
       sourceAccountNumber,
     };
 
-    this.logger.log(`Initiating transfer: ${reference}, amount: ${roundedAmount}, to: ${accountNumber}`);
+    this.logger.log(
+      `Initiating transfer: ${reference}, amount: ${roundedAmount}, to: ${accountNumber}`,
+    );
 
     const response = await fetch(`${this.baseUrl}/api/v2/disbursements/single`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
@@ -456,7 +496,7 @@ export class MonnifyService {
 
     if (!data.requestSuccessful) {
       this.logger.error('Monnify transfer error:', JSON.stringify(data));
-      
+
       // Provide user-friendly error messages
       let errorMessage = data.responseMessage || 'Failed to initiate transfer';
       if (errorMessage.includes('insufficient')) {
@@ -464,11 +504,13 @@ export class MonnifyService {
       } else if (errorMessage.includes('account')) {
         errorMessage = 'Invalid bank account details. Please verify and try again.';
       }
-      
+
       throw new Error(errorMessage);
     }
 
-    this.logger.log(`Transfer initiated: ${data.responseBody.reference}, status: ${data.responseBody.status}`);
+    this.logger.log(
+      `Transfer initiated: ${data.responseBody.reference}, status: ${data.responseBody.status}`,
+    );
 
     return {
       reference: data.responseBody.reference,
@@ -487,7 +529,7 @@ export class MonnifyService {
       `${this.baseUrl}/api/v2/disbursements/single/summary?reference=${reference}`,
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       },
     );
@@ -526,10 +568,7 @@ export class MonnifyService {
 
     // Monnify's hash format: secretKey|paymentReference|amountPaid|paidOn|transactionReference
     const stringToHash = `${this.secretKey}|${paymentReference}|${amountPaid}|${paidOn}|${transactionReference}`;
-    const computedHash = crypto
-      .createHash('sha512')
-      .update(stringToHash)
-      .digest('hex');
+    const computedHash = crypto.createHash('sha512').update(stringToHash).digest('hex');
 
     // Use timing-safe comparison to prevent timing attacks
     try {
@@ -538,5 +577,4 @@ export class MonnifyService {
       return false;
     }
   }
-
 }

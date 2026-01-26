@@ -25,7 +25,7 @@ export function Logo({ href = '/', showText = true, size = 'md', className }: Lo
       <div className={cn('relative', icon)}>
         <Image
           src="/icon.svg"
-          alt="hdticketdesk"
+          alt="HDTicketDesk"
           fill
           className="object-contain"
           priority
@@ -33,7 +33,7 @@ export function Logo({ href = '/', showText = true, size = 'md', className }: Lo
       </div>
       {showText && (
         <span className={cn('font-display font-bold', text)}>
-          hdticketdesk
+          HDTicketDesk
         </span>
       )}
     </div>

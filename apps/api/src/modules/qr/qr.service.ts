@@ -7,17 +7,19 @@ import { MediaService } from '../media/media.service';
 export class QrService {
   constructor(private mediaService: MediaService) {}
 
-  async generateQrCode(ticketNumber: string): Promise<{ code: string; url: string; hostedUrl: string }> {
+  async generateQrCode(
+    ticketNumber: string,
+  ): Promise<{ code: string; url: string; hostedUrl: string }> {
     const code = `${ticketNumber}-${uuidv4().slice(0, 8)}`;
     const dataUrl = await QRCode.toDataURL(code, {
       errorCorrectionLevel: 'H',
       width: 300,
       margin: 2,
     });
-    
+
     // Upload to Cloudinary for email compatibility
     const hostedUrl = await this.mediaService.uploadBase64Image(dataUrl, 'hdticketdesk/qrcodes');
-    
+
     return { code, url: dataUrl, hostedUrl };
   }
 

@@ -54,11 +54,7 @@ export class LedgerService {
     });
   }
 
-  async recordWithdrawal(
-    organizerId: string,
-    withdrawalId: string,
-    amount: number,
-  ) {
+  async recordWithdrawal(organizerId: string, withdrawalId: string, amount: number) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -80,11 +76,7 @@ export class LedgerService {
     });
   }
 
-  async recordChargeback(
-    organizerId: string,
-    ticketId: string,
-    amount: number,
-  ) {
+  async recordChargeback(organizerId: string, ticketId: string, amount: number) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });

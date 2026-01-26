@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/utils';
@@ -60,12 +61,7 @@ export default function AnalyticsPage() {
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
         <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-          <Skeleton className="h-10 w-32 mb-2" />
-          <Skeleton className="h-6 w-48 mb-6" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-32" />)}
-          </div>
-          <Skeleton className="h-64" />
+          <PageLoader text="Loading analytics..." />
         </main>
       </div>
     );
@@ -118,16 +114,16 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 mb-5">
           <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tickets Sold</p>
-                  <p className="text-3xl font-bold">{analytics?.totalSold || 0}</p>
+                  <p className="text-xs text-muted-foreground">Tickets Sold</p>
+                  <p className="text-2xl font-bold">{analytics?.totalSold || 0}</p>
                 </div>
-                <div className="p-3 rounded-full bg-blue-500/10">
-                  <Ticket className="h-6 w-6 text-blue-500" />
+                <div className="p-2 rounded-full bg-blue-500/10">
+                  <Ticket className="h-4 w-4 text-blue-500" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -137,28 +133,28 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Revenue</p>
-                  <p className="text-3xl font-bold text-green-600">{formatCurrency(analytics?.totalRevenue || 0)}</p>
+                  <p className="text-xs text-muted-foreground">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics?.totalRevenue || 0)}</p>
                 </div>
-                <div className="p-3 rounded-full bg-green-500/10">
-                  <DollarSign className="h-6 w-6 text-green-500" />
+                <div className="p-2 rounded-full bg-green-500/10">
+                  <DollarSign className="h-4 w-4 text-green-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-l-4 border-l-purple-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Checked In</p>
-                  <p className="text-3xl font-bold">{analytics?.checkedIn || 0}</p>
+                  <p className="text-xs text-muted-foreground">Checked In</p>
+                  <p className="text-2xl font-bold">{analytics?.checkedIn || 0}</p>
                 </div>
-                <div className="p-3 rounded-full bg-purple-500/10">
-                  <UserCheck className="h-6 w-6 text-purple-500" />
+                <div className="p-2 rounded-full bg-purple-500/10">
+                  <UserCheck className="h-4 w-4 text-purple-500" />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -168,14 +164,14 @@ export default function AnalyticsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-5">
+            <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Check-in Rate</p>
-                  <p className="text-3xl font-bold">{analytics?.checkInRate || 0}%</p>
+                  <p className="text-xs text-muted-foreground">Check-in Rate</p>
+                  <p className="text-2xl font-bold">{analytics?.checkInRate || 0}%</p>
                 </div>
-                <div className="p-3 rounded-full bg-orange-500/10">
-                  <Percent className="h-6 w-6 text-orange-500" />
+                <div className="p-2 rounded-full bg-orange-500/10">
+                  <Percent className="h-4 w-4 text-orange-500" />
                 </div>
               </div>
               {/* Progress bar */}

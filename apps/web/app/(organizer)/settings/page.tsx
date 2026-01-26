@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
@@ -114,11 +115,7 @@ export default function SettingsPage() {
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
         <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <div className="max-w-2xl space-y-6">
-            <Skeleton className="h-64" />
-            <Skeleton className="h-64" />
-          </div>
+          <PageLoader text="Loading settings..." />
         </main>
       </div>
     );

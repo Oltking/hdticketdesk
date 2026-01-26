@@ -46,7 +46,7 @@ export function TrendingSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 294; // Card width + gap
+      const scrollAmount = 272; // Card width (256) + gap (16)
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
@@ -113,16 +113,16 @@ export function TrendingSection() {
 
         {/* Trending Events Carousel */}
         {loading ? (
-          <div className="flex gap-6 overflow-hidden">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex-shrink-0 w-72 h-80 rounded-2xl bg-card animate-pulse" />
+          <div className="flex gap-4 overflow-hidden">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-shrink-0 w-64 h-72 rounded-xl bg-card animate-pulse" />
             ))}
           </div>
         ) : (
           <div
             ref={scrollRef}
             onScroll={checkScrollability}
-            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+            className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
           >
             {events.map((event, index) => (
               <TrendingEventCard key={event.id} event={event} rank={index + 1} />
@@ -146,11 +146,11 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
   return (
     <Link
       href={`/events/${event.slug}`}
-      className="block group animate-in flex-shrink-0 w-72 snap-start"
+      className="block group animate-in flex-shrink-0 w-64 snap-start"
       style={{ animationDelay: `${rank * 0.1}s` }}
     >
       <div className={cn(
-        "relative h-80 rounded-2xl overflow-hidden",
+        "relative h-72 rounded-xl overflow-hidden",
         "bg-card border shadow-sm",
         "transition-all duration-300",
         "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1"

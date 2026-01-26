@@ -34,8 +34,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 
   login: async (email, password) => {
-    const { user, accessToken } = await api.login({ email, password });
+    const { user, accessToken, refreshToken } = await api.login({ email, password });
     api.setToken(accessToken);
+    // Store refresh token for session recovery
+    if (refreshToken && typeof window !== 'undefined') {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
     // Always fetch fresh user data after login to ensure correct role
     const freshUser = await api.getMe?.() || user;
     set({ user: freshUser, isAuthenticated: true, isLoading: false });
@@ -49,6 +53,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (result.accessToken) {
       // If tokens are returned (email already verified case), set them
       api.setToken(result.accessToken);
+      // Store refresh token for session recovery
+      if (result.refreshToken && typeof window !== 'undefined') {
+        localStorage.setItem('refreshToken', result.refreshToken);
+      }
       const freshUser = await api.getMe?.() || result.user;
       set({ user: freshUser, isAuthenticated: true, isLoading: false });
     } else {

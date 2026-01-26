@@ -70,7 +70,7 @@ export class TicketsController {
         ticket: validation.ticket,
       };
     }
-    
+
     // Check in the ticket
     const result = await this.ticketsService.checkInTicket(validation.ticket.ticketNumber);
     return {
@@ -85,7 +85,10 @@ export class TicketsController {
   @Get('event/:eventId')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get event tickets (Organizer)' })
-  async getEventTickets(@Param('eventId') eventId: string, @CurrentUser('organizerProfile') profile: any) {
+  async getEventTickets(
+    @Param('eventId') eventId: string,
+    @CurrentUser('organizerProfile') profile: any,
+  ) {
     return this.ticketsService.getEventTickets(eventId, profile?.id);
   }
 

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Sidebar } from '@/components/layouts/sidebar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { api } from '@/lib/api-client';
@@ -89,12 +90,7 @@ export default function PayoutsPage() {
       <div className="flex min-h-screen">
         <Sidebar type="organizer" />
         <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-bg">
-          <Skeleton className="h-8 w-32 mb-6" />
-          <div className="grid gap-6 md:grid-cols-3 mb-8">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28" />)}
-          </div>
-          <Skeleton className="h-40 mb-6" />
-          <Skeleton className="h-64" />
+          <PageLoader text="Loading payouts..." />
         </main>
       </div>
     );
@@ -127,19 +123,19 @@ export default function PayoutsPage() {
         </div>
 
         {/* Balance Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-3 md:grid-cols-3 mb-5">
           <Card className="border-l-4 border-l-yellow-500">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                  <Clock className="h-4 w-4 text-yellow-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Pending Balance</p>
-                  <p className="text-2xl font-bold">{formatCurrency(balance.pending)}</p>
+                  <p className="text-xs text-muted-foreground">Pending Balance</p>
+                  <p className="text-xl font-bold">{formatCurrency(balance.pending)}</p>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                 <Info className="h-3 w-3" />
                 Available after 24 hours
               </p>
@@ -147,17 +143,17 @@ export default function PayoutsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Available Balance</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(balance.available)}</p>
+                  <p className="text-xs text-muted-foreground">Available Balance</p>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(balance.available)}</p>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                 <Info className="h-3 w-3" />
                 Ready to withdraw
               </p>
@@ -165,17 +161,17 @@ export default function PayoutsPage() {
           </Card>
 
           <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <ArrowUpRight className="h-5 w-5 text-blue-600" />
+            <CardContent className="p-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <ArrowUpRight className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Total Withdrawn</p>
-                  <p className="text-2xl font-bold text-blue-600">{formatCurrency(balance.withdrawn)}</p>
+                  <p className="text-xs text-muted-foreground">Total Withdrawn</p>
+                  <p className="text-xl font-bold text-blue-600">{formatCurrency(balance.withdrawn)}</p>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                 <Info className="h-3 w-3" />
                 All time withdrawals
               </p>
@@ -184,16 +180,16 @@ export default function PayoutsPage() {
         </div>
 
         {/* Withdrawal Action Card */}
-        <Card className="mb-6 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-4 rounded-full bg-primary/10">
-                  <Wallet className="h-8 w-8 text-primary" />
+        <Card className="mb-5 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-full bg-primary/10">
+                  <Wallet className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Withdrawable Amount</p>
-                  <p className="text-3xl font-bold">{formatCurrency(balance.withdrawable)}</p>
+                  <p className="text-xs text-muted-foreground">Withdrawable Amount</p>
+                  <p className="text-2xl font-bold">{formatCurrency(balance.withdrawable)}</p>
                 </div>
               </div>
               <Button 

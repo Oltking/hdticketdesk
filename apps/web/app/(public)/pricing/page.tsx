@@ -243,7 +243,7 @@ export default function PricingPage() {
               Ready to Start Selling?
             </h2>
             <p className="text-lg text-white/80 mb-8 max-w-xl mx-auto">
-              Join thousands of event organizers who trust hdticketdesk. Create your first event in minutes.
+              Join thousands of event organizers who trust HDTicketDesk. Create your first event in minutes.
             </p>
             <Link href="/signup?role=organizer" className="inline-flex items-center justify-center px-8 py-3 bg-white text-primary font-semibold rounded-full hover:bg-white/90 transition-colors">
               Create Free Account

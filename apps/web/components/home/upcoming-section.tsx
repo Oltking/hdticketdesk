@@ -46,7 +46,7 @@ export function UpcomingSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = 246; // Card width + gap
+      const scrollAmount = 240; // Card width (224) + gap (16)
       scrollRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth',
@@ -114,16 +114,16 @@ export function UpcomingSection() {
 
         {/* Events Carousel */}
         {loading ? (
-          <div className="flex gap-6 overflow-hidden">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex-shrink-0 w-[240px] h-64 rounded-2xl bg-muted animate-pulse" />
+          <div className="flex gap-4 overflow-hidden">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex-shrink-0 w-56 h-64 rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         ) : (
           <div
             ref={scrollRef}
             onScroll={checkScrollability}
-            className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
+            className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4 -mb-4"
           >
             {events.map((event, index) => (
               <UpcomingEventCard key={event.id} event={event} index={index} />
@@ -146,11 +146,11 @@ function UpcomingEventCard({ event, index }: { event: Event; index: number }) {
   return (
     <Link
       href={`/events/${event.slug}`}
-      className="block group animate-in flex-shrink-0 w-[240px] snap-start"
+      className="block group animate-in flex-shrink-0 w-56 snap-start"
       style={{ animationDelay: `${index * 0.05}s` }}
     >
       <div className={cn(
-        "relative h-64 rounded-2xl overflow-hidden",
+        "relative h-64 rounded-xl overflow-hidden",
         "bg-card border",
         "transition-all duration-300",
         "hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1"

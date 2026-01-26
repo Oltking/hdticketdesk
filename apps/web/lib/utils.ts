@@ -122,7 +122,7 @@ export function generateEventStructuredData(event: any) {
     image: event.coverImage || 'https://hdticketdesk.com/og-image.png',
     organizer: {
       '@type': 'Organization',
-      name: event.organizer?.title || 'hdticketdesk',
+      name: event.organizer?.title || 'HDTicketDesk',
       url: 'https://hdticketdesk.com',
     },
     offers: event.tiers?.map((tier: any) => ({

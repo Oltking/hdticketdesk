@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLoader } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Header } from '@/components/layouts/header';
@@ -16,6 +17,7 @@ import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink } from 'lucide-react';
+import { Countdown } from '@/components/ui/countdown';
 import { MapPreviewDialog } from '@/components/ui/map-preview-dialog';
 import type { Event } from '@/types';
 
@@ -155,17 +157,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
       <>
         <Header />
         <main className="flex-1">
-          <Skeleton className="h-80 w-full" />
-          <div className="container py-8">
-            <Skeleton className="h-10 w-2/3 mb-4" />
-            <Skeleton className="h-6 w-1/3 mb-8" />
-            <div className="grid gap-8 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-4">
-                <Skeleton className="h-40" />
-              </div>
-              <Skeleton className="h-80" />
-            </div>
-          </div>
+          <PageLoader text="Loading event details..." />
         </main>
         <Footer />
       </>
@@ -351,11 +343,16 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                             </span>
                           </div>
                           
-                          {/* Sale End Date */}
+                          {/* Sale End Countdown */}
                           {tier.saleEndDate && !salesEnded && (
-                            <div className="flex items-center gap-1.5 text-xs text-orange-600 mb-2">
-                              <Clock className="w-3 h-3" />
-                              <span>Sales end {formatDate(tier.saleEndDate)}</span>
+                            <div className="flex items-center gap-1.5 text-xs mb-2">
+                              <Clock className="w-3 h-3 text-orange-500" />
+                              <Countdown 
+                                targetDate={tier.saleEndDate} 
+                                prefix="Sales end in"
+                                expiredText="Sales ended"
+                                compact
+                              />
                             </div>
                           )}
                           

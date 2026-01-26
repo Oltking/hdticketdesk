@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateProfileDto, UpdateBankDetailsDto } from './dto';
@@ -19,6 +19,15 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user profile' })
   async getProfile(@CurrentUser('id') userId: string) {
     return this.usersService.findById(userId);
+  }
+
+  @Post('update-role')
+  @ApiOperation({ summary: 'Update user role (for new OAuth users)' })
+  async updateRole(
+    @CurrentUser('id') userId: string,
+    @Body() dto: { role: 'BUYER' | 'ORGANIZER' },
+  ) {
+    return this.usersService.updateUserRole(userId, dto.role);
   }
 
   @Put('profile')
@@ -52,5 +61,21 @@ export class UsersController {
     @Body() dto: { title?: string; description?: string },
   ) {
     return this.usersService.updateOrganizerProfile(userId, dto);
+  }
+
+  @Get('virtual-account')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Get organizer virtual account (reserved account) details' })
+  async getVirtualAccount(@CurrentUser('id') userId: string) {
+    return this.usersService.getOrganizerVirtualAccount(userId);
+  }
+
+  @Get('dashboard')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ORGANIZER)
+  @ApiOperation({ summary: 'Get organizer dashboard data (balances, virtual account, stats)' })
+  async getDashboard(@CurrentUser('id') userId: string) {
+    return this.usersService.getOrganizerDashboard(userId);
   }
 }

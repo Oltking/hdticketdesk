@@ -19,9 +19,12 @@ import { Ticket, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 interface RefundRequest {
   id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'PROCESSED' | 'REJECTED';
   reason: string;
   createdAt: string;
+  processedAt?: string;
+  rejectionNote?: string;
+  refundAmount?: number;
   ticket: {
     id: string;
     ticketNumber: string;
@@ -94,7 +97,9 @@ export default function RefundsPage() {
       case 'PENDING':
         return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" />Pending</Badge>;
       case 'APPROVED':
-        return <Badge variant="success" className="gap-1"><CheckCircle className="h-3 w-3" />Approved</Badge>;
+        return <Badge variant="default" className="gap-1 bg-blue-500"><Clock className="h-3 w-3" />Approved</Badge>;
+      case 'PROCESSED':
+        return <Badge variant="success" className="gap-1"><CheckCircle className="h-3 w-3" />Refunded</Badge>;
       case 'REJECTED':
         return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" />Rejected</Badge>;
       default:
@@ -146,8 +151,8 @@ export default function RefundsPage() {
               {refundHistory.map((refund) => (
                 <Card key={refund.id}>
                   <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div className="flex-1">
                         <h3 className="font-medium">{refund.ticket.event.title}</h3>
                         <p className="text-sm text-muted-foreground">
                           {refund.ticket.tier.name} • Ticket #{refund.ticket.ticketNumber}
@@ -157,12 +162,26 @@ export default function RefundsPage() {
                         </p>
                         {refund.reason && (
                           <p className="text-sm text-muted-foreground mt-1">
-                            Reason: {refund.reason}
+                            Your reason: {refund.reason}
                           </p>
                         )}
+                        {refund.status === 'PROCESSED' && refund.processedAt && (
+                          <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Refunded on {formatDate(refund.processedAt)}
+                          </p>
+                        )}
+                        {refund.status === 'REJECTED' && refund.rejectionNote && (
+                          <div className="mt-2 p-2 bg-destructive/10 rounded text-sm">
+                            <p className="text-destructive font-medium">Rejection reason:</p>
+                            <p className="text-destructive/80">{refund.rejectionNote}</p>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">{formatCurrency(refund.ticket.amountPaid)}</span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="font-medium">
+                          {formatCurrency(refund.refundAmount || refund.ticket.amountPaid)}
+                        </span>
                         {getStatusBadge(refund.status)}
                       </div>
                     </div>
@@ -189,7 +208,7 @@ export default function RefundsPage() {
               <div className="relative w-16 h-16 mb-4 opacity-20">
                 <Image
                   src="/icon.svg"
-                  alt="hdticketdesk"
+                  alt="HDTicketDesk"
                   fill
                   className="object-contain"
                 />

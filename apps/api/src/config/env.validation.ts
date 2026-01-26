@@ -1,5 +1,29 @@
+/**
+ * Environment Variable Validation
+ *
+ * SECURITY CHECKLIST FOR PRODUCTION DEPLOYMENT:
+ *
+ * 1. JWT_SECRET & JWT_REFRESH_SECRET: Must be at least 32 characters, randomly generated
+ *    - Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+ *
+ * 2. DATABASE_URL: Use SSL connection in production
+ *    - Add ?sslmode=require to connection string
+ *
+ * 3. MONNIFY_SECRET_KEY: Keep secure, never commit to version control
+ *
+ * 4. CORS: Update FRONTEND_URL to production domain only
+ *
+ * 5. Rate Limiting: Adjust THROTTLE_TTL and THROTTLE_LIMIT based on traffic
+ *
+ * 6. Monitoring: Set up logging and alerting for security events
+ *
+ * 7. HTTPS: Ensure all traffic is over HTTPS in production
+ *
+ * 8. Admin Accounts: Only create via database seed or admin endpoint, never via registration
+ */
+
 import { plainToInstance } from 'class-transformer';
-import { IsString, IsNumber, IsOptional, validateSync, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, validateSync, IsEnum, MinLength } from 'class-validator';
 
 enum Environment {
   Development = 'development',

@@ -30,10 +30,7 @@ export interface TierColorScheme {
  * @param allTierPrices - Array of all tier prices for the event
  * @returns Color scheme object
  */
-export function getTierColorByPrice(
-  tierPrice: number,
-  allTierPrices: number[]
-): TierColorScheme {
+export function getTierColorByPrice(tierPrice: number, allTierPrices: number[]): TierColorScheme {
   // Sort prices in descending order (highest first)
   const sortedPrices = [...new Set(allTierPrices)].sort((a, b) => b - a);
 

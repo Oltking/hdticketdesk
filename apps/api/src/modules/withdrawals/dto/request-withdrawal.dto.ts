@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, Min, Max } from 'class-validator';
 
 export class RequestWithdrawalDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Amount to withdraw in Naira',
     example: 50000,
     minimum: 1000,

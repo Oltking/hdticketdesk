@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { MonnifyService } from '../payments/monnify.service';
@@ -16,42 +23,45 @@ export class AdminService {
   ) {}
 
   async getDashboardStats() {
-    const [
-      totalUsers,
-      totalOrganizers,
-      totalEvents,
-      totalTickets,
-      recentPayments,
-    ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.organizerProfile.count(),
-      this.prisma.event.count(),
-      this.prisma.ticket.count(),
-      this.prisma.payment.findMany({
-        where: { status: 'SUCCESS' },
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-      }),
-    ]);
+    const [totalUsers, totalOrganizers, totalEvents, totalTickets, recentPayments] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.organizerProfile.count(),
+        this.prisma.event.count(),
+        this.prisma.ticket.count(),
+        this.prisma.payment.findMany({
+          where: { status: 'SUCCESS' },
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        }),
+      ]);
 
-    // Calculate platform stats from ledger entries
-    const ledgerStats = await this.prisma.ledgerEntry.aggregate({
+    // =============================================================================
+    // PLATFORM FEE CALCULATION - SIMPLE METHOD
+    // =============================================================================
+    // Platform fee = 5% of the TOTAL AMOUNT PAID by buyers
+    // This is straightforward: whatever entered the account, take 5% of it.
+    // =============================================================================
+
+    // Get total amount paid from successful payments
+    const paymentStats = await this.prisma.payment.aggregate({
       _sum: {
         amount: true,
       },
       where: {
-        type: 'TICKET_SALE',
+        status: 'SUCCESS',
       },
     });
 
-    const totalRevenue = ledgerStats._sum.amount 
-      ? (ledgerStats._sum.amount instanceof Decimal 
-          ? ledgerStats._sum.amount.toNumber() 
-          : Number(ledgerStats._sum.amount))
+    // Total revenue = total amount paid by buyers
+    const totalRevenue = paymentStats._sum.amount
+      ? paymentStats._sum.amount instanceof Decimal
+        ? paymentStats._sum.amount.toNumber()
+        : Number(paymentStats._sum.amount)
       : 0;
 
-    // Calculate platform fee (5% of total revenue collected)
-    const platformFees = totalRevenue * 0.05 / 0.95; // Reverse calculate from net amount
+    // Platform fee = 5% of total revenue (simple and straightforward)
+    const platformFees = totalRevenue * 0.05;
 
     return {
       totalUsers,
@@ -134,26 +144,118 @@ export class AdminService {
       this.prisma.event.count(),
     ]);
 
-    // Calculate total revenue for each event from successful payments
+    // Calculate total revenue and platform fees for each event from successful payments
+    const platformFeePercent = 5; // 5% platform fee
+    
     const eventsWithRevenue = events.map((event: any) => {
       const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
-        const amount = payment.amount instanceof Decimal 
-          ? payment.amount.toNumber() 
-          : Number(payment.amount) || 0;
+        const amount =
+          payment.amount instanceof Decimal
+            ? payment.amount.toNumber()
+            : Number(payment.amount) || 0;
         return sum + amount;
       }, 0);
-      
+
+      // Calculate platform fees for this event (5% of total revenue)
+      const platformFees = totalRevenue * (platformFeePercent / 100);
+      const organizerEarnings = totalRevenue - platformFees;
+
       // Remove payments array from response (we only needed it for calculation)
       const { payments, ...eventWithoutPayments } = event;
-      
+
       return {
         ...eventWithoutPayments,
         totalRevenue,
+        platformFees,
+        organizerEarnings,
+        ticketsSold: event._count?.tickets || 0,
       };
     });
 
     return {
       events: eventsWithRevenue,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Get platform fees summary for all events
+   * Shows each event with its revenue, platform fees earned, and organizer earnings
+   */
+  async getPlatformFeesSummary(page = 1, limit = 50) {
+    const skip = (page - 1) * limit;
+    const platformFeePercent = 5;
+
+    // Get events with successful payments
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          payments: {
+            where: { status: 'SUCCESS' },
+            select: { amount: true, createdAt: true },
+          },
+          _count: {
+            select: { tickets: true },
+          },
+        },
+      }),
+      this.prisma.event.count(),
+    ]);
+
+    // Calculate totals
+    let totalPlatformFees = 0;
+    let totalRevenue = 0;
+    let totalOrganizerEarnings = 0;
+
+    const eventsWithFees = events.map((event: any) => {
+      const eventRevenue = event.payments.reduce((sum: any, p: any) => {
+        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount) || 0;
+        return sum + amount;
+      }, 0);
+
+      const eventPlatformFees = eventRevenue * (platformFeePercent / 100);
+      const eventOrganizerEarnings = eventRevenue - eventPlatformFees;
+
+      totalRevenue += eventRevenue;
+      totalPlatformFees += eventPlatformFees;
+      totalOrganizerEarnings += eventOrganizerEarnings;
+
+      return {
+        id: event.id,
+        title: event.title,
+        status: event.status,
+        organizer: event.organizer,
+        ticketsSold: event._count.tickets,
+        totalRevenue: Math.round(eventRevenue * 100) / 100,
+        platformFees: Math.round(eventPlatformFees * 100) / 100,
+        organizerEarnings: Math.round(eventOrganizerEarnings * 100) / 100,
+        createdAt: event.createdAt,
+        startDate: event.startDate,
+      };
+    });
+
+    // Sort by platform fees earned (highest first)
+    eventsWithFees.sort((a, b) => b.platformFees - a.platformFees);
+
+    return {
+      events: eventsWithFees,
+      summary: {
+        totalRevenue: Math.round(totalRevenue * 100) / 100,
+        totalPlatformFees: Math.round(totalPlatformFees * 100) / 100,
+        totalOrganizerEarnings: Math.round(totalOrganizerEarnings * 100) / 100,
+        platformFeePercent,
+      },
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -409,7 +511,12 @@ export class AdminService {
    * Create a new admin user (admin-only)
    * This is the secure way to create additional admin accounts
    */
-  async createAdminUser(dto: { email: string; password: string; firstName: string; lastName: string }) {
+  async createAdminUser(dto: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+  }) {
     // Check if email already exists
     const existingUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
@@ -647,7 +754,8 @@ export class AdminService {
 
     // Calculate totals
     const totalSales = ticketSales.reduce((sum: any, entry: any) => {
-      const amount = entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
+      const amount =
+        entry.amount instanceof Decimal ? entry.amount.toNumber() : Number(entry.amount);
       return sum + amount;
     }, 0);
 
@@ -657,21 +765,25 @@ export class AdminService {
     }, 0);
 
     const totalRefunded = refunds.reduce((sum: any, r: any) => {
-      const amount = r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
+      const amount =
+        r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount);
       return sum + amount;
     }, 0);
 
-    const pendingBalance = organizer.pendingBalance instanceof Decimal
-      ? organizer.pendingBalance.toNumber()
-      : Number(organizer.pendingBalance);
+    const pendingBalance =
+      organizer.pendingBalance instanceof Decimal
+        ? organizer.pendingBalance.toNumber()
+        : Number(organizer.pendingBalance);
 
-    const availableBalance = organizer.availableBalance instanceof Decimal
-      ? organizer.availableBalance.toNumber()
-      : Number(organizer.availableBalance);
+    const availableBalance =
+      organizer.availableBalance instanceof Decimal
+        ? organizer.availableBalance.toNumber()
+        : Number(organizer.availableBalance);
 
-    const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
-      ? organizer.withdrawnBalance.toNumber()
-      : Number(organizer.withdrawnBalance);
+    const withdrawnBalance =
+      organizer.withdrawnBalance instanceof Decimal
+        ? organizer.withdrawnBalance.toNumber()
+        : Number(organizer.withdrawnBalance);
 
     return {
       organizer: {
@@ -706,7 +818,8 @@ export class AdminService {
       })),
       recentRefunds: refunds.slice(0, 10).map((r: any) => ({
         id: r.id,
-        amount: r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
+        amount:
+          r.refundAmount instanceof Decimal ? r.refundAmount.toNumber() : Number(r.refundAmount),
         ticketNumber: r.ticket.ticketNumber,
         eventTitle: r.ticket.event.title,
         processedAt: r.processedAt,
@@ -761,7 +874,9 @@ export class AdminService {
         },
       });
 
-      this.logger.log(`Virtual account created by admin: ${vaResponse.accountNumber} for organizer ${organizerId}`);
+      this.logger.log(
+        `Virtual account created by admin: ${vaResponse.accountNumber} for organizer ${organizerId}`,
+      );
 
       return {
         message: 'Virtual account created successfully',
@@ -869,24 +984,31 @@ export class AdminService {
         });
 
         const totalSales = salesSum._sum.amount
-          ? (salesSum._sum.amount instanceof Decimal ? salesSum._sum.amount.toNumber() : Number(salesSum._sum.amount))
+          ? salesSum._sum.amount instanceof Decimal
+            ? salesSum._sum.amount.toNumber()
+            : Number(salesSum._sum.amount)
           : 0;
 
         const totalRefunded = refundsSum._sum.refundAmount
-          ? (refundsSum._sum.refundAmount instanceof Decimal ? refundsSum._sum.refundAmount.toNumber() : Number(refundsSum._sum.refundAmount))
+          ? refundsSum._sum.refundAmount instanceof Decimal
+            ? refundsSum._sum.refundAmount.toNumber()
+            : Number(refundsSum._sum.refundAmount)
           : 0;
 
-        const pendingBalance = organizer.pendingBalance instanceof Decimal
-          ? organizer.pendingBalance.toNumber()
-          : Number(organizer.pendingBalance);
+        const pendingBalance =
+          organizer.pendingBalance instanceof Decimal
+            ? organizer.pendingBalance.toNumber()
+            : Number(organizer.pendingBalance);
 
-        const availableBalance = organizer.availableBalance instanceof Decimal
-          ? organizer.availableBalance.toNumber()
-          : Number(organizer.availableBalance);
+        const availableBalance =
+          organizer.availableBalance instanceof Decimal
+            ? organizer.availableBalance.toNumber()
+            : Number(organizer.availableBalance);
 
-        const withdrawnBalance = organizer.withdrawnBalance instanceof Decimal
-          ? organizer.withdrawnBalance.toNumber()
-          : Number(organizer.withdrawnBalance);
+        const withdrawnBalance =
+          organizer.withdrawnBalance instanceof Decimal
+            ? organizer.withdrawnBalance.toNumber()
+            : Number(organizer.withdrawnBalance);
 
         return {
           id: organizer.id,
@@ -903,7 +1025,7 @@ export class AdminService {
             netEarnings: totalSales - totalRefunded,
           },
         };
-      })
+      }),
     );
 
     return {
@@ -971,7 +1093,9 @@ export class AdminService {
       }
     }
 
-    this.logger.log(`Bulk VA creation complete: ${results.successful} successful, ${results.failed} failed`);
+    this.logger.log(
+      `Bulk VA creation complete: ${results.successful} successful, ${results.failed} failed`,
+    );
 
     return {
       message: 'Bulk virtual account creation completed',
@@ -1029,10 +1153,12 @@ export class AdminService {
   }
 
   // Manually verify a specific payment
+  // Accepts: HD payment reference, Monnify transaction reference (MNFY_...), or payment ID
   async manuallyVerifyPayment(reference: string) {
     this.logger.log(`Admin manually verifying payment: ${reference}`);
 
-    const payment = await this.prisma.payment.findUnique({
+    // Try to find payment by various identifiers
+    let payment = await this.prisma.payment.findUnique({
       where: { reference },
       include: {
         event: true,
@@ -1040,8 +1166,44 @@ export class AdminService {
       },
     });
 
+    // If not found by reference, try by monnifyTransactionRef
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${reference}`);
+      this.logger.log(`Payment not found by reference, trying monnifyTransactionRef: ${reference}`);
+      payment = await this.prisma.payment.findFirst({
+        where: { monnifyTransactionRef: reference },
+        include: {
+          event: true,
+          tier: true,
+        },
+      });
+    }
+
+    // If still not found, try by ID
+    if (!payment) {
+      this.logger.log(`Payment not found by monnifyTransactionRef, trying by ID: ${reference}`);
+      payment = await this.prisma.payment.findUnique({
+        where: { id: reference },
+        include: {
+          event: true,
+          tier: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      // List recent pending payments to help admin
+      const recentPending = await this.prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: { reference: true, monnifyTransactionRef: true, buyerEmail: true, createdAt: true },
+      });
+
+      throw new NotFoundException({
+        message: `Payment not found with reference: ${reference}`,
+        suggestion: 'Try using the HD-xxx reference, MNFY_xxx reference, or payment ID',
+        recentPendingPayments: recentPending,
+      });
     }
 
     if (payment.status !== 'PENDING') {
@@ -1056,9 +1218,14 @@ export class AdminService {
 
     try {
       // Verify with Monnify - pass both transaction ref and payment ref
-      const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
+      const monnifyData = await this.monnifyService.verifyTransaction(
+        transactionRef,
+        payment.reference,
+      );
 
-      this.logger.log(`Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`);
+      this.logger.log(
+        `Monnify verification result for ${reference}: ${JSON.stringify(monnifyData)}`,
+      );
 
       if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
         // Import PaymentsService to process payment
@@ -1122,6 +1289,234 @@ export class AdminService {
     }
   }
 
+  /**
+   * ADMIN FORCE CONFIRM PAYMENT
+   * Use this when you've manually verified payment in Monnify dashboard
+   * This bypasses Monnify API verification and directly creates the ticket
+   *
+   * @param reference - HD payment reference, Monnify ref, or payment ID
+   * @param confirmedAmount - The amount confirmed in Monnify dashboard (for logging)
+   * @param adminNotes - Optional notes explaining why force confirm was used
+   */
+  async forceConfirmPayment(reference: string, confirmedAmount?: number, adminNotes?: string) {
+    this.logger.log(`Admin force confirming payment: ${reference}`);
+
+    // Find the payment by various identifiers
+    let payment = await this.prisma.payment.findUnique({
+      where: { reference },
+      include: {
+        event: { include: { organizer: true } },
+        tier: true,
+        buyer: true,
+      },
+    });
+
+    if (!payment) {
+      payment = await this.prisma.payment.findFirst({
+        where: { monnifyTransactionRef: reference },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      payment = await this.prisma.payment.findUnique({
+        where: { id: reference },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    // Also try by buyer email
+    if (!payment && reference.includes('@')) {
+      payment = await this.prisma.payment.findFirst({
+        where: { buyerEmail: reference, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          event: { include: { organizer: true } },
+          tier: true,
+          buyer: true,
+        },
+      });
+    }
+
+    if (!payment) {
+      // Show recent pending payments to help
+      const recentPending = await this.prisma.payment.findMany({
+        where: { status: 'PENDING' },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          reference: true,
+          monnifyTransactionRef: true,
+          buyerEmail: true,
+          amount: true,
+          createdAt: true,
+        },
+      });
+
+      throw new NotFoundException({
+        message: `Payment not found: ${reference}`,
+        suggestion: 'Try the HD-xxx reference, MNFY_xxx reference, payment ID, or buyer email',
+        recentPendingPayments: recentPending,
+      });
+    }
+
+    // Check if already processed
+    if (payment.status === 'SUCCESS') {
+      const existingTicket = await this.prisma.ticket.findFirst({
+        where: { paymentId: payment.id },
+      });
+
+      return {
+        message: 'Payment already confirmed and ticket exists',
+        payment: { id: payment.id, reference: payment.reference, status: payment.status },
+        ticket: existingTicket,
+      };
+    }
+
+    // Calculate amounts
+    const tierPrice =
+      payment.tier.price instanceof Decimal
+        ? payment.tier.price.toNumber()
+        : Number(payment.tier.price);
+
+    const platformFeePercent = this.configService.get<number>('platformFeePercent') || 5;
+    const passFeeTobuyer = (payment.event as any).passFeeTobuyer ?? false;
+    const serviceFee = tierPrice * (platformFeePercent / 100);
+
+    // Calculate what buyer should have paid
+    const expectedBuyerPayment = passFeeTobuyer ? tierPrice + serviceFee : tierPrice;
+
+    // Calculate organizer earnings
+    let organizerAmount: number;
+    if (passFeeTobuyer) {
+      organizerAmount = tierPrice; // Full tier price - buyer paid fee separately
+    } else {
+      organizerAmount = tierPrice - serviceFee; // Minus platform fee
+    }
+
+    this.logger.log(`Force confirming payment ${payment.reference}:`);
+    this.logger.log(`  - Tier price: ₦${tierPrice}`);
+    this.logger.log(`  - Service fee (${platformFeePercent}%): ₦${serviceFee}`);
+    this.logger.log(`  - Fee paid by: ${passFeeTobuyer ? 'BUYER' : 'ORGANIZER'}`);
+    this.logger.log(`  - Expected buyer payment: ₦${expectedBuyerPayment}`);
+    this.logger.log(`  - Confirmed amount from admin: ₦${confirmedAmount || 'not provided'}`);
+    this.logger.log(`  - Organizer will receive: ₦${organizerAmount}`);
+
+    // Generate ticket number
+    const ticketNumber = `TKT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const qrCode = `${payment.eventId}-${ticketNumber}`;
+
+    // Use transaction to ensure all operations succeed
+    const result = await this.prisma.$transaction(async (prisma) => {
+      // 1. Update payment status
+      const updatedPayment = await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'SUCCESS',
+          paidAt: new Date(),
+        },
+      });
+
+      // 2. Create ticket
+      const ticket = await prisma.ticket.create({
+        data: {
+          ticketNumber,
+          qrCode,
+          status: 'ACTIVE',
+          buyerEmail: payment.buyerEmail,
+          buyerFirstName: payment.buyer?.firstName || null,
+          buyerLastName: payment.buyer?.lastName || null,
+          amountPaid: tierPrice,
+          paymentRef: payment.reference,
+          eventId: payment.eventId,
+          tierId: payment.tierId,
+          buyerId: payment.buyerId!,
+          paymentId: payment.id,
+        },
+      });
+
+      // 3. Update tier sold count
+      await prisma.ticketTier.update({
+        where: { id: payment.tierId },
+        data: { sold: { increment: 1 } },
+      });
+
+      // 4. Update organizer pending balance
+      await prisma.organizerProfile.update({
+        where: { id: payment.event.organizerId },
+        data: { pendingBalance: { increment: organizerAmount } },
+      });
+
+      // 5. Get updated organizer for ledger entry
+      const organizer = await prisma.organizerProfile.findUnique({
+        where: { id: payment.event.organizerId },
+      });
+
+      const currentPending =
+        organizer?.pendingBalance instanceof Decimal
+          ? organizer.pendingBalance.toNumber()
+          : Number(organizer?.pendingBalance || 0);
+      const currentAvailable =
+        organizer?.availableBalance instanceof Decimal
+          ? organizer.availableBalance.toNumber()
+          : Number(organizer?.availableBalance || 0);
+
+      // 6. Create ledger entry
+      await prisma.ledgerEntry.create({
+        data: {
+          type: 'TICKET_SALE',
+          amount: organizerAmount,
+          description: `[ADMIN FORCE CONFIRM] ${payment.event.title} - ${payment.tier.name}${adminNotes ? ` | Note: ${adminNotes}` : ''}`,
+          pendingBalanceAfter: currentPending,
+          availableBalanceAfter: currentAvailable,
+          ticketId: ticket.id,
+          organizerId: payment.event.organizerId,
+        },
+      });
+
+      return { payment: updatedPayment, ticket };
+    });
+
+    this.logger.log(`✅ Payment force confirmed! Ticket: ${result.ticket.ticketNumber}`);
+
+    return {
+      success: true,
+      message: 'Payment confirmed and ticket created successfully!',
+      payment: {
+        id: result.payment.id,
+        reference: result.payment.reference,
+        monnifyTransactionRef: payment.monnifyTransactionRef,
+        status: result.payment.status,
+        amount: payment.amount,
+      },
+      ticket: {
+        id: result.ticket.id,
+        ticketNumber: result.ticket.ticketNumber,
+        status: result.ticket.status,
+        buyerEmail: result.ticket.buyerEmail,
+        eventTitle: payment.event.title,
+        tierName: payment.tier.name,
+      },
+      financials: {
+        tierPrice,
+        serviceFee,
+        passFeeTobuyer,
+        expectedBuyerPayment,
+        organizerReceives: organizerAmount,
+      },
+      adminNotes,
+    };
+  }
+
   // Bulk verify all pending payments
   async verifyAllPendingPayments() {
     this.logger.log('Admin bulk verifying all pending payments');
@@ -1147,7 +1542,10 @@ export class AdminService {
         const transactionRef = payment.monnifyTransactionRef || payment.reference;
 
         // Verify with Monnify - pass both transaction ref and payment ref
-        const monnifyData = await this.monnifyService.verifyTransaction(transactionRef, payment.reference);
+        const monnifyData = await this.monnifyService.verifyTransaction(
+          transactionRef,
+          payment.reference,
+        );
 
         if (monnifyData.status === 'paid' || monnifyData.status === 'success') {
           // Import PaymentsService to process payment
@@ -1204,7 +1602,9 @@ export class AdminService {
       }
     }
 
-    this.logger.log(`Bulk verification complete: ${results.verified} verified, ${results.failed} failed`);
+    this.logger.log(
+      `Bulk verification complete: ${results.verified} verified, ${results.failed} failed`,
+    );
 
     return {
       message: 'Bulk payment verification completed',
@@ -1213,37 +1613,114 @@ export class AdminService {
   }
 
   // Debug payment verification - shows detailed API calls
+  // Accepts: HD reference, Monnify reference (MNFY_...), payment ID, or buyer email
   async debugPaymentVerification(reference: string) {
     this.logger.log(`Debugging payment verification for: ${reference}`);
 
     try {
-      // Find the payment
-      const payment = await this.prisma.payment.findUnique({
+      // Try to find the payment by various identifiers
+      let payment = await this.prisma.payment.findUnique({
         where: { reference },
         include: {
-          event: { select: { title: true } },
-          tier: { select: { name: true } },
+          event: { select: { title: true, passFeeTobuyer: true } },
+          tier: { select: { name: true, price: true } },
         },
       });
 
+      // Try by monnifyTransactionRef
       if (!payment) {
+        payment = await this.prisma.payment.findFirst({
+          where: { monnifyTransactionRef: reference },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      // Try by ID
+      if (!payment) {
+        payment = await this.prisma.payment.findUnique({
+          where: { id: reference },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      // Try by buyer email (returns most recent)
+      if (!payment && reference.includes('@')) {
+        payment = await this.prisma.payment.findFirst({
+          where: { buyerEmail: reference },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            event: { select: { title: true, passFeeTobuyer: true } },
+            tier: { select: { name: true, price: true } },
+          },
+        });
+      }
+
+      if (!payment) {
+        // Show recent payments to help admin find the right one
+        const recentPayments = await this.prisma.payment.findMany({
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            reference: true,
+            monnifyTransactionRef: true,
+            buyerEmail: true,
+            status: true,
+            amount: true,
+            createdAt: true,
+          },
+        });
+
         return {
           error: 'Payment not found in database',
           searchedReference: reference,
+          searchedBy: [
+            'reference',
+            'monnifyTransactionRef',
+            'id',
+            reference.includes('@') ? 'buyerEmail' : null,
+          ].filter(Boolean),
+          recentPayments,
         };
       }
+
+      // Calculate what the amounts should be
+      const tierPrice = payment.tier?.price
+        ? typeof payment.tier.price === 'object'
+          ? Number(payment.tier.price)
+          : payment.tier.price
+        : 0;
+      const passFeeTobuyer = (payment.event as any)?.passFeeTobuyer ?? false;
+      const platformFeePercent = 5;
+      const serviceFee = tierPrice * (platformFeePercent / 100);
+      const expectedBuyerPayment = passFeeTobuyer ? tierPrice + serviceFee : tierPrice;
 
       const debug = {
         payment: {
           id: payment.id,
           reference: payment.reference,
           monnifyTransactionRef: payment.monnifyTransactionRef,
-          amount: payment.amount,
+          storedAmount: payment.amount,
           status: payment.status,
           buyerEmail: payment.buyerEmail,
           eventTitle: payment.event?.title,
           tierName: payment.tier?.name,
           createdAt: payment.createdAt,
+        },
+        expectedAmounts: {
+          tierPrice,
+          serviceFee,
+          passFeeTobuyer,
+          expectedBuyerPayment,
+          note: passFeeTobuyer
+            ? `Buyer should pay ₦${expectedBuyerPayment} (tier ₦${tierPrice} + fee ₦${serviceFee})`
+            : `Buyer should pay ₦${expectedBuyerPayment} (tier price only, fee deducted from organizer)`,
         },
         monnifyConfig: {
           baseUrl: this.configService.get<string>('MONNIFY_BASE_URL') || 'https://api.monnify.com',
@@ -1324,7 +1801,7 @@ export class AdminService {
 
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 

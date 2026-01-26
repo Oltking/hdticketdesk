@@ -7,7 +7,7 @@ export class RequestRefundDto {
   @IsString({ message: 'Ticket ID is required' })
   ticketId: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Reason for requesting refund',
     example: 'Cannot attend due to schedule conflict',
   })

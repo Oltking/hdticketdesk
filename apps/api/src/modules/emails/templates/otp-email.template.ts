@@ -7,31 +7,45 @@ export interface OtpEmailOptions {
   amount?: number; // For withdrawal OTPs
 }
 
-export function getOtpEmailTemplate(otp: string, purpose: OtpPurpose = 'LOGIN', options?: { userName?: string; amount?: number }): string {
-  const purposeMessages: Record<OtpPurpose, { title: string; description: string; icon: string; securityNote: string }> = {
+export function getOtpEmailTemplate(
+  otp: string,
+  purpose: OtpPurpose = 'LOGIN',
+  options?: { userName?: string; amount?: number },
+): string {
+  const purposeMessages: Record<
+    OtpPurpose,
+    { title: string; description: string; icon: string; securityNote: string }
+  > = {
     LOGIN: {
       title: 'Login Verification Code',
-      description: 'You\'re attempting to sign in to your HD Ticket Desk account. Use the code below to complete your login:',
+      description:
+        "You're attempting to sign in to your HD Ticket Desk account. Use the code below to complete your login:",
       icon: '🔐',
-      securityNote: 'If you didn\'t try to sign in, someone may be trying to access your account. Please secure your account by changing your password.',
+      securityNote:
+        "If you didn't try to sign in, someone may be trying to access your account. Please secure your account by changing your password.",
     },
     WITHDRAWAL: {
       title: 'Withdrawal Verification Code',
       description: `You've requested a withdrawal${options?.amount ? ` of ₦${options.amount.toLocaleString()}` : ''} from your HD Ticket Desk account. Use this code to confirm:`,
       icon: '💰',
-      securityNote: 'If you didn\'t request this withdrawal, please contact support immediately and secure your account.',
+      securityNote:
+        "If you didn't request this withdrawal, please contact support immediately and secure your account.",
     },
     BANK_CHANGE: {
       title: 'Bank Details Update Verification',
-      description: 'You\'re updating your bank account details on HD Ticket Desk. Use this code to confirm the change:',
+      description:
+        "You're updating your bank account details on HD Ticket Desk. Use this code to confirm the change:",
       icon: '🏦',
-      securityNote: 'If you didn\'t request this change, someone may have access to your account. Please contact support immediately.',
+      securityNote:
+        "If you didn't request this change, someone may have access to your account. Please contact support immediately.",
     },
     EMAIL_VERIFICATION: {
       title: 'Verify Your Email Address',
-      description: 'Welcome to HD Ticket Desk! Please verify your email address by entering the code below:',
+      description:
+        'Welcome to HD Ticket Desk! Please verify your email address by entering the code below:',
       icon: '✉️',
-      securityNote: 'If you didn\'t create an account with HD Ticket Desk, please ignore this email.',
+      securityNote:
+        "If you didn't create an account with HD Ticket Desk, please ignore this email.",
     },
   };
 

@@ -9,9 +9,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     super({
-      log: process.env.NODE_ENV === 'development' 
-        ? ['query', 'info', 'warn', 'error']
-        : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
     });
   }
 
@@ -35,35 +33,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.logger.log('Successfully connected to database');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       if (attempt < this.maxRetries) {
         this.logger.warn(
           `Database connection failed (attempt ${attempt}/${this.maxRetries}): ${errorMessage}. ` +
-          `Retrying in ${this.retryDelay / 1000} seconds...`
+            `Retrying in ${this.retryDelay / 1000} seconds...`,
         );
-        
+
         // Wait before retrying
         await this.sleep(this.retryDelay);
-        
+
         // Exponential backoff: increase delay for each retry
         return this.connectWithRetry(attempt + 1);
       }
-      
+
       this.logger.error(
         `Failed to connect to database after ${this.maxRetries} attempts. ` +
-        `Please check:\n` +
-        `  1. DATABASE_URL is correct in .env\n` +
-        `  2. Database server is running (Supabase project may be paused)\n` +
-        `  3. Network/firewall allows connection to database host\n` +
-        `  4. Connection pool limits haven't been exceeded`
+          `Please check:\n` +
+          `  1. DATABASE_URL is correct in .env\n` +
+          `  2. Database server is running (Supabase project may be paused)\n` +
+          `  3. Network/firewall allows connection to database host\n` +
+          `  4. Connection pool limits haven't been exceeded`,
       );
-      
+
       throw error;
     }
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
@@ -81,7 +79,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   // Helper method for transactions
   async executeTransaction<T>(
-    fn: (prisma: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>,
+    fn: (
+      prisma: Omit<
+        PrismaClient,
+        '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+      >,
+    ) => Promise<T>,
   ): Promise<T> {
     return this.$transaction(fn);
   }

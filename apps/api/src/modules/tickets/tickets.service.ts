@@ -2,11 +2,12 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../../database/prisma.service';
 import { EmailService } from '../emails/email.service';
 import { QrService } from '../qr/qr.service';
+import * as crypto from 'crypto';
 
 interface CreateTicketData {
   eventId: string;
   tierId: string;
-  buyerId: string | null;  // Nullable for guest checkouts
+  buyerId: string | null; // Nullable for guest checkouts
   buyerEmail: string;
   buyerFirstName?: string;
   buyerLastName?: string;
@@ -38,7 +39,7 @@ export class TicketsService {
     const ticket = await this.prisma.ticket.create({
       data: {
         ticketNumber,
-        qrCode: qrCode,       // The actual scannable code value
+        qrCode: qrCode, // The actual scannable code value
         qrCodeUrl: qrCodeUrl, // The hosted Cloudinary URL
         status: 'ACTIVE',
         eventId: data.eventId,
@@ -63,12 +64,11 @@ export class TicketsService {
 
     // Get all tier prices for color ranking
     const allTierPrices = ticket.event.tiers.map((t: any) =>
-      typeof t.price === 'number' ? t.price : Number(t.price)
+      typeof t.price === 'number' ? t.price : Number(t.price),
     );
 
-    const currentTierPrice = typeof ticket.tier.price === 'number'
-      ? ticket.tier.price
-      : Number(ticket.tier.price);
+    const currentTierPrice =
+      typeof ticket.tier.price === 'number' ? ticket.tier.price : Number(ticket.tier.price);
 
     // Send ticket email with hosted QR code URL (works in all email clients)
     await this.emailService.sendTicketEmail(data.buyerEmail, {
@@ -179,7 +179,7 @@ export class TicketsService {
           { buyerId: buyerId },
           {
             buyerEmail: user.email.toLowerCase(),
-            buyerId: null,
+            buyerId: null as any, // Guest tickets not yet linked
           },
         ],
       },
@@ -265,7 +265,7 @@ export class TicketsService {
     const now = new Date();
     const eventStart = new Date(ticket.event.startDate);
     const fiveHoursBefore = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
-    
+
     if (now < fiveHoursBefore) {
       return {
         success: false,
@@ -277,7 +277,7 @@ export class TicketsService {
     // Check if event has ended (allow 24 hour grace period for late check-ins)
     const eventEnd = ticket.event.endDate ? new Date(ticket.event.endDate) : eventStart;
     const gracePeriodEnd = new Date(eventEnd.getTime() + 24 * 60 * 60 * 1000);
-    
+
     if (now > gracePeriodEnd) {
       return {
         success: false,
@@ -330,13 +330,19 @@ export class TicketsService {
   }
 
   async validateQr(qrCode: string, eventId: string) {
+    // SECURITY: Sanitize input
+    const sanitizedQrCode = qrCode?.trim();
+    if (!sanitizedQrCode || sanitizedQrCode.length > 100) {
+      return {
+        valid: false,
+        message: 'Invalid QR code format',
+      };
+    }
+
     // Find ticket by QR code or ticket number
     const ticket = await this.prisma.ticket.findFirst({
       where: {
-        OR: [
-          { qrCode },
-          { ticketNumber: qrCode },
-        ],
+        OR: [{ qrCode: sanitizedQrCode }, { ticketNumber: sanitizedQrCode }],
         eventId,
       },
       include: {
@@ -346,6 +352,8 @@ export class TicketsService {
     });
 
     if (!ticket) {
+      // SECURITY: Add small random delay to prevent timing-based enumeration
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 100));
       return {
         valid: false,
         message: 'Invalid QR code or ticket not found for this event',

@@ -59,7 +59,7 @@ export function Footer() {
         </div>
 
         <div className="border-t mt-8 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} hdticketdesk. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} HDTicketDesk. All rights reserved.</p>
           <p>Made with ❤️ for Africa</p>
         </div>
       </div>
