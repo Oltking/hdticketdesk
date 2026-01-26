@@ -61,15 +61,15 @@ export function LiveNowSection() {
   }
 
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="py-12 relative overflow-hidden">
       {/* Dynamic red gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-red-100 via-red-50 to-orange-100 dark:from-red-950/50 dark:via-red-950/30 dark:to-orange-950/40" />
       <div className="absolute top-0 left-1/4 w-72 h-72 bg-red-500/30 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-orange-500/25 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-      
+
       <div className="container relative z-10">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-3 h-3 rounded-full bg-red-500" />

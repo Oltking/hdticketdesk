@@ -60,15 +60,15 @@ export function TrendingSection() {
   }
 
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="py-12 relative overflow-hidden">
       {/* Beautiful gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-orange-50 to-pink-100 dark:from-orange-950/40 dark:via-background dark:to-pink-950/40" />
       <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
-      
+
       <div className="container relative z-10">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-orange-500/10">
               <Flame className="w-6 h-6 text-orange-500" />
