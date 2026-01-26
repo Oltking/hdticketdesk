@@ -6,7 +6,7 @@ import { ArrowRight, Sparkles, Shield, Zap, Globe } from 'lucide-react';
 
 export function CTASection() {
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section className="py-12 md:py-24 relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary via-purple-600 to-pink-600" />
       

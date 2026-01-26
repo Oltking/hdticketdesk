@@ -146,7 +146,7 @@ export class AdminService {
 
     // Calculate total revenue and platform fees for each event from successful payments
     const platformFeePercent = 5; // 5% platform fee
-    
+
     const eventsWithRevenue = events.map((event: any) => {
       const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
         const amount =

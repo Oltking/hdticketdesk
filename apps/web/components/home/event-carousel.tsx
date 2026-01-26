@@ -33,7 +33,7 @@ export function EventCarousel() {
   // For single event, no animation needed
   if (events.length === 1) {
     return (
-      <section className="py-8 bg-gradient-to-b from-transparent to-muted/30">
+      <section className="py-6 md:py-10 bg-gradient-to-b from-transparent to-muted/30">
         <div className="container">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -52,7 +52,7 @@ export function EventCarousel() {
   const duplicatedEvents = [...events, ...events];
 
   return (
-    <section className="py-8 bg-gradient-to-b from-transparent to-muted/30 overflow-hidden">
+    <section className="py-6 md:py-10 bg-gradient-to-b from-transparent to-muted/30 overflow-hidden">
       <div className="container mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -72,7 +72,7 @@ export function EventCarousel() {
         
         {/* Scrolling track */}
         <div 
-          className="flex gap-6 animate-slide-left pause-animation"
+          className="flex gap-4 md:gap-6 animate-slide-left pause-animation"
           style={{
             width: 'fit-content',
             animationDuration: `${events.length * 5}s`,

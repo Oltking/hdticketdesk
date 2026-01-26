@@ -53,8 +53,8 @@ export default function HomePage() {
 
 function CarouselSkeleton() {
   return (
-    <div className="py-8 overflow-hidden">
-      <div className="flex gap-6 px-4">
+    <div className="py-6 md:py-8 overflow-hidden">
+      <div className="flex gap-4 md:gap-6 px-4">
         {[1, 2, 3, 4].map((i) => (
           <Skeleton key={i} className="w-72 h-48 rounded-2xl flex-shrink-0" />
         ))}
@@ -65,8 +65,8 @@ function CarouselSkeleton() {
 
 function SectionSkeleton({ title }: { title: string }) {
   return (
-    <section className="py-16 container">
-      <Skeleton className="h-8 w-48 mb-8" />
+    <section className="py-8 md:py-16 container">
+      <Skeleton className="h-6 md:h-8 w-40 md:w-48 mb-5 md:mb-8" />
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3].map((i) => (
           <Skeleton key={i} className="h-72 rounded-2xl" />

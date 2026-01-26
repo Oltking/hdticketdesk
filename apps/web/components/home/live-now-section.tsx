@@ -61,7 +61,7 @@ export function LiveNowSection() {
   }
 
   return (
-    <section className="py-12 relative overflow-hidden">
+    <section className="py-8 md:py-12 relative overflow-hidden">
       {/* Dynamic red gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-red-100 via-red-50 to-orange-100 dark:from-red-950/50 dark:via-red-950/30 dark:to-orange-950/40" />
       <div className="absolute top-0 left-1/4 w-72 h-72 bg-red-500/30 rounded-full blur-3xl animate-pulse" />
@@ -183,14 +183,14 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
         )}
 
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-4">
-          <h3 className="font-display font-bold text-white text-lg mb-1.5 line-clamp-2 group-hover:text-red-100 transition-colors">
+        <div className="absolute inset-x-0 bottom-0 p-3">
+          <h3 className="font-display font-bold text-white text-base mb-1 line-clamp-2 group-hover:text-red-100 transition-colors">
             {event.title}
           </h3>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-xs text-white/80">
-              <MapPin className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-[11px] text-white/80">
+              <MapPin className="w-3 h-3" />
               <span className="line-clamp-1">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online Event' : event.location || 'TBA')}</span>
             </div>
 

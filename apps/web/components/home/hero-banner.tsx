@@ -6,7 +6,7 @@ import { Search, Sparkles, ArrowRight } from 'lucide-react';
 
 export function HeroBanner() {
   return (
-    <section className="relative min-h-[60vh] flex items-center justify-center overflow-hidden gradient-mesh">
+    <section className="relative min-h-[52vh] sm:min-h-[58vh] md:min-h-[60vh] flex items-center justify-center overflow-hidden gradient-mesh">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
@@ -22,9 +22,9 @@ export function HeroBanner() {
         }}
       />
       
-      <div className="container relative z-10 py-20 text-center">
+      <div className="container relative z-10 py-12 sm:py-16 md:py-20 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-in" style={{ animationDelay: '0.1s' }}>
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-5 md:mb-8 animate-in" style={{ animationDelay: '0.1s' }}>
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-primary">Africa&apos;s #1 Event Platform</span>
         </div>
@@ -37,12 +37,12 @@ export function HeroBanner() {
         </h1>
         
         {/* Subtitle */}
-        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 animate-in" style={{ animationDelay: '0.3s' }}>
+        <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 md:mb-10 animate-in" style={{ animationDelay: '0.3s' }}>
           Find and book tickets for concerts, conferences, workshops, and exclusive events happening near you.
         </p>
         
         {/* Search bar */}
-        <div className="max-w-xl mx-auto mb-8 animate-in" style={{ animationDelay: '0.4s' }}>
+        <div className="max-w-xl mx-auto mb-5 md:mb-8 animate-in" style={{ animationDelay: '0.4s' }}>
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500" />
             <div className="relative flex items-center bg-card rounded-xl border shadow-lg">
@@ -75,7 +75,7 @@ export function HeroBanner() {
         </div>
         
         {/* Stats */}
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-16 mt-16 animate-in" style={{ animationDelay: '0.6s' }}>
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-16 mt-8 md:mt-16 animate-in" style={{ animationDelay: '0.6s' }}>
           <div className="text-center">
             <p className="text-3xl md:text-4xl font-display font-bold text-gradient">10K+</p>
             <p className="text-sm text-muted-foreground">Events Hosted</p>

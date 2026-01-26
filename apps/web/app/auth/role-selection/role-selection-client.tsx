@@ -173,7 +173,7 @@ export default function RoleSelectionClient() {
 
           {/* Note */}
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Don't worry, you can always buy tickets as an organizer too!
+            For now, an organizer can not buy tickets!
           </p>
         </div>
       </main>

@@ -60,7 +60,7 @@ export function FeaturedSection() {
   }
 
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="py-10 md:py-20 relative overflow-hidden">
       {/* Premium golden gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-yellow-100 via-amber-50 to-orange-100 dark:from-yellow-950/40 dark:via-amber-950/30 dark:to-orange-950/30" />
       <div className="absolute top-0 left-0 w-80 h-80 bg-yellow-500/20 rounded-full blur-3xl" />
@@ -172,34 +172,34 @@ function FeaturedEventCard({ event, index }: { event: Event; index: number }) {
         </div>
         
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-5">
-          <Badge className="mb-2 bg-white/20 backdrop-blur text-white border-0 text-xs">
+        <div className="absolute inset-x-0 bottom-0 p-3 md:p-5">
+          <Badge className="mb-1.5 md:mb-2 bg-white/20 backdrop-blur text-white border-0 text-[10px] md:text-xs">
             {event.organizer?.title || 'Organizer'}
           </Badge>
           
-          <h3 className="font-display font-bold text-white text-xl mb-2 line-clamp-2 group-hover:text-yellow-100 transition-colors">
+          <h3 className="font-display font-bold text-white text-base md:text-xl mb-1.5 md:mb-2 line-clamp-2 group-hover:text-yellow-100 transition-colors">
             {event.title}
           </h3>
           
-          <p className="text-white/80 text-sm mb-3 line-clamp-2">
+          <p className="hidden md:block text-white/80 text-sm mb-3 line-clamp-2">
             {event.description}
           </p>
           
           <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1 text-xs text-white/80">
+            <div className="flex flex-col gap-0.5 md:gap-1 text-[11px] md:text-xs text-white/80">
               <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
+                <Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" />
                 {formatDate(event.startDate, 'short')}
               </span>
               <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />
+                <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5" />
                 <span className="truncate max-w-[150px]">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
               </span>
             </div>
             
             <div className="text-right">
-              <p className="text-xs text-white/60">From</p>
-              <p className="font-display font-bold text-white text-lg">
+              <p className="text-[10px] md:text-xs text-white/60">From</p>
+              <p className="font-display font-bold text-white text-sm md:text-lg">
                 {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>

@@ -60,7 +60,7 @@ export function TrendingSection() {
   }
 
   return (
-    <section className="py-12 relative overflow-hidden">
+    <section className="py-8 md:py-12 relative overflow-hidden">
       {/* Beautiful gradient background - darker version */}
       <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-orange-50 to-pink-100 dark:from-orange-950/40 dark:via-background dark:to-pink-950/40" />
       <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />

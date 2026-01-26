@@ -78,14 +78,25 @@ export class EventsService {
    */
   async getLiveEvents() {
     const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+    // Live events rules:
+    // - If endDate is set: event is live from startDate until endDate
+    // - If endDate is NOT set: event is live for only 24 hours from startDate
     const liveEvents = await this.prisma.event.findMany({
       where: {
         status: 'PUBLISHED',
         startDate: { lte: now },
-        OR: [{ endDate: { gte: now } }, { endDate: null, startDate: { gte: startOfDay } }],
+        OR: [
+          { endDate: { gte: now } },
+          {
+            endDate: null,
+            startDate: {
+              gte: twentyFourHoursAgo,
+              lte: now,
+            },
+          },
+        ],
       },
       orderBy: { startDate: 'asc' },
       take: 6,
@@ -291,8 +302,18 @@ export class EventsService {
     }
 
     if (filter === 'live') {
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       where.startDate = { lte: now };
-      where.OR = [{ endDate: { gte: now } }, { endDate: null }];
+      where.OR = [
+        { endDate: { gte: now } },
+        {
+          endDate: null,
+          startDate: {
+            gte: twentyFourHoursAgo,
+            lte: now,
+          },
+        },
+      ];
     } else if (filter === 'upcoming') {
       where.startDate = { gt: now };
     } else if (filter === 'featured') {
