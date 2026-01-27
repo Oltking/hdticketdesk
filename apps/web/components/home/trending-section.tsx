@@ -62,9 +62,10 @@ export function TrendingSection() {
   return (
     <section className="py-8 md:py-12 relative overflow-hidden">
       {/* Beautiful gradient background - darker version */}
-      <div className="absolute inset-0 bg-gradient-to-br from-orange-100 via-orange-50 to-pink-100 dark:from-orange-950/40 dark:via-background dark:to-pink-950/40" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl" />
+      {/* Rich red/purple gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-red-100 via-fuchsia-50 to-purple-100 dark:from-red-950/35 dark:via-purple-950/20 dark:to-fuchsia-950/30" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-red-500/15 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl" />
 
       <div className="container relative z-10">
         {/* Section Header */}
@@ -115,7 +116,7 @@ export function TrendingSection() {
         {loading ? (
           <div className="flex gap-4 overflow-hidden">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex-shrink-0 w-64 h-72 rounded-xl bg-card animate-pulse" />
+              <div key={i} className="flex-shrink-0 w-64 h-80 rounded-xl bg-card animate-pulse" />
             ))}
           </div>
         ) : (
@@ -150,7 +151,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
       style={{ animationDelay: `${rank * 0.1}s` }}
     >
       <div className={cn(
-        "relative h-72 rounded-xl overflow-hidden",
+        "relative h-80 rounded-xl overflow-hidden flex flex-col",
         "bg-card border shadow-sm",
         "transition-all duration-300",
         "hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1"
@@ -167,7 +168,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         </div>
 
         {/* Image */}
-        <div className="h-36 overflow-hidden">
+        <div className="h-36 overflow-hidden flex-shrink-0">
           {event.coverImage ? (
             <img
               src={event.coverImage}
@@ -182,7 +183,7 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
         </div>
         
         {/* Content */}
-        <div className="p-3.5 flex flex-col h-[calc(20rem-9rem)]">
+        <div className="p-3.5 flex flex-col flex-1 min-h-0">
           <h3 className="font-display font-bold text-sm mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
             {event.title}
           </h3>
