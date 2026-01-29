@@ -21,7 +21,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
+      <div className="container flex h-[52px] items-center">
         {/* Logo - Far Left */}
         <div className="flex items-center">
           <Logo href="/" size="md" showText className="hidden sm:flex" />
@@ -88,7 +88,7 @@ export function Header() {
 
         {/* Mobile Menu Button - Far Right on Mobile (hidden when menu is open) */}
         {!mobileMenuOpen && (
-          <button className="md:hidden p-2 ml-auto" onClick={() => setMobileMenuOpen(true)}>
+          <button className="md:hidden p-1.5 ml-auto" onClick={() => setMobileMenuOpen(true)}>
             <Menu className="w-6 h-6" />
           </button>
         )}

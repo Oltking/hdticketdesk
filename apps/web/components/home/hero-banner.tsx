@@ -6,7 +6,7 @@ import { Search, Sparkles, ArrowRight } from 'lucide-react';
 
 export function HeroBanner() {
   return (
-    <section className="relative min-h-[52vh] sm:min-h-[58vh] md:min-h-[60vh] flex items-start md:items-center justify-center overflow-hidden gradient-mesh">
+    <section className="relative min-h-[52vh] flex items-start justify-center overflow-hidden gradient-mesh">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl" />
@@ -22,37 +22,37 @@ export function HeroBanner() {
         }}
       />
       
-      <div className="container relative z-10 pt-0 pb-9 sm:py-16 md:py-20 text-center -mt+1 sm:mt-0">
+      <div className="container relative z-10 pt-2 pb-9 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-3 md:mb-8 animate-in" style={{ animationDelay: '0.1s' }}>
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Africa&apos;s #1 Event Platform</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 mb-2 animate-in" style={{ animationDelay: '0.1s' }}>
+          <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
+          <span className="text-[11px] md:text-sm font-medium text-primary">Africa&apos;s #1 Event Platform</span>
         </div>
         
         {/* Main heading */}
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-6 animate-in" style={{ animationDelay: '0.2s' }}>
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-3 animate-in" style={{ animationDelay: '0.2s' }}>
           Discover <span className="text-gradient">Unforgettable</span>
           <br />
           Experiences
         </h1>
         
         {/* Subtitle */}
-        <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 md:mb-10 animate-in" style={{ animationDelay: '0.3s' }}>
+        <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-4 animate-in" style={{ animationDelay: '0.3s' }}>
           Find and book tickets for concerts, conferences, workshops, and exclusive events happening near you.
         </p>
         
         {/* Search bar */}
-        <div className="max-w-xl mx-auto mb-5 md:mb-8 animate-in" style={{ animationDelay: '0.4s' }}>
+        <div className="max-w-xl mx-auto mb-4 animate-in" style={{ animationDelay: '0.4s' }}>
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500" />
             <div className="relative flex items-center bg-card rounded-xl border shadow-lg">
-              <Search className="w-5 h-5 text-muted-foreground ml-4" />
+              <Search className="w-5 h-5 text-muted-foreground ml-3 md:ml-4" />
               <input
                 type="text"
                 placeholder="Search events, artists, venues..."
-                className="flex-1 px-4 py-4 bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
+                className="flex-1 px-3 md:px-4 py-3.5 md:py-4 bg-transparent outline-none text-sm md:text-base text-foreground placeholder:text-muted-foreground"
               />
-              <Button className="m-2 rounded-lg">
+              <Button size="sm" className="m-1.5 md:m-2 rounded-lg h-8 md:h-10 px-4 md:px-6 text-sm md:text-base">
                 Search
               </Button>
             </div>
@@ -62,33 +62,35 @@ export function HeroBanner() {
         {/* CTA buttons */}
         <div className="flex flex-wrap items-center justify-center gap-4 animate-in" style={{ animationDelay: '0.5s' }}>
           <Link href="/events">
-            <Button size="lg" className="rounded-full px-8 group">
+            <Button size="lg" className="rounded-full px-7 md:px-8 py-5 md:py-6 text-sm md:text-base group">
               Browse Events
-              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4 ml-1.5 md:ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
           <Link href="/signup?role=organizer">
-            <Button size="lg" variant="outline" className="rounded-full px-8">
+            <Button size="lg" variant="outline" className="rounded-full px-7 md:px-8 py-5 md:py-6 text-sm md:text-base">
               Create Event
             </Button>
           </Link>
         </div>
         
-        {/* Stats */}
-        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-16 mt-8 md:mt-16 animate-in" style={{ animationDelay: '0.6s' }}>
+        {/* Stats (hidden for now) */}
+        {/**
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-16 mt-6 animate-in" style={{ animationDelay: '0.6s' }}>
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-display font-bold text-gradient">10K+</p>
+            <p className="text-[26px] md:text-4xl font-display font-bold text-gradient">10K+</p>
             <p className="text-sm text-muted-foreground">Events Hosted</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-display font-bold text-gradient">500K+</p>
+            <p className="text-[26px] md:text-4xl font-display font-bold text-gradient">500K+</p>
             <p className="text-sm text-muted-foreground">Tickets Sold</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-display font-bold text-gradient">50K+</p>
+            <p className="text-[26px] md:text-4xl font-display font-bold text-gradient">50K+</p>
             <p className="text-sm text-muted-foreground">Happy Users</p>
           </div>
         </div>
+        */}
       </div>
     </section>
   );
