@@ -33,7 +33,7 @@ export function EventCarousel() {
   // For single event, no animation needed
   if (events.length === 1) {
     return (
-      <section className="py-6 md:py-10 bg-gradient-to-b from-background via-purple-50 to-pink-50 dark:from-background dark:via-purple-950/20 dark:to-pink-950/20">
+      <section className="py-6 md:py-10 bg-gradient-to-b from-purple-100 via-fuchsia-100 to-pink-100 dark:from-purple-950/40 dark:via-fuchsia-950/25 dark:to-pink-950/35">
         <div className="container">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -52,7 +52,7 @@ export function EventCarousel() {
   const duplicatedEvents = [...events, ...events];
 
   return (
-    <section className="py-6 md:py-10 bg-gradient-to-b from-background via-purple-50 to-pink-50 dark:from-background dark:via-purple-950/20 dark:to-pink-950/20 overflow-hidden">
+    <section className="py-6 md:py-10 bg-gradient-to-b from-purple-100 via-fuchsia-100 to-pink-100 dark:from-purple-950/40 dark:via-fuchsia-950/25 dark:to-pink-950/35 overflow-hidden">
       <div className="container mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
