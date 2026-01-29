@@ -47,6 +47,16 @@ function AuthInitializer({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+
+    // Enforce idle-session timeout even across page refresh.
+    // If the user has been away too long, clear tokens and let the session-expired handler redirect.
+    if (typeof window !== 'undefined' && api.isIdleSessionExpired?.()) {
+      // This triggers toast + redirect via SessionExpiryHandler
+      api.forceSessionExpired();
+      setAuthenticated(false);
+      return;
+    }
+
     const token = api.getToken();
     if (token) {
       api.getMe()

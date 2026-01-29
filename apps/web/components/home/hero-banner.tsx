@@ -1,10 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Search, Sparkles, ArrowRight } from 'lucide-react';
 
 export function HeroBanner() {
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+
+  const submitSearch = () => {
+    const q = search.trim();
+    if (!q) return;
+    router.push(`/events?search=${encodeURIComponent(q)}`);
+  };
   return (
     <section className="relative min-h-[52vh] flex items-start justify-center overflow-hidden gradient-mesh">
       {/* Decorative elements */}
@@ -43,20 +53,33 @@ export function HeroBanner() {
         
         {/* Search bar */}
         <div className="max-w-xl mx-auto mb-4 animate-in" style={{ animationDelay: '0.4s' }}>
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500" />
+          <form
+            className="relative group"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitSearch();
+            }}
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500 pointer-events-none" />
             <div className="relative flex items-center bg-card rounded-xl border shadow-lg">
               <Search className="w-5 h-5 text-muted-foreground ml-3 md:ml-4" />
               <input
                 type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search events, artists, venues..."
                 className="flex-1 px-3 md:px-4 py-3.5 md:py-4 bg-transparent outline-none text-sm md:text-base text-foreground placeholder:text-muted-foreground"
               />
-              <Button size="sm" className="m-1.5 md:m-2 rounded-lg h-8 md:h-10 px-4 md:px-6 text-sm md:text-base">
+              <Button
+                type="button"
+                size="sm"
+                onClick={submitSearch}
+                className="m-1.5 md:m-2 rounded-lg h-8 md:h-10 px-4 md:px-6 text-sm md:text-base"
+              >
                 Search
               </Button>
             </div>
-          </div>
+          </form>
         </div>
         
         {/* CTA buttons */}

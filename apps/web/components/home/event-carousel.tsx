@@ -33,7 +33,7 @@ export function EventCarousel() {
   // For single event, no animation needed
   if (events.length === 1) {
     return (
-      <section className="py-6 md:py-10 bg-gradient-to-b from-transparent via-purple-500/5 to-pink-500/5">
+      <section className="py-6 md:py-10 bg-gradient-to-b from-background via-purple-50 to-pink-50 dark:from-background dark:via-purple-950/20 dark:to-pink-950/20">
         <div className="container">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -52,7 +52,7 @@ export function EventCarousel() {
   const duplicatedEvents = [...events, ...events];
 
   return (
-    <section className="py-6 md:py-10 bg-gradient-to-b from-transparent via-purple-500/5 to-pink-500/5 overflow-hidden">
+    <section className="py-6 md:py-10 bg-gradient-to-b from-background via-purple-50 to-pink-50 dark:from-background dark:via-purple-950/20 dark:to-pink-950/20 overflow-hidden">
       <div className="container mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -66,9 +66,9 @@ export function EventCarousel() {
       
       {/* Scrolling container */}
       <div className="relative">
-        {/* Gradient masks - thin dark gradients */}
-        <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/60 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/60 to-transparent z-10 pointer-events-none" />
+        {/* Gradient masks - blend into page background */}
+        <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-background via-background/70 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-background via-background/70 to-transparent z-10 pointer-events-none" />
         
         {/* Scrolling track */}
         <div 

@@ -7,7 +7,13 @@ export const SESSION_EXPIRED_EVENT = 'session-expired';
 // Token refresh timing constants
 const TOKEN_REFRESH_THRESHOLD = 2 * 60 * 1000; // Refresh 2 minutes before expiry
 const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check every 1 minute
-const INACTIVITY_THRESHOLD = 14 * 60 * 1000; // Consider inactive after 14 minutes (just under 15min token expiry)
+
+// If the user has been idle for too long, we consider the session ended (even if refresh token still exists).
+// This prevents users from returning after many hours and still appearing logged in.
+const IDLE_SESSION_TIMEOUT = 60 * 60 * 1000; // 1 hour
+
+// Used only for proactive access-token refresh while user is actively using the site.
+const INACTIVITY_THRESHOLD = 14 * 60 * 1000; // 14 minutes (just under 15min access token expiry)
 
 // Dispatch session expired event so the app can handle it
 function dispatchSessionExpired() {
@@ -35,6 +41,21 @@ class ApiClient {
   private lastActivityTime: number = Date.now();
   private activityCheckInterval: NodeJS.Timeout | null = null;
   private activityListenersAdded = false;
+
+  private readonly lastActivityKey = 'lastActivityTime';
+
+  constructor() {
+    // Hydrate last activity time on startup so idle time survives page refresh.
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(this.lastActivityKey);
+      if (stored) {
+        const parsed = Number(stored);
+        if (!Number.isNaN(parsed)) {
+          this.lastActivityTime = parsed;
+        }
+      }
+    }
+  }
 
     async updateOrganizerBank(data: { bankCode: string; accountNumber: string; accountName: string; bankName?: string }) {
       return this.request<{ message: string; organizerProfile: any }>(
@@ -67,6 +88,16 @@ class ApiClient {
    */
   recordActivity() {
     this.lastActivityTime = Date.now();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.lastActivityKey, String(this.lastActivityTime));
+    }
+  }
+
+  /**
+   * If user has been idle too long, end the session.
+   */
+  isIdleSessionExpired(): boolean {
+    return Date.now() - this.lastActivityTime > IDLE_SESSION_TIMEOUT;
   }
 
   /**
@@ -145,6 +176,12 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       const storedToken = localStorage.getItem('accessToken');
       if (storedToken) {
+        // If the user has been idle too long, force logout and do not return a token.
+        if (this.isIdleSessionExpired()) {
+          this.handleSessionExpired();
+          return null;
+        }
+
         this.accessToken = storedToken;
         // Ensure activity tracking is running when we have a token
         if (!this.activityListenersAdded) {
@@ -289,10 +326,18 @@ class ApiClient {
   /**
    * Handle session expiration - clear tokens and notify the app
    */
+  /**
+   * Public helper: force session expired (clears tokens + emits event)
+   */
+  forceSessionExpired() {
+    this.handleSessionExpired();
+  }
+
   private handleSessionExpired() {
     this.setToken(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem(this.lastActivityKey);
     }
     dispatchSessionExpired();
   }
