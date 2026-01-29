@@ -30,7 +30,7 @@ export function HeroBanner() {
         </div>
         
         {/* Main heading */}
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold mb-3 animate-in" style={{ animationDelay: '0.2s' }}>
+        <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-3 animate-in" style={{ animationDelay: '0.2s' }}>
           Discover <span className="text-gradient">Unforgettable</span>
           <br />
           Experiences
