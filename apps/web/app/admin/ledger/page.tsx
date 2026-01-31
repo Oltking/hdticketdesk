@@ -91,11 +91,21 @@ export default function AdminLedgerPage() {
 
   // Calculate summary stats
   const ticketSales = entries.filter(e => e.type === 'TICKET_SALE');
-  const withdrawals = entries.filter(e => e.type === 'WITHDRAWAL');
-  const refunds = entries.filter(e => e.type === 'REFUND');
+  const withdrawals = entries.filter((e: any) => e.type === 'WITHDRAWAL');
+  const refunds = entries.filter((e: any) => e.type === 'REFUND');
+
+  const successfulWithdrawals = withdrawals.filter(
+    (e: any) => (e.withdrawalStatus || '').toUpperCase() === 'COMPLETED',
+  );
   
   const totalSales = ticketSales.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalWithdrawals = withdrawals.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  // Ledger withdrawal amounts are stored as negative values; the 'Withdrawn' summary should reflect only SUCCESSFUL withdrawals.
+  const totalWithdrawals = successfulWithdrawals.reduce(
+    (sum, e: any) => sum + Math.abs(Number(e.amount) || 0),
+    0,
+  );
+
   const totalRefunds = refunds.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
   // Get unique entry types for filter
@@ -238,6 +248,7 @@ export default function AdminLedgerPage() {
                     <th className="text-left p-4 font-medium">Amount</th>
                     <th className="text-left p-4 font-medium">Organizer</th>
                     <th className="text-left p-4 font-medium">Description</th>
+                    <th className="text-left p-4 font-medium">Status</th>
                     <th className="text-left p-4 font-medium">Date</th>
                   </tr>
                 </thead>
@@ -254,7 +265,7 @@ export default function AdminLedgerPage() {
                     ))
                   ) : filteredEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <div className="flex flex-col items-center justify-center py-12">
                           <div className="relative w-16 h-16 mb-4 opacity-20">
                             <Image src="/icon.svg" alt="HDTicketDesk" fill className="object-contain" />
@@ -267,7 +278,7 @@ export default function AdminLedgerPage() {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredEntries.map((entry) => (
+                  ) : filteredEntries.map((entry: any) => (
                     <tr key={entry.id} className="border-t border-border hover:bg-muted/30 transition-colors">
                       <td className="p-4">
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(entry.type)}`}>
@@ -298,6 +309,24 @@ export default function AdminLedgerPage() {
                       </td>
                       <td className="p-4 text-muted-foreground text-sm max-w-xs truncate">
                         {entry.description || '-'}
+                      </td>
+                      <td className="p-4">
+                        {entry.type === 'WITHDRAWAL' ? (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              (entry.withdrawalStatus || '').toUpperCase() === 'COMPLETED'
+                                ? 'bg-emerald-500/10 text-emerald-600'
+                                : (entry.withdrawalStatus || '').toUpperCase() === 'FAILED'
+                                  ? 'bg-red-500/10 text-red-600'
+                                  : 'bg-amber-500/10 text-amber-600'
+                            }`}
+                            title={entry.withdrawalFailureReason || ''}
+                          >
+                            {(entry.withdrawalStatus || 'PENDING').toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
                       </td>
                       <td className="p-4 text-muted-foreground text-sm whitespace-nowrap">
                         {formatDate(entry.createdAt)}

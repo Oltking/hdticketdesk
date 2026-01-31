@@ -320,8 +320,42 @@ export class AdminService {
       this.prisma.ledgerEntry.count(),
     ]);
 
+    // Enrich withdrawal entries with withdrawal status (COMPLETED/FAILED/etc)
+    const withdrawalIds = entries
+      .filter((e: any) => e.type === 'WITHDRAWAL' && e.withdrawalId)
+      .map((e: any) => e.withdrawalId);
+
+    let withdrawalsById = new Map<string, { status: string; failureReason: string | null }>();
+
+    if (withdrawalIds.length > 0) {
+      const withdrawals = await this.prisma.withdrawal.findMany({
+        where: { id: { in: withdrawalIds } },
+        select: {
+          id: true,
+          status: true,
+          failureReason: true,
+        },
+      });
+
+      withdrawalsById = new Map(
+        withdrawals.map((w) => [w.id, { status: w.status, failureReason: w.failureReason }]),
+      );
+    }
+
+    const enrichedEntries = entries.map((e: any) => {
+      if (e.type === 'WITHDRAWAL' && e.withdrawalId) {
+        const w = withdrawalsById.get(e.withdrawalId);
+        return {
+          ...e,
+          withdrawalStatus: w?.status || 'UNKNOWN',
+          withdrawalFailureReason: w?.failureReason || null,
+        };
+      }
+      return e;
+    });
+
     return {
-      entries,
+      entries: enrichedEntries,
       total,
       page,
       totalPages: Math.ceil(total / limit),
