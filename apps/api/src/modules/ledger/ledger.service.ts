@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class LedgerService {
@@ -158,12 +159,22 @@ export class LedgerService {
           where: {
             id: { in: ticketIds },
           },
-          select: { id: true, payment: { select: { status: true } } },
+          select: {
+            id: true,
+            payment: {
+              select: { status: true, amount: true, monnifyTransactionRef: true },
+            },
+          },
         });
 
         const okTicketIds = new Set(
           tickets
-            .filter((t) => (t.payment?.status || '').toUpperCase() === 'SUCCESS')
+            .filter((t) => {
+              const status = (t.payment?.status || '').toUpperCase();
+              // Confirmed sale must be SUCCESS and have a Monnify transaction ref (or be free)
+              const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
+              return status === 'SUCCESS' && (Boolean(t.payment?.monnifyTransactionRef) || amount === 0);
+            })
             .map((t) => t.id),
         );
 

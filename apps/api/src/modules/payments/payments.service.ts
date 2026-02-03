@@ -490,48 +490,11 @@ export class PaymentsService {
       where: { reference },
     });
 
-    // If not found by reference, try by email and amount (for cases where reference might differ)
-    if (!payment && customer?.email) {
-      this.logger.log(`Payment not found by reference, trying to find by email: ${customer.email}`);
-
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const recentPayments = await this.prisma.payment.findMany({
-        where: {
-          buyerEmail: customer.email,
-          status: 'PENDING',
-          createdAt: { gte: fiveMinutesAgo },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      // Try to match by amount
-      if (recentPayments.length > 0) {
-        this.logger.log(
-          `Found ${recentPayments.length} recent pending payments for ${customer.email}`,
-        );
-
-        // Find payment with matching or close amount
-        for (const p of recentPayments) {
-          const paymentAmount =
-            p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
-          const amountDiff = Math.abs(amount - paymentAmount);
-
-          this.logger.log(
-            `Checking payment ${p.reference}: amount ${paymentAmount}, diff: ${amountDiff}`,
-          );
-
-          // If amount matches within ₦2 tolerance, use this payment
-          if (amountDiff <= 2) {
-            this.logger.log(`Matched payment by email and amount: ${p.reference}`);
-            payment = p;
-            break;
-          }
-        }
-      }
-    }
+    // IMPORTANT: Do not attempt to match payments by email/amount.
+    // Only process payments we can identify by our reference / Monnify references.
 
     if (!payment) {
-      this.logger.error(`Payment not found for reference: ${reference} (even after email search)`);
+      this.logger.error(`Payment not found for reference: ${reference}`);
       return;
     }
 

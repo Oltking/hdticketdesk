@@ -46,7 +46,10 @@ export class AdminService {
     const platformFeePercent = 5;
 
     const successfulPayments = await this.prisma.payment.findMany({
-      where: { status: 'SUCCESS' },
+      where: {
+        status: 'SUCCESS',
+        OR: [{ monnifyTransactionRef: { not: null } }, { amount: 0 }],
+      },
       select: { amount: true, reference: true, monnifyTransactionRef: true },
     });
 
@@ -139,7 +142,10 @@ export class AdminService {
             },
           },
           payments: {
-            where: { status: 'SUCCESS' },
+            where: {
+              status: 'SUCCESS',
+              OR: [{ monnifyTransactionRef: { not: null } }, { amount: 0 }],
+            },
             select: { amount: true, reference: true, monnifyTransactionRef: true },
           },
         },
@@ -1235,6 +1241,7 @@ export class AdminService {
     // Summary based on SUCCESS payments (actual inflow)
     const paymentWhere: any = {
       status: 'SUCCESS',
+      OR: [{ monnifyTransactionRef: { not: null } }, { amount: 0 }],
       ...(where.createdAt ? { createdAt: where.createdAt } : {}),
       ...(params.eventId ? { eventId: params.eventId } : {}),
       ...(params.organizerId ? { event: { organizerId: params.organizerId } } : {}),

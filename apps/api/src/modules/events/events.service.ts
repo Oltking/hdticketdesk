@@ -436,7 +436,10 @@ export class EventsService {
           select: { id: true },
         },
         payments: {
-          where: { status: 'SUCCESS' },
+          where: {
+            status: 'SUCCESS',
+            OR: [{ monnifyTransactionRef: { not: null } }, { amount: 0 }],
+          },
           select: {
             amount: true,
             reference: true,
