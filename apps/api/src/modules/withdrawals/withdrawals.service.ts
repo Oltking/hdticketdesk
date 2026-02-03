@@ -276,15 +276,17 @@ export class WithdrawalsService {
       });
       balanceDeducted = true;
 
-      // Record in ledger ONLY after balance is deducted
-      await this.ledgerService.recordWithdrawal(
-        withdrawal.organizerId,
-        withdrawalId,
-        withdrawalAmount,
-      );
+      // NOTE: We record the ledger withdrawal entry only when the withdrawal is COMPLETED.
+      // This prevents failed/pending withdrawals from appearing as money moved in organizer payment history.
 
       // If transfer is already successful (some transfers complete immediately)
       if (transferResult.status === 'SUCCESS') {
+        // Record in ledger now (successful withdrawal)
+        await this.ledgerService.recordWithdrawal(
+          withdrawal.organizerId,
+          withdrawalId,
+          withdrawalAmount,
+        );
         await this.prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {

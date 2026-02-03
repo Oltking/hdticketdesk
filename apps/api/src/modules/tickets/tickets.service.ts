@@ -25,6 +25,25 @@ export class TicketsService {
   ) {}
 
   async createTicket(data: CreateTicketData) {
+    // Idempotency: if a ticket already exists for this payment, return it.
+    const existing = await this.prisma.ticket.findFirst({
+      where: {
+        OR: [{ paymentId: data.paymentId }, { paymentRef: data.paymentRef }],
+      },
+      include: {
+        event: {
+          include: {
+            tiers: true,
+          },
+        },
+        tier: true,
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
     // Generate ticket number
     const ticketNumber = this.generateTicketNumber();
 

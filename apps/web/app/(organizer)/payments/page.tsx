@@ -88,7 +88,7 @@ export default function PaymentHistoryPage() {
     .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
   
   const totalWithdrawals = entries
-    .filter(e => e.type === 'WITHDRAWAL')
+    .filter((e: any) => e.type === 'WITHDRAWAL' && (!e.withdrawalStatus || String(e.withdrawalStatus).toUpperCase() === 'COMPLETED'))
     .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
   
   const totalRefunds = entries

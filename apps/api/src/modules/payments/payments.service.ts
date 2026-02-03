@@ -385,6 +385,19 @@ export class PaymentsService {
       },
     });
 
+    // Record withdrawal in ledger (only on successful completion)
+    try {
+      await this.ledgerService.recordWithdrawal(
+        withdrawal.organizerId,
+        withdrawal.id,
+        withdrawal.amount instanceof Decimal
+          ? withdrawal.amount.toNumber()
+          : Number(withdrawal.amount),
+      );
+    } catch (e) {
+      this.logger.warn(`Failed to record withdrawal in ledger: ${withdrawal.id}`, e as any);
+    }
+
     this.logger.log(`Withdrawal completed: ${withdrawal.id}`);
   }
 
@@ -633,6 +646,7 @@ export class PaymentsService {
       : null;
 
     // Create ticket - buyerId can be null for guest checkouts
+    // Ticket creation is idempotent (by paymentId/paymentRef)
     const ticket = await this.ticketsService.createTicket({
       eventId: payment.eventId,
       tierId: payment.tierId,

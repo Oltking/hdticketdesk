@@ -94,7 +94,9 @@ export class PaymentsController {
     if (!organizerProfile?.id) {
       return { entries: [] };
     }
-    const entries = await this.ledgerService.getOrganizerLedger(organizerProfile.id);
+    const entries = await this.ledgerService.getOrganizerLedger(organizerProfile.id, {
+      includeOnlySuccessfulWithdrawals: true,
+    });
     return { entries };
   }
 }
