@@ -96,6 +96,8 @@ export class PaymentsController {
     }
     const entries = await this.ledgerService.getOrganizerLedger(organizerProfile.id, {
       includeOnlySuccessfulWithdrawals: true,
+      includeOnlyConfirmedTicketSales: true,
+      dedupeTicketSales: true,
     });
     return { entries };
   }

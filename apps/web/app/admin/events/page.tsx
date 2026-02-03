@@ -127,7 +127,9 @@ export default function AdminEventsPage() {
   }
 
   // Calculate summary stats
-  const totalRevenue = filteredEvents.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
+  const totalGrossRevenue = filteredEvents.reduce((sum, e: any) => sum + (e.grossRevenue || 0), 0);
+  const totalPlatformFees = filteredEvents.reduce((sum, e: any) => sum + (e.platformFees || 0), 0);
+  const totalOrganizerNet = filteredEvents.reduce((sum, e: any) => sum + (e.organizerEarnings || 0), 0);
   const totalTicketsSold = filteredEvents.reduce((sum, e) => sum + (e._count?.tickets || 0), 0);
   const publishedCount = events.filter(e => e.status === 'PUBLISHED').length;
   const draftCount = events.filter(e => e.status === 'DRAFT').length;
@@ -199,8 +201,11 @@ export default function AdminEventsPage() {
                   <TrendingUp className="h-5 w-5 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Revenue</p>
-                  <p className="text-xl font-bold">{formatCurrency(totalRevenue)}</p>
+                  <p className="text-xs text-muted-foreground">Gross Revenue</p>
+                  <p className="text-xl font-bold">{formatCurrency(totalGrossRevenue)}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Fees: {formatCurrency(totalPlatformFees)} • Net: {formatCurrency(totalOrganizerNet)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -241,7 +246,9 @@ export default function AdminEventsPage() {
                     <th className="text-left p-4 font-medium">Event</th>
                     <th className="text-left p-4 font-medium">Status</th>
                     <th className="text-left p-4 font-medium">Tickets</th>
-                    <th className="text-left p-4 font-medium">Revenue</th>
+                    <th className="text-left p-4 font-medium">Gross</th>
+                    <th className="text-left p-4 font-medium">Fees</th>
+                    <th className="text-left p-4 font-medium">Net</th>
                     <th className="text-left p-4 font-medium">Date</th>
                     <th className="text-left p-4 font-medium">Actions</th>
                   </tr>
@@ -260,7 +267,7 @@ export default function AdminEventsPage() {
                     ))
                   ) : filteredEvents.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={8}>
                         <div className="flex flex-col items-center justify-center py-12">
                           <div className="relative w-16 h-16 mb-4 opacity-20">
                             <Image src="/icon.svg" alt="HDTicketDesk" fill className="object-contain" />
@@ -297,7 +304,13 @@ export default function AdminEventsPage() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="font-medium text-emerald-600">{formatCurrency(event.totalRevenue || 0)}</span>
+                        <span className="font-medium text-emerald-600">{formatCurrency(event.grossRevenue || 0)}</span>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-medium text-yellow-600">{formatCurrency(event.platformFees || 0)}</span>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-medium text-purple-600">{formatCurrency(event.organizerEarnings || 0)}</span>
                       </td>
                       <td className="p-4 text-muted-foreground">{formatDate(event.startDate)}</td>
                       <td className="p-4">

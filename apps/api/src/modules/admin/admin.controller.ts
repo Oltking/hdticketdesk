@@ -131,6 +131,42 @@ export class AdminController {
     return this.adminService.createVirtualAccountsForAllOrganizers();
   }
 
+  @Get('payments')
+  @ApiOperation({ summary: 'Admin payments explorer (all payments with filters + ticket-truth summary)' })
+  async getPaymentsExplorer(
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('organizerId') organizerId?: string,
+    @Query('eventId') eventId?: string,
+  ) {
+    return this.adminService.getPaymentsExplorer({
+      page: +page,
+      limit: +limit,
+      status,
+      search,
+      startDate,
+      endDate,
+      organizerId,
+      eventId,
+    });
+  }
+
+  @Get('filters/organizers')
+  @ApiOperation({ summary: 'Get organizers list for filters (admin)' })
+  async getOrganizersFilterList() {
+    return this.adminService.getOrganizersFilterList();
+  }
+
+  @Get('filters/events')
+  @ApiOperation({ summary: 'Get events list for filters (admin)' })
+  async getEventsFilterList(@Query('organizerId') organizerId?: string) {
+    return this.adminService.getEventsFilterList(organizerId);
+  }
+
   @Get('payments/pending')
   @ApiOperation({ summary: 'Get all pending payments (admin view)' })
   async getAllPendingPayments(@Query('page') page = 1, @Query('limit') limit = 50) {

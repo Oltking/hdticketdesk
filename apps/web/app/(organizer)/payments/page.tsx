@@ -95,6 +95,15 @@ export default function PaymentHistoryPage() {
     .filter(e => e.type === 'REFUND')
     .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
 
+  const totalChargebacks = entries
+    .filter(e => e.type === 'CHARGEBACK')
+    .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+
+  const totalAdjustments = totalRefunds + totalChargebacks;
+
+  // Operational clarity: net = sales - adjustments - successful withdrawals
+  const net = totalSales - totalAdjustments - totalWithdrawals;
+
   const getTypeConfig = (type: string) => {
     switch (type) {
       case 'TICKET_SALE':
@@ -168,7 +177,10 @@ export default function PaymentHistoryPage() {
               Payment History
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Track all your earnings, withdrawals, and refunds
+              Track earnings (sales), withdrawals, and adjustments (refunds/chargebacks)
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Note: Adjustments reduce your net earnings.
             </p>
           </div>
           <Button 
@@ -183,7 +195,7 @@ export default function PaymentHistoryPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-3 md:grid-cols-3 mb-5">
+        <div className="grid gap-3 md:grid-cols-4 mb-3">
           <Card>
             <CardContent className="p-3">
               <div className="flex items-center gap-2">
@@ -217,8 +229,22 @@ export default function PaymentHistoryPage() {
                   <TrendingDown className="h-4 w-4 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Refunds</p>
-                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalRefunds)}</p>
+                  <p className="text-xs text-muted-foreground">Adjustments</p>
+                  <p className="text-lg font-bold text-red-600">{formatCurrency(totalAdjustments)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-purple-500/10">
+                  <Receipt className="h-4 w-4 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Net</p>
+                  <p className="text-lg font-bold text-purple-600">{formatCurrency(net)}</p>
                 </div>
               </div>
             </CardContent>

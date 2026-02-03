@@ -515,7 +515,7 @@ export default function CreateEventPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Percent className="h-5 w-5" />
-                  Service Fee
+                  Checkout Pricing
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -532,20 +532,18 @@ export default function CreateEventPage() {
                     <div className="flex-1">
                       <label htmlFor="passFeeTobuyer" className="flex items-center gap-2 cursor-pointer">
                         <span className="font-medium text-sm">
-                          Pass service fee to buyers
+                          Buyers pay extra at checkout
                         </span>
                       </label>
                       <p className="text-xs text-muted-foreground mt-1">
-                        If checked, the 5% platform service fee will be added to the ticket price during checkout and paid by the buyer. 
-                        If unchecked, the fee will be deducted from your earnings.
+                        If checked, buyers will pay a little extra at checkout.
+                        If unchecked, buyers will pay the exact ticket price shown.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
                     <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span>
-                      Example: For a ₦10,000 ticket, if passed to buyer, they pay ₦10,500 (₦10,000 + ₦500 fee). 
-                      If not passed, buyer pays ₦10,000 and you receive ₦9,500.
                     </span>
                   </div>
                 </div>

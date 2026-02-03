@@ -47,6 +47,7 @@ export default function EditEventPage() {
   const [eventId, setEventId] = useState<string | null>(null);
   const [eventStatus, setEventStatus] = useState<string | null>(null);
   const [ticketsSold, setTicketsSold] = useState<number>(0);
+  const hasSales = ticketsSold > 0;
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -174,6 +175,7 @@ export default function EditEventPage() {
     try {
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
       const sanitizedTiers = data.tiers?.map((tier: any) => ({
+        id: tier.id, // include id so backend can enforce tier update rules
         name: tier.name,
         description: tier.description,
         price: tier.isFree ? 0 : tier.price,
@@ -182,20 +184,30 @@ export default function EditEventPage() {
         saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
       })) || [];
 
-      // Filter out empty strings for optional fields
-      const eventData = {
-        ...data,
+      // Build payload. If there are sales, only send allowed fields to avoid backend rejection.
+      const basePayload: any = {
         tiers: sanitizedTiers,
         coverImage: coverImage || undefined,
         // Only include endDate if it has a value
         endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
-        // Only include location fields if not online and has value
-        location: !data.isOnline && data.location ? data.location : undefined,
-        latitude: !data.isOnline && data.latitude ? data.latitude : undefined,
-        longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
-        // Only include onlineLink if online and has value
-        onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
       };
+
+      const eventData = hasSales
+        ? {
+            ...basePayload,
+            description: data.description,
+            startDate: data.startDate,
+          }
+        : {
+            ...data,
+            ...basePayload,
+            // Only include location fields if not online and has value
+            location: !data.isOnline && data.location ? data.location : undefined,
+            latitude: !data.isOnline && data.latitude ? data.latitude : undefined,
+            longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
+            // Only include onlineLink if online and has value
+            onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
+          };
       
       await api.updateEvent(eventId as string, eventData);
       
@@ -319,6 +331,18 @@ export default function EditEventPage() {
             </div>
           </div>
 
+          {hasSales && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-yellow-200 dark:border-yellow-900/40 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-800 dark:text-yellow-200">
+              <Lock className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">Editing is limited after sales begin</p>
+                <p className="text-sm mt-1">
+                  This event has ticket sales. You can update description and images, adjust event dates, change tier capacity, and add new tiers. Pricing and core logistics are locked.
+                </p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit((d) => onSubmit(d, false))} className="space-y-6">
             {/* Banner/Cover Image Upload */}
             <Card>
@@ -436,20 +460,40 @@ export default function EditEventPage() {
                 <CardDescription>Basic information about your event</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2"><Label>Event Title <span className="text-red-500">*</span></Label><Input {...register('title', { required: 'Event title is required' })} placeholder="e.g., Tech Conference 2025" /></div>
+                <div className="space-y-2">
+                  <Label>
+                    Event Title <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    {...register('title', { required: 'Event title is required' })}
+                    placeholder="e.g., Tech Conference 2025"
+                    disabled={hasSales}
+                  />
+                </div>
                 <div className="space-y-2"><Label>Description <span className="text-red-500">*</span></Label><Textarea {...register('description', { required: 'Description is required', minLength: { value: 10, message: 'Description must be at least 10 characters' } })} placeholder="Tell people about your event... (minimum 10 characters)" /></div>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2"><Label>Start Date & Time <span className="text-red-500">*</span></Label><Input type="datetime-local" {...register('startDate', { required: 'Start date is required' })} /></div>
-                  <div className="space-y-2"><Label>End Date & Time (Optional)</Label><Input type="datetime-local" {...register('endDate')} /></div>
+                  <div className="space-y-2">
+                    <Label>
+                      Start Date & Time <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      type="datetime-local"
+                      {...register('startDate', { required: 'Start date is required' })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Date & Time (Optional)</Label>
+                    <Input type="datetime-local" {...register('endDate')} />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" {...register('isOnline')} className="rounded" />
+                  <input type="checkbox" {...register('isOnline')} className="rounded" disabled={hasSales} />
                   <Label>Online event</Label>
                 </div>
                 {isOnline ? (
                   <div className="space-y-2">
                     <Label>Link</Label>
-                    <Input {...register('onlineLink')} />
+                    <Input {...register('onlineLink')} disabled={hasSales} />
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -460,12 +504,14 @@ export default function EditEventPage() {
                         Event Location
                       </Label>
                       <MapPicker
+                        disabled={hasSales}
                         value={watch('latitude') && watch('longitude') ? {
                           lat: watch('latitude'),
                           lng: watch('longitude'),
                           address: watch('location')
                         } : undefined}
                         onChange={(location) => {
+                          if (hasSales) return;
                           if (location) {
                             setValue('location', location.address);
                             setValue('latitude', location.lat);
@@ -487,6 +533,7 @@ export default function EditEventPage() {
                             type="checkbox" 
                             id="isLocationPublic"
                             {...register('isLocationPublic')} 
+                            disabled={hasSales}
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
                         </div>
@@ -519,7 +566,7 @@ export default function EditEventPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Percent className="h-5 w-5" />
-                  Service Fee
+                  Checkout Pricing
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -530,27 +577,21 @@ export default function EditEventPage() {
                         type="checkbox" 
                         id="passFeeTobuyer"
                         {...register('passFeeTobuyer')} 
+                        disabled={hasSales}
                         className="rounded border-gray-300 text-primary focus:ring-primary"
                       />
                     </div>
                     <div className="flex-1">
                       <label htmlFor="passFeeTobuyer" className="flex items-center gap-2 cursor-pointer">
                         <span className="font-medium text-sm">
-                          Pass service fee to buyers
+                          Buyers pay extra at checkout
                         </span>
                       </label>
                       <p className="text-xs text-muted-foreground mt-1">
-                        If checked, the 5% platform service fee will be added to the ticket price during checkout and paid by the buyer. 
-                        If unchecked, the fee will be deducted from your earnings.
+                        If checked, buyers will pay a little extra at checkout.
+                        If unchecked, buyers will pay the exact ticket price shown.
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
-                    <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span>
-                      Example: For a ₦10,000 ticket, if passed to buyer, they pay ₦10,500 (₦10,000 + ₦500 fee). 
-                      If not passed, buyer pays ₦10,000 and you receive ₦9,500.
-                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -573,14 +614,19 @@ export default function EditEventPage() {
               <CardContent className="space-y-4">
                 {fields.map((field, index) => {
                   const isFree = watch(`tiers.${index}.isFree`);
+                  const isExistingTier = Boolean((field as any).id);
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex justify-between">
                         <h4 className="font-medium">Tier {index + 1}</h4>
-                        {fields.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-danger" /></Button>}
+                        {fields.length > 1 && (
+                          <Button type="button" variant="ghost" size="sm" disabled={hasSales} onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        )}
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
-                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" /></div>
+                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input disabled={hasSales && isExistingTier} {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" /></div>
                         <div className="space-y-2">
                           <Label>Price (₦) <span className="text-red-500">*</span></Label>
                           <div className="space-y-2">
@@ -588,7 +634,7 @@ export default function EditEventPage() {
                               type="number" 
                               {...register(`tiers.${index}.price`, { valueAsNumber: true, min: { value: 0, message: 'Price cannot be negative' } })} 
                               min={0}
-                              disabled={isFree}
+                              disabled={isFree || (hasSales && isExistingTier)}
                               className={isFree ? 'bg-muted text-muted-foreground' : ''}
                             />
                             <div className="flex items-center gap-2">
@@ -596,6 +642,7 @@ export default function EditEventPage() {
                                 type="checkbox" 
                                 id={`free-${index}`} 
                                 {...register(`tiers.${index}.isFree`)}
+                                disabled={hasSales && isExistingTier}
                                 onChange={(e) => {
                                   const isChecked = e.target.checked;
                                   setValue(`tiers.${index}.isFree`, isChecked);
@@ -615,6 +662,7 @@ export default function EditEventPage() {
                         <Label>Sale End Date & Time (Optional)</Label>
                         <Input
                           type="datetime-local"
+                          disabled={hasSales && isExistingTier}
                           {...register(`tiers.${index}.saleEndDate`)}
                           max={startDate || undefined}
                         />
@@ -623,7 +671,7 @@ export default function EditEventPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />
+                        <input disabled={hasSales && isExistingTier} type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} className="rounded" />
                         <Label htmlFor={`refund-${index}`}>Allow refunds for this tier</Label>
                       </div>
                     </div>

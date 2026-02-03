@@ -57,9 +57,15 @@ export interface Event {
   };
   // Computed/aggregated fields from API
   totalTicketsSold?: number;
-  totalRevenue?: number;
+  totalRevenue?: number; // legacy (tier.sold-based)
   ticketsSold?: number;
   revenue?: number;
+
+  // Financial truth fields (payment-backed)
+  grossRevenue?: number; // gross revenue from successful tickets
+  platformFees?: number; // platform fees on successful tickets
+  netEarnings?: number; // organizer net earnings after fees
+  platformFeePercent?: number;
   createdAt: string;
   updatedAt: string;
 }

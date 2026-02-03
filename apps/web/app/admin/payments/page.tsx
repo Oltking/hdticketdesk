@@ -37,6 +37,7 @@ export default function AdminPaymentsPage() {
   const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const [payments, setPayments] = useState<PendingPayment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboard, setDashboard] = useState<any>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
   const [stats, setStats] = useState({ total: 0, page: 1, totalPages: 0 });
@@ -46,13 +47,19 @@ export default function AdminPaymentsPage() {
   const fetchPendingPayments = async () => {
     try {
       setLoading(true);
-      const result = await api.getAllPendingPayments();
+
+      const [result, dash] = await Promise.all([
+        api.getAllPendingPayments(),
+        api.getAdminDashboard(),
+      ]);
+
       setPayments(result.payments);
       setStats({
         total: result.total,
         page: result.page,
         totalPages: result.totalPages,
       });
+      setDashboard(dash);
     } catch (err) {
       console.error('Failed to fetch pending payments:', err);
       error('Failed to load pending payments');
@@ -158,7 +165,55 @@ export default function AdminPaymentsPage() {
             </p>
           </div>
 
-          {/* Stats Cards */}
+          {/* Ticket-truth Sales Summary */}
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <DollarSign className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Gross Revenue</p>
+                    <p className="text-2xl font-bold">{formatCurrency(dashboard?.grossRevenue || 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Ticket-truth (SUCCESS only)</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-700">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Platform Fees (5%)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(dashboard?.platformFees || 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Always 5% per ticket</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-purple-500/10 text-purple-600">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Organizer Net</p>
+                    <p className="text-2xl font-bold">{formatCurrency(dashboard?.organizerNet || 0)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Gross − Fees</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Pending Payments Pipeline */}
           <div className="grid gap-4 md:grid-cols-3 mb-6">
             <Card>
               <CardContent className="p-6">

@@ -23,53 +23,64 @@ export class AdminService {
   ) {}
 
   async getDashboardStats() {
-    const [totalUsers, totalOrganizers, totalEvents, totalTickets, recentPayments] =
-      await Promise.all([
-        this.prisma.user.count(),
-        this.prisma.organizerProfile.count(),
-        this.prisma.event.count(),
-        this.prisma.ticket.count(),
-        this.prisma.payment.findMany({
-          where: { status: 'SUCCESS' },
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]);
+    const [totalUsers, totalOrganizers, totalEvents, recentPayments] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.organizerProfile.count(),
+      this.prisma.event.count(),
+      this.prisma.payment.findMany({
+        where: { status: 'SUCCESS' },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
     // =============================================================================
-    // PLATFORM FEE CALCULATION - SIMPLE METHOD
+    // OPERATIONAL TRUTH FOR ADMIN DASHBOARD
     // =============================================================================
-    // Platform fee = 5% of the TOTAL AMOUNT PAID by buyers
-    // This is straightforward: whatever entered the account, take 5% of it.
+    // Gross revenue = sum of tier price for SUCCESSFUL tickets (ACTIVE/CHECKED_IN)
+    // Platform fees = 5% of gross revenue
+    // Organizer net = gross - fees
+    // This is independent of passFeeTobuyer; we always compute fee as 5% per successful ticket.
     // =============================================================================
 
-    // Get total amount paid from successful payments
-    const paymentStats = await this.prisma.payment.aggregate({
-      _sum: {
-        amount: true,
-      },
+    const platformFeePercent = 5;
+
+    const totals = await this.prisma.ticket.aggregate({
+      _count: { id: true },
       where: {
-        status: 'SUCCESS',
+        status: { in: ['ACTIVE', 'CHECKED_IN'] },
+        payment: { status: 'SUCCESS' },
       },
     });
 
-    // Total revenue = total amount paid by buyers
-    const totalRevenue = paymentStats._sum.amount
-      ? paymentStats._sum.amount instanceof Decimal
-        ? paymentStats._sum.amount.toNumber()
-        : Number(paymentStats._sum.amount)
-      : 0;
+    // Sum tier prices for successful tickets (needs relation join)
+    const successfulTickets = await this.prisma.ticket.findMany({
+      where: {
+        status: { in: ['ACTIVE', 'CHECKED_IN'] },
+        payment: { status: 'SUCCESS' },
+      },
+      select: {
+        tier: { select: { price: true } },
+      },
+    });
 
-    // Platform fee = 5% of total revenue (simple and straightforward)
-    const platformFees = totalRevenue * 0.05;
+    const grossRevenue = successfulTickets.reduce((sum, t: any) => {
+      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+      return sum + price;
+    }, 0);
+
+    const platformFees = grossRevenue * (platformFeePercent / 100);
+    const organizerNet = grossRevenue - platformFees;
 
     return {
       totalUsers,
       totalOrganizers,
       totalEvents,
-      totalTickets,
-      totalRevenue,
+      totalTickets: totals._count.id || 0,
+      grossRevenue,
       platformFees,
+      organizerNet,
+      platformFeePercent,
       recentPayments,
     };
   }
@@ -144,31 +155,46 @@ export class AdminService {
       this.prisma.event.count(),
     ]);
 
-    // Calculate total revenue and platform fees for each event from successful payments
+    // Calculate gross revenue/platform fees/organizer net from SUCCESSFUL tickets (truth source)
     const platformFeePercent = 5; // 5% platform fee
 
-    const eventsWithRevenue = events.map((event: any) => {
-      const totalRevenue = event.payments.reduce((sum: any, payment: any) => {
-        const amount =
-          payment.amount instanceof Decimal
-            ? payment.amount.toNumber()
-            : Number(payment.amount) || 0;
-        return sum + amount;
-      }, 0);
+    const eventIds = events.map((e: any) => e.id);
+    const tickets = await this.prisma.ticket.findMany({
+      where: {
+        eventId: { in: eventIds },
+        status: { in: ['ACTIVE', 'CHECKED_IN'] },
+        payment: { status: 'SUCCESS' },
+      },
+      select: {
+        eventId: true,
+        tier: { select: { price: true } },
+      },
+    });
 
-      // Calculate platform fees for this event (5% of total revenue)
-      const platformFees = totalRevenue * (platformFeePercent / 100);
-      const organizerEarnings = totalRevenue - platformFees;
+    const agg = new Map<string, { ticketsSold: number; grossRevenue: number }>();
+    for (const t of tickets as any[]) {
+      const current = agg.get(t.eventId) || { ticketsSold: 0, grossRevenue: 0 };
+      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+      current.ticketsSold += 1;
+      current.grossRevenue += price;
+      agg.set(t.eventId, current);
+    }
+
+    const eventsWithRevenue = events.map((event: any) => {
+      const a = agg.get(event.id) || { ticketsSold: 0, grossRevenue: 0 };
+      const platformFees = a.grossRevenue * (platformFeePercent / 100);
+      const organizerEarnings = a.grossRevenue - platformFees;
 
       // Remove payments array from response (we only needed it for calculation)
       const { payments, ...eventWithoutPayments } = event;
 
       return {
         ...eventWithoutPayments,
-        totalRevenue,
+        grossRevenue: a.grossRevenue,
         platformFees,
         organizerEarnings,
-        ticketsSold: event._count?.tickets || 0,
+        ticketsSold: a.ticketsSold,
+        platformFeePercent,
       };
     });
 
@@ -188,7 +214,7 @@ export class AdminService {
     const skip = (page - 1) * limit;
     const platformFeePercent = 5;
 
-    // Get events with successful payments
+    // Get events (we will compute fees from successful tickets)
     const [events, total] = await Promise.all([
       this.prisma.event.findMany({
         skip,
@@ -201,13 +227,6 @@ export class AdminService {
               title: true,
             },
           },
-          payments: {
-            where: { status: 'SUCCESS' },
-            select: { amount: true, createdAt: true },
-          },
-          _count: {
-            select: { tickets: true },
-          },
         },
       }),
       this.prisma.event.count(),
@@ -218,16 +237,35 @@ export class AdminService {
     let totalRevenue = 0;
     let totalOrganizerEarnings = 0;
 
+    const eventIds = events.map((e: any) => e.id);
+    const tickets = await this.prisma.ticket.findMany({
+      where: {
+        eventId: { in: eventIds },
+        status: { in: ['ACTIVE', 'CHECKED_IN'] },
+        payment: { status: 'SUCCESS' },
+      },
+      select: {
+        eventId: true,
+        tier: { select: { price: true } },
+      },
+    });
+
+    const agg = new Map<string, { ticketsSold: number; grossRevenue: number }>();
+    for (const t of tickets as any[]) {
+      const current = agg.get(t.eventId) || { ticketsSold: 0, grossRevenue: 0 };
+      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+      current.ticketsSold += 1;
+      current.grossRevenue += price;
+      agg.set(t.eventId, current);
+    }
+
     const eventsWithFees = events.map((event: any) => {
-      const eventRevenue = event.payments.reduce((sum: any, p: any) => {
-        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount) || 0;
-        return sum + amount;
-      }, 0);
+      const a = agg.get(event.id) || { ticketsSold: 0, grossRevenue: 0 };
 
-      const eventPlatformFees = eventRevenue * (platformFeePercent / 100);
-      const eventOrganizerEarnings = eventRevenue - eventPlatformFees;
+      const eventPlatformFees = a.grossRevenue * (platformFeePercent / 100);
+      const eventOrganizerEarnings = a.grossRevenue - eventPlatformFees;
 
-      totalRevenue += eventRevenue;
+      totalRevenue += a.grossRevenue;
       totalPlatformFees += eventPlatformFees;
       totalOrganizerEarnings += eventOrganizerEarnings;
 
@@ -236,8 +274,8 @@ export class AdminService {
         title: event.title,
         status: event.status,
         organizer: event.organizer,
-        ticketsSold: event._count.tickets,
-        totalRevenue: Math.round(eventRevenue * 100) / 100,
+        ticketsSold: a.ticketsSold,
+        grossRevenue: Math.round(a.grossRevenue * 100) / 100,
         platformFees: Math.round(eventPlatformFees * 100) / 100,
         organizerEarnings: Math.round(eventOrganizerEarnings * 100) / 100,
         createdAt: event.createdAt,
@@ -1135,6 +1173,157 @@ export class AdminService {
       message: 'Bulk virtual account creation completed',
       ...results,
     };
+  }
+
+  /**
+   * Admin Payments Explorer
+   * Returns all payments (pipeline) + ticket-truth summary (gross/fees/net) based on SUCCESSFUL tickets.
+   */
+  async getPaymentsExplorer(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    organizerId?: string;
+    eventId?: string;
+  }) {
+    const page = params.page || 1;
+    const limit = params.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const statusFilter = params.status?.toUpperCase();
+    const search = params.search?.trim();
+
+    const start = params.startDate ? new Date(params.startDate) : undefined;
+    const end = params.endDate ? new Date(params.endDate) : undefined;
+
+    const where: any = {};
+    if (statusFilter && ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'].includes(statusFilter)) {
+      where.status = statusFilter;
+    }
+
+    if (start || end) {
+      where.createdAt = {
+        ...(start ? { gte: start } : {}),
+        ...(end ? { lte: end } : {}),
+      };
+    }
+
+    if (params.organizerId) {
+      where.event = { ...(where.event || {}), organizerId: params.organizerId };
+    }
+
+    if (params.eventId) {
+      where.eventId = params.eventId;
+    }
+
+    if (search) {
+      where.OR = [
+        { reference: { contains: search, mode: 'insensitive' } },
+        { buyerEmail: { contains: search, mode: 'insensitive' } },
+        { monnifyTransactionRef: { contains: search, mode: 'insensitive' } },
+        { monnifyPaymentRef: { contains: search, mode: 'insensitive' } },
+        { event: { title: { contains: search, mode: 'insensitive' } } },
+        { tier: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          event: { select: { id: true, title: true, organizerId: true } },
+          tier: { select: { id: true, name: true, price: true } },
+          buyer: { select: { id: true, email: true } },
+        },
+      }),
+      this.prisma.payment.count({ where }),
+    ]);
+
+    // Ticket-truth summary: SUCCESSFUL tickets within the same date range and search scope.
+    // We map to tickets through payment filters where possible.
+    const ticketWhere: any = {
+      status: { in: ['ACTIVE', 'CHECKED_IN'] },
+      ...(params.eventId ? { eventId: params.eventId } : {}),
+      ...(params.organizerId ? { event: { organizerId: params.organizerId } } : {}),
+      payment: {
+        status: 'SUCCESS',
+        ...(where.createdAt ? { createdAt: where.createdAt } : {}),
+      },
+    };
+
+    // If search is provided, we reuse payment search on payment relation.
+    if (search) {
+      ticketWhere.payment.OR = where.OR;
+    }
+
+    const successfulTickets = await this.prisma.ticket.findMany({
+      where: ticketWhere,
+      select: { tier: { select: { price: true } } },
+    });
+
+    const platformFeePercent = 5;
+    const grossRevenue = successfulTickets.reduce((sum, t: any) => {
+      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+      return sum + price;
+    }, 0);
+
+    const platformFees = grossRevenue * (platformFeePercent / 100);
+    const organizerNet = grossRevenue - platformFees;
+
+    return {
+      payments: payments.map((p: any) => ({
+        id: p.id,
+        reference: p.reference,
+        amount: p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount),
+        status: p.status,
+        buyerEmail: p.buyerEmail,
+        monnifyTransactionRef: p.monnifyTransactionRef,
+        monnifyPaymentRef: p.monnifyPaymentRef,
+        createdAt: p.createdAt,
+        paidAt: p.paidAt,
+        event: p.event,
+        tier: {
+          id: p.tier?.id,
+          name: p.tier?.name,
+          price: p.tier?.price instanceof Decimal ? p.tier.price.toNumber() : Number(p.tier?.price),
+        },
+      })),
+      summary: {
+        grossRevenue,
+        platformFees,
+        organizerNet,
+        platformFeePercent,
+        successfulTickets: successfulTickets.length,
+      },
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getOrganizersFilterList() {
+    const organizers = await this.prisma.organizerProfile.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, title: true },
+    });
+    return { organizers };
+  }
+
+  async getEventsFilterList(organizerId?: string) {
+    const where: any = organizerId ? { organizerId } : {};
+    const events = await this.prisma.event.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, title: true, organizerId: true },
+      take: 500,
+    });
+    return { events };
   }
 
   // Get all pending payments

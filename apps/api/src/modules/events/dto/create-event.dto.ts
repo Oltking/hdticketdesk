@@ -13,6 +13,11 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreateTicketTierDto {
+  // Optional on create, required on update for existing tiers
+  @IsString()
+  @IsOptional()
+  id?: string;
+
   @IsString()
   @IsNotEmpty({ message: 'Tier name is required' })
   @MaxLength(100, { message: 'Tier name must be less than 100 characters' })

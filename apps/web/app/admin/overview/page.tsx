@@ -113,8 +113,8 @@ export default function AdminOverviewPage() {
           />
           <StatCard 
             icon={<TrendingUp className="h-5 w-5" />} 
-            label="Total Revenue" 
-            value={formatCurrency(stats?.totalRevenue || 0)} 
+            label="Gross Revenue" 
+            value={formatCurrency(stats?.grossRevenue || 0)} 
             loading={loading}
             color="emerald"
           />
@@ -125,6 +125,13 @@ export default function AdminOverviewPage() {
             loading={loading}
             color="yellow"
             highlight
+          />
+          <StatCard 
+            icon={<ArrowDownRight className="h-5 w-5" />} 
+            label="Organizer Net" 
+            value={formatCurrency(stats?.organizerNet || 0)} 
+            loading={loading}
+            color="purple"
           />
         </div>
 

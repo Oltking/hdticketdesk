@@ -116,38 +116,76 @@ export class LedgerService {
     organizerId: string,
     options?: {
       includeOnlySuccessfulWithdrawals?: boolean;
+      includeOnlyConfirmedTicketSales?: boolean;
+      dedupeTicketSales?: boolean;
     },
   ) {
-    const entries = await this.prisma.ledgerEntry.findMany({
+    let entries: any[] = await this.prisma.ledgerEntry.findMany({
       where: { organizerId },
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!options?.includeOnlySuccessfulWithdrawals) {
-      return entries;
+    // Filter withdrawals to only COMPLETED
+    if (options?.includeOnlySuccessfulWithdrawals) {
+      const withdrawalIds = entries
+        .filter((e) => e.type === 'WITHDRAWAL' && e.withdrawalId)
+        .map((e) => e.withdrawalId);
+
+      if (withdrawalIds.length > 0) {
+        const withdrawals = await this.prisma.withdrawal.findMany({
+          where: { id: { in: withdrawalIds } },
+          select: { id: true, status: true },
+        });
+
+        const statusById = new Map(withdrawals.map((w) => [w.id, w.status]));
+
+        entries = entries.filter((e) => {
+          if (e.type !== 'WITHDRAWAL') return true;
+          const st = statusById.get(e.withdrawalId);
+          return (st || '').toUpperCase() === 'COMPLETED';
+        });
+      }
     }
 
-    // Only keep withdrawals that are COMPLETED
-    const withdrawalIds = entries
-      .filter((e: any) => e.type === 'WITHDRAWAL' && e.withdrawalId)
-      .map((e: any) => e.withdrawalId);
+    // Filter ticket sales to only those tied to SUCCESS payments
+    if (options?.includeOnlyConfirmedTicketSales) {
+      const ticketIds = entries
+        .filter((e) => e.type === 'TICKET_SALE' && e.ticketId)
+        .map((e) => e.ticketId);
 
-    if (withdrawalIds.length === 0) {
-      return entries;
+      if (ticketIds.length > 0) {
+        const tickets = await this.prisma.ticket.findMany({
+          where: {
+            id: { in: ticketIds },
+          },
+          select: { id: true, payment: { select: { status: true } } },
+        });
+
+        const okTicketIds = new Set(
+          tickets
+            .filter((t) => (t.payment?.status || '').toUpperCase() === 'SUCCESS')
+            .map((t) => t.id),
+        );
+
+        entries = entries.filter((e) => {
+          if (e.type !== 'TICKET_SALE') return true;
+          return e.ticketId && okTicketIds.has(e.ticketId);
+        });
+      }
     }
 
-    const withdrawals = await this.prisma.withdrawal.findMany({
-      where: { id: { in: withdrawalIds } },
-      select: { id: true, status: true },
-    });
+    // Dedupe ticket sales by ticketId (keep newest entry, list is desc)
+    if (options?.dedupeTicketSales) {
+      const seen = new Set<string>();
+      entries = entries.filter((e) => {
+        if (e.type !== 'TICKET_SALE' || !e.ticketId) return true;
+        if (seen.has(e.ticketId)) return false;
+        seen.add(e.ticketId);
+        return true;
+      });
+    }
 
-    const statusById = new Map(withdrawals.map((w) => [w.id, w.status]));
-
-    return entries.filter((e: any) => {
-      if (e.type !== 'WITHDRAWAL') return true;
-      const st = statusById.get(e.withdrawalId);
-      return (st || '').toUpperCase() === 'COMPLETED';
-    });
+    return entries;
   }
 
   async getPlatformLedger() {

@@ -409,6 +409,11 @@ export class EventsService {
       return [];
     }
 
+    // Operational truth for organizer dashboards:
+    // Compute sold/revenue from successful tickets, not from tier.sold counters.
+    // This prevents drift and duplicate counting.
+    const platformFeePercent = 5;
+
     const events = await this.prisma.event.findMany({
       where: { organizerId },
       orderBy: { createdAt: 'desc' },
@@ -423,11 +428,47 @@ export class EventsService {
             sold: true,
           },
         },
-        _count: { select: { tickets: true } },
+        tickets: {
+          where: {
+            status: { in: ['ACTIVE', 'CHECKED_IN'] },
+            payment: {
+              // Only count tickets that were actually paid successfully
+              status: 'SUCCESS',
+            },
+          },
+          select: {
+            id: true,
+            tier: { select: { price: true } },
+          },
+        },
       },
     });
 
-    return this.addComputedFields(events);
+    return events.map((event: any) => {
+      const processedTiers = event.tiers?.map((tier: any) => ({
+        ...tier,
+        price: tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price),
+      }));
+
+      const grossRevenue = event.tickets.reduce((sum: number, t: any) => {
+        const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
+        return sum + price;
+      }, 0);
+
+      const platformFees = grossRevenue * (platformFeePercent / 100);
+      const netEarnings = grossRevenue - platformFees;
+
+      return {
+        ...event,
+        tiers: processedTiers,
+        // Replace tier.sold-based totals with payment-backed totals for organizer surfaces
+        totalTicketsSold: event.tickets.length,
+        grossRevenue,
+        platformFees,
+        netEarnings,
+        platformFeePercent,
+      };
+    });
   }
 
   async create(organizerId: string, dto: CreateEventDto) {
@@ -542,6 +583,36 @@ export class EventsService {
     // Check if event has any active ticket sales
     const hasTicketSales = event.tickets.length > 0;
 
+    // If there are sales, restrict what can be edited to avoid breaking promises to buyers.
+    // Allowed after sales:
+    // - Event dates (start/end)
+    // - Marketing content (description/images)
+    // - Tiers: capacity changes + adding new tiers
+    // Not allowed:
+    // - Changing price of an existing tier
+    // - Removing existing tiers
+    // - Changing location/online/core logistics
+    if (hasTicketSales) {
+      const allowedKeys = new Set([
+        'description',
+        'coverImage',
+        'gallery',
+        'startDate',
+        'endDate',
+        'tiers',
+      ]);
+      const providedKeys = Object.keys(dto as any).filter((k) => (dto as any)[k] !== undefined);
+      const restricted = providedKeys.filter((k) => !allowedKeys.has(k));
+
+      if (restricted.length > 0) {
+        throw new ForbiddenException(
+          `Event has ticket sales. You can only update: description, images, dates, and tier capacity/additions. Restricted: ${restricted.join(
+            ', ',
+          )}.`,
+        );
+      }
+    }
+
     // Build update data, handling null/undefined correctly
     const updateData: any = {};
 
@@ -566,13 +637,83 @@ export class EventsService {
     if (dto.gallery !== undefined) updateData.gallery = dto.gallery;
     if (dto.passFeeTobuyer !== undefined) updateData.passFeeTobuyer = dto.passFeeTobuyer;
 
-    // Handle tier updates - only if tiers are provided and event has no sales
+    // Handle tier updates
     if (dto.tiers !== undefined && dto.tiers.length > 0) {
       if (hasTicketSales) {
-        // If there are ticket sales, only allow updating tier descriptions (not price/capacity)
-        // For safety, we'll skip tier updates entirely if there are sales
-        // Organizers should contact support for tier changes after sales begin
-      } else {
+        // After sales:
+        // - existing tiers: capacity can change, price must remain unchanged
+        // - new tiers can be added
+        // - existing tiers cannot be removed
+
+        // Map existing tiers by id
+        const existingById = new Map(event.tiers.map((t: any) => [t.id, t]));
+
+        const providedExistingIds = (dto.tiers as any[])
+          .filter((t) => t.id)
+          .map((t) => t.id);
+
+        // Prevent removing existing tiers
+        const missing = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
+        if (missing.length > 0) {
+          throw new ForbiddenException('Cannot remove existing tiers after sales begin.');
+        }
+
+        await this.prisma.$transaction(async (tx: any) => {
+          for (const tier of dto.tiers as any[]) {
+            if (tier.id) {
+              const existing = existingById.get(tier.id);
+              if (!existing) {
+                throw new ForbiddenException('Invalid tier id provided.');
+              }
+
+              // Disallow price changes for existing tiers
+              const existingPrice = existing.price instanceof Decimal ? existing.price.toNumber() : Number(existing.price);
+              if (tier.price !== undefined && Number(tier.price) !== Number(existingPrice)) {
+                throw new ForbiddenException('Cannot change tier price after sales begin.');
+              }
+
+              // Allow capacity change
+              if (tier.capacity !== undefined && Number(tier.capacity) !== Number(existing.capacity)) {
+                await tx.ticketTier.update({
+                  where: { id: tier.id },
+                  data: { capacity: Number(tier.capacity) },
+                });
+              }
+            } else {
+              // New tier: allow adding
+              await tx.ticketTier.create({
+                data: {
+                  eventId: id,
+                  name: tier.name,
+                  description: tier.description || null,
+                  price: Number(tier.price || 0),
+                  capacity: Number(tier.capacity || 0),
+                  sold: 0,
+                  refundEnabled: tier.refundEnabled || false,
+                  saleEndDate: tier.saleEndDate ? new Date(tier.saleEndDate) : null,
+                },
+              });
+            }
+          }
+
+          // Update event core fields (allowed set enforced earlier)
+          await tx.event.update({
+            where: { id },
+            data: updateData,
+          });
+        });
+
+        // Return updated event with tiers
+        const updated = await this.prisma.event.findUnique({
+          where: { id },
+          include: {
+            tiers: true,
+            organizer: { select: { id: true, title: true } },
+          },
+        });
+
+        return updated;
+      } else { 
         // No ticket sales - safe to update/replace tiers
         // Prepare tiers data with proper date parsing
         const tiersData = dto.tiers.map((tier) => {
@@ -792,13 +933,14 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // Calculate total revenue based on tier prices (not amountPaid which includes service fees)
-    // Organizers only receive the tier price, service fees go to the platform
+    // Organizer-facing revenue: show organizer earnings (platform fee hidden in UI)
+    // Platform always takes 5% of each successful ticket sold.
+    const platformFeePercent = 5;
     const totalRevenue = activeTickets.reduce(
       (sum: number, t: { tier: { price: Decimal | number } }) => {
-        const amount =
+        const gross =
           t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-        return sum + amount;
+        return sum + gross * (1 - platformFeePercent / 100);
       },
       0,
     );
@@ -806,10 +948,12 @@ export class EventsService {
     const tierBreakdown = event.tiers.map(
       (tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
         const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-        // Calculate revenue based on tier price only (excludes service fees)
+        // Organizer-facing revenue: show organizer earnings (platform fee hidden in UI)
+        const platformFeePercent = 5;
         const tierPrice =
           tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
-        const tierRevenue = tierTickets.length * tierPrice;
+        const tierRevenueGross = tierTickets.length * tierPrice;
+        const tierRevenue = tierRevenueGross * (1 - platformFeePercent / 100);
 
         return {
           name: tier.name,

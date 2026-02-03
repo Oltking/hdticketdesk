@@ -978,6 +978,66 @@ class ApiClient {
   }
 
   // Payment recovery methods
+  async getAdminPaymentsExplorer(params?: {
+    page?: number;
+    limit?: number;
+    status?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    organizerId?: string;
+    eventId?: string;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.status) qs.set('status', params.status);
+    if (params?.search) qs.set('search', params.search);
+    if (params?.startDate) qs.set('startDate', params.startDate);
+    if (params?.endDate) qs.set('endDate', params.endDate);
+    if (params?.organizerId) qs.set('organizerId', params.organizerId);
+    if (params?.eventId) qs.set('eventId', params.eventId);
+
+    return this.request<{
+      payments: Array<{
+        id: string;
+        reference: string;
+        amount: number;
+        status: string;
+        buyerEmail: string;
+        monnifyTransactionRef?: string | null;
+        monnifyPaymentRef?: string | null;
+        createdAt: string;
+        paidAt?: string | null;
+        event?: { id: string; title: string; organizerId: string } | null;
+        tier?: { id?: string; name?: string; price?: number } | null;
+      }>;
+      summary: {
+        grossRevenue: number;
+        platformFees: number;
+        organizerNet: number;
+        platformFeePercent: number;
+        successfulTickets: number;
+      };
+      total: number;
+      page: number;
+      totalPages: number;
+    }>(`/admin/payments${qs.toString() ? `?${qs.toString()}` : ''}`);
+  }
+
+  async getAdminFilterOrganizers() {
+    return this.request<{ organizers: Array<{ id: string; title: string }> }>(
+      '/admin/filters/organizers',
+    );
+  }
+
+  async getAdminFilterEvents(organizerId?: string) {
+    const qs = organizerId ? `?organizerId=${encodeURIComponent(organizerId)}` : '';
+    return this.request<{ events: Array<{ id: string; title: string; organizerId: string }> }>(
+      `/admin/filters/events${qs}`,
+    );
+  }
+
   async getAllPendingPayments(page = 1, limit = 50) {
     return this.request<{
       payments: any[];

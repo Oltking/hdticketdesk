@@ -190,7 +190,7 @@ export default function DashboardPage() {
   );
 
   const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
-  const totalRevenue = events.reduce((sum, e) => sum + (e.totalRevenue || 0), 0);
+  const totalNetEarnings = events.reduce((sum, e) => sum + (e.netEarnings || 0), 0);
   const publishedEvents = events.filter(e => e.status === 'PUBLISHED').length;
   const draftEvents = events.filter(e => e.status === 'DRAFT').length;
 
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                   {loading ? (
                     <Skeleton className="h-6 w-16 mt-1" />
                   ) : (
-                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalRevenue)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalNetEarnings)}</p>
                   )}
                 </div>
                 <div className="p-2 rounded-full bg-green-500/10">
@@ -525,13 +525,13 @@ export default function DashboardPage() {
                           </span>
                           
                           {/* Revenue */}
-                          {(event.totalRevenue || 0) > 0 && (
+                          {(event.netEarnings || 0) > 0 && (
                             <span className={cn(
                               "flex items-center gap-1.5",
                               isEnded ? "text-muted-foreground/70" : "text-green-600"
                             )}>
                               <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
-                              <span>{formatCurrency(event.totalRevenue || 0)}</span>
+                              <span>{formatCurrency(event.netEarnings || 0)}</span>
                             </span>
                           )}
                         </div>

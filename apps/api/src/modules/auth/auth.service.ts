@@ -137,48 +137,8 @@ export class AuthService {
       this.logger.error(`Failed to link guest tickets for user ${user.email}:`, error);
     }
 
-    // Create virtual account for organizer immediately
-    if (dto.role === 'ORGANIZER' && user.organizerProfile) {
-      try {
-        this.logger.log(`Creating virtual account for new organizer: ${user.organizerProfile.id}`);
-
-        // Import MonnifyService dynamically to avoid circular dependency
-        const { MonnifyService } = await import('../payments/monnify.service');
-        const monnifyService = new MonnifyService(this.configService);
-
-        const vaResponse = await monnifyService.createVirtualAccount(
-          user.organizerProfile.id,
-          user.organizerProfile.title,
-          user.email,
-        );
-
-        // Save virtual account to database
-        await this.prisma.virtualAccount.create({
-          data: {
-            accountNumber: vaResponse.accountNumber,
-            accountName: vaResponse.accountName,
-            bankName: vaResponse.bankName,
-            bankCode: vaResponse.bankCode,
-            accountReference: vaResponse.accountReference,
-            monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
-            organizerId: user.organizerProfile.id,
-          },
-        });
-
-        this.logger.log(
-          `Virtual account created for organizer ${user.organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`,
-        );
-      } catch (error) {
-        // Log but don't fail registration if VA creation fails
-        this.logger.error(
-          `Failed to create virtual account for organizer ${user.organizerProfile.id}:`,
-          error,
-        );
-        this.logger.warn(
-          'Organizer can still create events. Virtual account will be created on first event publish.',
-        );
-      }
-    }
+    // Note: Virtual account (reserved account) is created on first event publish.
+    // We intentionally do NOT create it at signup to reduce Monnify calls and failure points.
 
     // Return userId and role so frontend can redirect to verify page and confirm role
     // Don't generate tokens yet - user must verify first
@@ -976,46 +936,8 @@ export class AuthService {
       },
     });
 
-    // Create virtual account for the organizer immediately
-    try {
-      this.logger.log(`Creating virtual account for new organizer: ${organizerProfile.id}`);
-
-      // Import MonnifyService dynamically to avoid circular dependency
-      const { MonnifyService } = await import('../payments/monnify.service');
-      const monnifyService = new MonnifyService(this.configService);
-
-      const vaResponse = await monnifyService.createVirtualAccount(
-        organizerProfile.id,
-        organizationName.trim(),
-        user.email,
-      );
-
-      // Save virtual account to database
-      await this.prisma.virtualAccount.create({
-        data: {
-          accountNumber: vaResponse.accountNumber,
-          accountName: vaResponse.accountName,
-          bankName: vaResponse.bankName,
-          bankCode: vaResponse.bankCode,
-          accountReference: vaResponse.accountReference,
-          monnifyContractCode: this.configService.get<string>('MONNIFY_CONTRACT_CODE') || '',
-          organizerId: organizerProfile.id,
-        },
-      });
-
-      this.logger.log(
-        `Virtual account created for organizer ${organizerProfile.id}: ${vaResponse.accountNumber} (${vaResponse.accountName})`,
-      );
-    } catch (error) {
-      // Log but don't fail organizer setup if VA creation fails
-      this.logger.error(
-        `Failed to create virtual account for organizer ${organizerProfile.id}:`,
-        error,
-      );
-      this.logger.warn(
-        'Organizer can still create events. Virtual account will be created on first event publish.',
-      );
-    }
+    // Note: Virtual account (reserved account) is created on first event publish.
+    // We intentionally do NOT create it during organizer setup.
 
     // Return updated user
     const updatedUser = await this.prisma.user.findUnique({

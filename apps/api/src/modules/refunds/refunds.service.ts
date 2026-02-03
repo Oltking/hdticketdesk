@@ -134,32 +134,60 @@ export class RefundsService {
         await this.monnifyService.refundTransaction(refund.ticket.paymentRef, refundAmount);
       }
 
-      // Update ticket status
-      await this.prisma.ticket.update({
-        where: { id: refund.ticketId },
-        data: { status: 'REFUNDED' },
-      });
-
-      // Update refund status to processed
-      await this.prisma.refund.update({
-        where: { id: refundId },
-        data: { status: 'PROCESSED' },
-      });
-
-      // Update organizer balance
       const refundAmount =
         refund.refundAmount instanceof Decimal
           ? refund.refundAmount.toNumber()
           : Number(refund.refundAmount);
 
-      await this.prisma.organizerProfile.update({
-        where: { id: organizerId },
-        data: {
-          availableBalance: { decrement: refundAmount },
-        },
+      // Apply all internal state changes atomically
+      await this.prisma.$transaction(async (tx: any) => {
+        // Only process if ticket hasn't already been refunded
+        const currentTicket = await tx.ticket.findUnique({
+          where: { id: refund.ticketId },
+          select: { status: true, tierId: true },
+        });
+
+        if (!currentTicket) {
+          throw new Error('Ticket not found');
+        }
+
+        if (currentTicket.status !== 'REFUNDED') {
+          // Update ticket status
+          await tx.ticket.update({
+            where: { id: refund.ticketId },
+            data: { status: 'REFUNDED' },
+          });
+
+          // Return capacity: decrement tier sold count
+          const tier = await tx.ticketTier.findUnique({
+            where: { id: currentTicket.tierId },
+            select: { sold: true },
+          });
+
+          if (tier && tier.sold > 0) {
+            await tx.ticketTier.update({
+              where: { id: currentTicket.tierId },
+              data: { sold: { decrement: 1 } },
+            });
+          }
+
+          // Update organizer balance
+          await tx.organizerProfile.update({
+            where: { id: organizerId },
+            data: {
+              availableBalance: { decrement: refundAmount },
+            },
+          });
+
+          // Update refund status to processed
+          await tx.refund.update({
+            where: { id: refundId },
+            data: { status: 'PROCESSED' },
+          });
+        }
       });
 
-      // Record in ledger
+      // Record in ledger (idempotent by ticketId)
       await this.ledgerService.recordRefund(organizerId, refund.ticketId, refundAmount);
 
       // Send email to buyer
