@@ -243,36 +243,62 @@ export default function PayoutsPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {history.map((w) => {
-                  const config = getStatusConfig(w.status);
-                  const StatusIcon = config.icon;
-                  return (
-                    <div 
-                      key={w.id} 
-                      className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
-                    >
-                      <div className={`p-2.5 rounded-full ${config.bg}`}>
-                        <StatusIcon className={`h-5 w-5 ${config.color}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold">{formatCurrency(w.amount)}</p>
-                          <Badge variant={config.badge}>{w.status}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {formatDate(w.createdAt)}
-                          {w.bankName && ` • ${w.bankName}`}
-                          {w.accountNumber && ` (****${w.accountNumber.slice(-4)})`}
-                        </p>
-                        {w.failureReason && (
-                          <p className="text-xs text-red-600 mt-1">{w.failureReason}</p>
-                        )}
-                      </div>
+              (() => {
+                const pending = history.filter((w) => ['PENDING', 'PROCESSING'].includes(String(w.status).toUpperCase()));
+                const completed = history.filter((w) => String(w.status).toUpperCase() === 'COMPLETED');
+                const failed = history.filter((w) => String(w.status).toUpperCase() === 'FAILED');
+
+                const Section = ({ title, items }: { title: string; items: any[] }) => (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">{title}</p>
+                      <span className="text-xs text-muted-foreground">{items.length}</span>
                     </div>
-                  );
-                })}
-              </div>
+                    {items.length === 0 ? (
+                      <div className="p-4 rounded-lg border border-dashed text-sm text-muted-foreground">
+                        No records
+                      </div>
+                    ) : (
+                      items.map((w) => {
+                        const config = getStatusConfig(w.status);
+                        const StatusIcon = config.icon;
+                        return (
+                          <div 
+                            key={w.id} 
+                            className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+                          >
+                            <div className={`p-2.5 rounded-full ${config.bg}`}>
+                              <StatusIcon className={`h-5 w-5 ${config.color}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold">{formatCurrency(w.amount)}</p>
+                                <Badge variant={config.badge}>{String(w.status).toUpperCase()}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-0.5">
+                                {formatDate(w.createdAt)}
+                                {w.bankName && ` • ${w.bankName}`}
+                                {w.accountNumber && ` (****${w.accountNumber.slice(-4)})`}
+                              </p>
+                              {w.failureReason && (
+                                <p className="text-xs text-red-600 mt-1">{w.failureReason}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+
+                return (
+                  <div className="space-y-6">
+                    <Section title="Pending / Processing" items={pending} />
+                    <Section title="Completed" items={completed} />
+                    <Section title="Failed" items={failed} />
+                  </div>
+                );
+              })()
             )}
           </CardContent>
         </Card>

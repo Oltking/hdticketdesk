@@ -410,8 +410,8 @@ export class EventsService {
     }
 
     // Operational truth for organizer dashboards:
-    // Compute sold/revenue from successful tickets, not from tier.sold counters.
-    // This prevents drift and duplicate counting.
+    // Earnings are calculated from what actually hit the platform account (successful Payment.amount)
+    // so we never double-deduct when "buyer pays extra" is enabled.
     const platformFeePercent = 5;
 
     const events = await this.prisma.event.findMany({
@@ -431,14 +431,16 @@ export class EventsService {
         tickets: {
           where: {
             status: { in: ['ACTIVE', 'CHECKED_IN'] },
-            payment: {
-              // Only count tickets that were actually paid successfully
-              status: 'SUCCESS',
-            },
+            payment: { status: 'SUCCESS' },
           },
+          select: { id: true },
+        },
+        payments: {
+          where: { status: 'SUCCESS' },
           select: {
-            id: true,
-            tier: { select: { price: true } },
+            amount: true,
+            reference: true,
+            monnifyTransactionRef: true,
           },
         },
       },
@@ -450,9 +452,14 @@ export class EventsService {
         price: tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price),
       }));
 
-      const grossRevenue = event.tickets.reduce((sum: number, t: any) => {
-        const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-        return sum + price;
+      // De-dupe successful payments in-memory in case the same Monnify transaction was recorded twice.
+      const seen = new Set<string>();
+      const grossRevenue = (event.payments || []).reduce((sum: number, p: any) => {
+        const key = p.monnifyTransactionRef || p.reference;
+        if (seen.has(key)) return sum;
+        seen.add(key);
+        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+        return sum + amount;
       }, 0);
 
       const platformFees = grossRevenue * (platformFeePercent / 100);
@@ -902,15 +909,11 @@ export class EventsService {
           select: {
             id: true,
             status: true,
-            amountPaid: true,
             tierId: true,
             checkedInAt: true,
             createdAt: true,
-            tier: {
-              select: {
-                price: true,
-              },
-            },
+            payment: { select: { status: true, amount: true, reference: true, monnifyTransactionRef: true } },
+            tier: { select: { price: true } },
           },
         },
       },
@@ -924,8 +927,8 @@ export class EventsService {
       throw new ForbiddenException('You can only view analytics for your own events');
     }
 
-    const activeTickets = event.tickets.filter((t: { status: string }) =>
-      ['ACTIVE', 'CHECKED_IN'].includes(t.status),
+    const activeTickets = event.tickets.filter((t: any) =>
+      ['ACTIVE', 'CHECKED_IN'].includes(t.status) && (t.payment?.status || '').toUpperCase() === 'SUCCESS',
     );
 
     const totalSold = activeTickets.length;
@@ -933,34 +936,39 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // Organizer-facing revenue: show organizer earnings (platform fee hidden in UI)
-    // Platform always takes 5% of each successful ticket sold.
+    // Organizer-facing revenue: based on actual amount received (Payment.amount)
+    // Organizer earnings = amount - 5%
     const platformFeePercent = 5;
-    const totalRevenue = activeTickets.reduce(
-      (sum: number, t: { tier: { price: Decimal | number } }) => {
-        const gross =
-          t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-        return sum + gross * (1 - platformFeePercent / 100);
-      },
-      0,
-    );
+    const seen = new Set<string>();
+    const totalRevenue = activeTickets.reduce((sum: number, t: any) => {
+      const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
+      if (seen.has(key)) return sum;
+      seen.add(key);
+      const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
+      return sum + amount * (1 - platformFeePercent / 100);
+    }, 0);
 
     const tierBreakdown = event.tiers.map(
       (tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
         const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-        // Organizer-facing revenue: show organizer earnings (platform fee hidden in UI)
+        // Organizer-facing revenue: based on actual amount received (Payment.amount)
         const platformFeePercent = 5;
-        const tierPrice =
-          tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
-        const tierRevenueGross = tierTickets.length * tierPrice;
-        const tierRevenue = tierRevenueGross * (1 - platformFeePercent / 100);
+        const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
+        const seenTier = new Set<string>();
+        const tierRevenueNet = tierTickets.reduce((sum: number, t: any) => {
+          const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
+          if (seenTier.has(key)) return sum;
+          seenTier.add(key);
+          const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
+          return sum + amount * (1 - platformFeePercent / 100);
+        }, 0);
 
         return {
           name: tier.name,
           price: tierPrice,
           capacity: tier.capacity,
           sold: tierTickets.length,
-          revenue: tierRevenue,
+          revenue: tierRevenueNet,
         };
       },
     );

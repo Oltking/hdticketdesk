@@ -37,46 +37,38 @@ export class AdminService {
     // =============================================================================
     // OPERATIONAL TRUTH FOR ADMIN DASHBOARD
     // =============================================================================
-    // Gross revenue = sum of tier price for SUCCESSFUL tickets (ACTIVE/CHECKED_IN)
-    // Platform fees = 5% of gross revenue
-    // Organizer net = gross - fees
-    // This is independent of passFeeTobuyer; we always compute fee as 5% per successful ticket.
+    // Compute based on what actually hit the platform account: SUCCESS Payment.amount
+    // Platform fees = 5% of total inflow
+    // Organizer net = inflow - fees
+    // This avoids double-deduction when buyers pay extra at checkout.
     // =============================================================================
 
     const platformFeePercent = 5;
 
-    const totals = await this.prisma.ticket.aggregate({
-      _count: { id: true },
-      where: {
-        status: { in: ['ACTIVE', 'CHECKED_IN'] },
-        payment: { status: 'SUCCESS' },
-      },
+    const successfulPayments = await this.prisma.payment.findMany({
+      where: { status: 'SUCCESS' },
+      select: { amount: true, reference: true, monnifyTransactionRef: true },
     });
 
-    // Sum tier prices for successful tickets (needs relation join)
-    const successfulTickets = await this.prisma.ticket.findMany({
-      where: {
-        status: { in: ['ACTIVE', 'CHECKED_IN'] },
-        payment: { status: 'SUCCESS' },
-      },
-      select: {
-        tier: { select: { price: true } },
-      },
-    });
-
-    const grossRevenue = successfulTickets.reduce((sum, t: any) => {
-      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-      return sum + price;
+    const seen = new Set<string>();
+    const grossRevenue = successfulPayments.reduce((sum, p: any) => {
+      const key = p.monnifyTransactionRef || p.reference;
+      if (seen.has(key)) return sum;
+      seen.add(key);
+      const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+      return sum + amount;
     }, 0);
 
     const platformFees = grossRevenue * (platformFeePercent / 100);
     const organizerNet = grossRevenue - platformFees;
 
+    const totalTickets = successfulPayments.length;
+
     return {
       totalUsers,
       totalOrganizers,
       totalEvents,
-      totalTickets: totals._count.id || 0,
+      totalTickets,
       grossRevenue,
       platformFees,
       organizerNet,
@@ -148,52 +140,37 @@ export class AdminService {
           },
           payments: {
             where: { status: 'SUCCESS' },
-            select: { amount: true },
+            select: { amount: true, reference: true, monnifyTransactionRef: true },
           },
         },
       }),
       this.prisma.event.count(),
     ]);
 
-    // Calculate gross revenue/platform fees/organizer net from SUCCESSFUL tickets (truth source)
+    // Calculate gross revenue/platform fees/organizer net from SUCCESSFUL payments (truth source)
     const platformFeePercent = 5; // 5% platform fee
 
-    const eventIds = events.map((e: any) => e.id);
-    const tickets = await this.prisma.ticket.findMany({
-      where: {
-        eventId: { in: eventIds },
-        status: { in: ['ACTIVE', 'CHECKED_IN'] },
-        payment: { status: 'SUCCESS' },
-      },
-      select: {
-        eventId: true,
-        tier: { select: { price: true } },
-      },
-    });
-
-    const agg = new Map<string, { ticketsSold: number; grossRevenue: number }>();
-    for (const t of tickets as any[]) {
-      const current = agg.get(t.eventId) || { ticketsSold: 0, grossRevenue: 0 };
-      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-      current.ticketsSold += 1;
-      current.grossRevenue += price;
-      agg.set(t.eventId, current);
-    }
-
     const eventsWithRevenue = events.map((event: any) => {
-      const a = agg.get(event.id) || { ticketsSold: 0, grossRevenue: 0 };
-      const platformFees = a.grossRevenue * (platformFeePercent / 100);
-      const organizerEarnings = a.grossRevenue - platformFees;
+      const seen = new Set<string>();
+      const grossRevenue = (event.payments || []).reduce((sum: number, p: any) => {
+        const key = p.monnifyTransactionRef || p.reference;
+        if (seen.has(key)) return sum;
+        seen.add(key);
+        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+        return sum + amount;
+      }, 0);
 
-      // Remove payments array from response (we only needed it for calculation)
+      const platformFees = grossRevenue * (platformFeePercent / 100);
+      const organizerEarnings = grossRevenue - platformFees;
+
       const { payments, ...eventWithoutPayments } = event;
 
       return {
         ...eventWithoutPayments,
-        grossRevenue: a.grossRevenue,
+        grossRevenue,
         platformFees,
         organizerEarnings,
-        ticketsSold: a.ticketsSold,
+        ticketsSold: (event.payments || []).length,
         platformFeePercent,
       };
     });
@@ -1245,39 +1222,48 @@ export class AdminService {
       this.prisma.payment.count({ where }),
     ]);
 
-    // Ticket-truth summary: SUCCESSFUL tickets within the same date range and search scope.
-    // We map to tickets through payment filters where possible.
-    const ticketWhere: any = {
-      status: { in: ['ACTIVE', 'CHECKED_IN'] },
+    // De-dupe payment rows in response by Monnify transaction reference (or internal reference)
+    // This prevents UI from showing the same successful inflow twice if duplicate rows exist.
+    const seenList = new Set<string>();
+    const paymentsDeduped = payments.filter((p: any) => {
+      const key = p.monnifyTransactionRef || p.reference;
+      if (seenList.has(key)) return false;
+      seenList.add(key);
+      return true;
+    });
+
+    // Summary based on SUCCESS payments (actual inflow)
+    const paymentWhere: any = {
+      status: 'SUCCESS',
+      ...(where.createdAt ? { createdAt: where.createdAt } : {}),
       ...(params.eventId ? { eventId: params.eventId } : {}),
       ...(params.organizerId ? { event: { organizerId: params.organizerId } } : {}),
-      payment: {
-        status: 'SUCCESS',
-        ...(where.createdAt ? { createdAt: where.createdAt } : {}),
-      },
     };
 
-    // If search is provided, we reuse payment search on payment relation.
     if (search) {
-      ticketWhere.payment.OR = where.OR;
+      paymentWhere.OR = where.OR;
     }
 
-    const successfulTickets = await this.prisma.ticket.findMany({
-      where: ticketWhere,
-      select: { tier: { select: { price: true } } },
+    const successfulPayments = await this.prisma.payment.findMany({
+      where: paymentWhere,
+      select: { amount: true, reference: true, monnifyTransactionRef: true },
     });
 
     const platformFeePercent = 5;
-    const grossRevenue = successfulTickets.reduce((sum, t: any) => {
-      const price = t.tier.price instanceof Decimal ? t.tier.price.toNumber() : Number(t.tier.price);
-      return sum + price;
+    const seenSum = new Set<string>();
+    const grossRevenue = successfulPayments.reduce((sum: number, p: any) => {
+      const key = p.monnifyTransactionRef || p.reference;
+      if (seenSum.has(key)) return sum;
+      seenSum.add(key);
+      const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+      return sum + amount;
     }, 0);
 
     const platformFees = grossRevenue * (platformFeePercent / 100);
     const organizerNet = grossRevenue - platformFees;
 
     return {
-      payments: payments.map((p: any) => ({
+      payments: paymentsDeduped.map((p: any) => ({
         id: p.id,
         reference: p.reference,
         amount: p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount),
@@ -1299,7 +1285,7 @@ export class AdminService {
         platformFees,
         organizerNet,
         platformFeePercent,
-        successfulTickets: successfulTickets.length,
+        successfulTickets: successfulPayments.length,
       },
       total,
       page,

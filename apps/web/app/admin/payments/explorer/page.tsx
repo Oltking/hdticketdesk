@@ -239,10 +239,10 @@ export default function AdminPaymentsExplorerPage() {
                       <td className="p-4 text-sm text-muted-foreground">{p.tier?.name || '-'}</td>
                       <td className="p-4 text-sm text-right font-medium">{formatCurrency(p.amount || 0)}</td>
                       <td className="p-4 text-sm text-right text-yellow-700">
-                        {formatCurrency(((p.tier?.price || 0) * 0.05) || 0)}
+                        {formatCurrency(((p.amount || 0) * 0.05) || 0)}
                       </td>
                       <td className="p-4 text-sm text-right text-purple-700 font-medium">
-                        {formatCurrency(((p.tier?.price || 0) * 0.95) || 0)}
+                        {formatCurrency(((p.amount || 0) * 0.95) || 0)}
                       </td>
                       <td className="p-4 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
