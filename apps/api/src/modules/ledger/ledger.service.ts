@@ -167,16 +167,22 @@ export class LedgerService {
           },
         });
 
+        const ticketMonnifyRefById = new Map<string, string | null>();
         const okTicketIds = new Set(
           tickets
             .filter((t) => {
               const status = (t.payment?.status || '').toUpperCase();
-              // Confirmed sale must be SUCCESS and have a Monnify transaction ref (or be free)
               const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
-              return status === 'SUCCESS' && (Boolean(t.payment?.monnifyTransactionRef) || amount === 0);
+              const monnifyRef = t.payment?.monnifyTransactionRef || null;
+              ticketMonnifyRefById.set(t.id, monnifyRef);
+              // Confirmed sale must be SUCCESS and have a Monnify transaction ref (or be free)
+              return status === 'SUCCESS' && (Boolean(monnifyRef) || amount === 0);
             })
             .map((t) => t.id),
         );
+
+        // Attach for dedupe step
+        (entries as any).__ticketMonnifyRefById = ticketMonnifyRefById;
 
         entries = entries.filter((e) => {
           if (e.type !== 'TICKET_SALE') return true;
@@ -185,15 +191,22 @@ export class LedgerService {
       }
     }
 
-    // Dedupe ticket sales by ticketId (keep newest entry, list is desc)
+    // Dedupe ticket sales (keep newest entry, list is desc)
     if (options?.dedupeTicketSales) {
+      const ticketMonnifyRefById: Map<string, string | null> | undefined = (entries as any).__ticketMonnifyRefById;
       const seen = new Set<string>();
+
       entries = entries.filter((e) => {
         if (e.type !== 'TICKET_SALE' || !e.ticketId) return true;
-        if (seen.has(e.ticketId)) return false;
-        seen.add(e.ticketId);
+        const monnifyRef = ticketMonnifyRefById?.get(e.ticketId) || null;
+        const key = monnifyRef || e.ticketId;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
+
+      // Cleanup helper attachment
+      delete (entries as any).__ticketMonnifyRefById;
     }
 
     return entries;

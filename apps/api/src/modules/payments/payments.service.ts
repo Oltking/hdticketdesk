@@ -624,59 +624,21 @@ export class PaymentsService {
     });
 
     // =============================================================================
-    // ORGANIZER EARNINGS CALCULATION
+    // ORGANIZER EARNINGS CALCULATION (OPERATIONAL TRUTH)
     // =============================================================================
-    // The platform fee (5%) works differently based on who pays it:
-    //
-    // SCENARIO 1: Buyer pays fee (passFeeTobuyer = true)
-    //   - Tier price: ₦400
-    //   - Service fee added: ₦400 × 5% = ₦20
-    //   - Buyer pays TOTAL: ₦420
-    //   - Organizer receives: ₦400 (full tier price - no deduction)
-    //   - Platform keeps: ₦20 (the extra fee buyer paid)
-    //
-    // SCENARIO 2: Organizer absorbs fee (passFeeTobuyer = false)
-    //   - Tier price: ₦400
-    //   - Buyer pays: ₦400
-    //   - Platform takes: ₦400 × 5% = ₦20
-    //   - Organizer receives: ₦400 - ₦20 = ₦380
-    //   - Platform keeps: ₦20
+    // We calculate from actual inflow into the platform: Payment.amount (storedAmount).
+    // Platform fee = 5% of inflow.
+    // Organizer earnings = inflow - 5%.
+    // This avoids double-deduction when the buyer pays extra at checkout.
     // =============================================================================
 
-    let organizerAmount: number;
-    let platformFee: number;
-    let buyerPaidTotal: number;
+    const inflowAmount = storedAmount; // what actually hit the platform for this payment
+    const platformFee = inflowAmount * (platformFeePercent / 100);
+    const organizerAmount = inflowAmount - platformFee;
 
-    // Calculate service fee (5% of tier price)
-    const serviceFeeAmount = actualTierPrice * (platformFeePercent / 100);
-
-    if (eventPassFeeTobuyer) {
-      // SCENARIO 1: Buyer pays the service fee on top of tier price
-      // - Buyer paid: tierPrice + serviceFee
-      // - Organizer gets: full tier price (no deduction)
-      // - Platform keeps: the service fee that buyer paid extra
-      buyerPaidTotal = actualTierPrice + serviceFeeAmount;
-      organizerAmount = actualTierPrice;
-      platformFee = serviceFeeAmount;
-    } else {
-      // SCENARIO 2: Organizer absorbs the fee from their earnings
-      // - Buyer paid: just the tier price
-      // - Platform takes 5% from what buyer paid
-      // - Organizer gets: tier price minus 5%
-      buyerPaidTotal = actualTierPrice;
-      platformFee = serviceFeeAmount;
-      organizerAmount = actualTierPrice - platformFee;
-    }
-
-    this.logger.log(`=== Organizer Earnings Calculation for ${reference} ===`);
-    this.logger.log(`  Tier price: ₦${actualTierPrice.toFixed(2)}`);
-    this.logger.log(`  Service fee (${platformFeePercent}%): ₦${serviceFeeAmount.toFixed(2)}`);
-    this.logger.log(
-      `  Fee paid by: ${eventPassFeeTobuyer ? 'BUYER (added to total)' : 'ORGANIZER (deducted from earnings)'}`,
-    );
-    this.logger.log(`  ---`);
-    this.logger.log(`  Buyer paid total: ₦${buyerPaidTotal.toFixed(2)}`);
-    this.logger.log(`  Platform keeps: ₦${platformFee.toFixed(2)}`);
+    this.logger.log(`=== Earnings Calculation for ${reference} ===`);
+    this.logger.log(`  Inflow amount: ₦${inflowAmount.toFixed(2)}`);
+    this.logger.log(`  Platform fee (${platformFeePercent}%): ₦${platformFee.toFixed(2)}`);
     this.logger.log(`  Organizer receives: ₦${organizerAmount.toFixed(2)}`);
     this.logger.log(`  ================================================`);
 

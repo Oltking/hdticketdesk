@@ -472,7 +472,7 @@ export class EventsService {
         ...event,
         tiers: processedTiers,
         // Replace tier.sold-based totals with payment-backed totals for organizer surfaces
-        totalTicketsSold: event.tickets.length,
+        totalTicketsSold: seen.size,
         grossRevenue,
         platformFees,
         netEarnings,
