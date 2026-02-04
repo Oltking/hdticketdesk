@@ -102,7 +102,7 @@ export default function AdminPaymentsExplorerPage() {
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Platform Fees (5%)</p>
+                <p className="text-sm text-muted-foreground">Platform Fees ({PLATFORM_FEE_PERCENTAGE}%)</p>
                 <p className="text-2xl font-bold">{formatCurrency(summary?.platformFees || 0)}</p>
               </div>
             </div>

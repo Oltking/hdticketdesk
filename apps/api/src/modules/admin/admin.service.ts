@@ -65,7 +65,7 @@ export class AdminService {
     const platformFees = grossRevenue * (platformFeePercent / 100);
     const organizerNet = grossRevenue - platformFees;
 
-    const totalTickets = successfulPayments.length;
+    const totalTickets = seen.size;
 
     return {
       totalUsers,
@@ -724,6 +724,8 @@ export class AdminService {
         ticketId: refund.ticketId,
         pendingBalanceAfter: new Decimal(0),
         availableBalanceAfter: new Decimal(0),
+        // Reconciliation fields
+        transactionDate: new Date(),
       },
     });
 
@@ -1292,7 +1294,7 @@ export class AdminService {
         platformFees,
         organizerNet,
         platformFeePercent,
-        successfulTickets: successfulPayments.length,
+        successfulTickets: seenSum.size,
       },
       total,
       page,
@@ -1686,7 +1688,7 @@ export class AdminService {
           ? organizer.availableBalance.toNumber()
           : Number(organizer?.availableBalance || 0);
 
-      // 6. Create ledger entry
+      // 6. Create ledger entry with full reconciliation data
       await prisma.ledgerEntry.create({
         data: {
           type: 'TICKET_SALE',
@@ -1696,6 +1698,11 @@ export class AdminService {
           availableBalanceAfter: currentAvailable,
           ticketId: ticket.id,
           organizerId: payment.event.organizerId,
+          // Reconciliation fields
+          monnifyTransactionRef: payment.monnifyTransactionRef || null,
+          paymentReference: payment.reference,
+          paymentId: payment.id,
+          transactionDate: new Date(),
         },
       });
 

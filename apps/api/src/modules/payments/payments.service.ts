@@ -650,13 +650,19 @@ export class PaymentsService {
       data: { pendingBalance: { increment: organizerAmount } },
     });
 
-    // Record in ledger
-    await this.ledgerService.recordTicketSale(
-      event.organizerId,
-      ticket.id,
-      organizerAmount,
+    // Record in ledger with full reconciliation data
+    // This ensures each Monnify transaction is recorded exactly once
+    await this.ledgerService.recordTicketSale({
+      organizerId: event.organizerId,
+      ticketId: ticket.id,
+      amount: organizerAmount,
       platformFee,
-    );
+      monnifyTransactionRef: data.id?.toString() || null,
+      paymentReference: payment.reference,
+      paymentId: payment.id,
+      transactionDate: data.paid_at ? new Date(data.paid_at) : new Date(),
+      description: `${event.title} - ${tier.name || 'Ticket'}`,
+    });
 
     // Update payment status
     await this.prisma.payment.update({

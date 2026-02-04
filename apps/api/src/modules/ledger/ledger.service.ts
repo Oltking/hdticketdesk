@@ -1,17 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class LedgerService {
+  private readonly logger = new Logger(LedgerService.name);
+
   constructor(private prisma: PrismaService) {}
 
-  async recordTicketSale(
-    organizerId: string,
-    ticketId: string,
-    amount: number,
-    _platformFee: number, // Not stored in DB, just for calculation
-  ) {
+  /**
+   * Record a ticket sale in the ledger with proper deduplication.
+   * 
+   * Deduplication Strategy:
+   * 1. Primary: Check by monnifyTransactionRef (for Monnify payments)
+   * 2. Fallback: Check by ticketId (for legacy Paystack or free tickets)
+   * 
+   * The database also has a unique constraint on (monnifyTransactionRef, type)
+   * for non-NULL values to prevent race conditions.
+   */
+  async recordTicketSale(params: {
+    organizerId: string;
+    ticketId: string;
+    amount: number;
+    platformFee?: number;
+    // New fields for proper reconciliation
+    monnifyTransactionRef?: string | null;
+    paymentReference?: string | null;
+    paymentId?: string | null;
+    transactionDate?: Date;
+    description?: string;
+  }) {
+    const {
+      organizerId,
+      ticketId,
+      amount,
+      monnifyTransactionRef,
+      paymentReference,
+      paymentId,
+      transactionDate,
+      description,
+    } = params;
+
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -20,8 +49,30 @@ export class LedgerService {
       throw new Error('Organizer not found');
     }
 
-    // Idempotency: avoid recording the same ticket sale more than once
-    const existing = await this.prisma.ledgerEntry.findFirst({
+    // ==========================================================================
+    // IDEMPOTENCY CHECK: Prevent duplicate ledger entries
+    // ==========================================================================
+    // Priority 1: Check by Monnify transaction reference (most reliable for paid tickets)
+    if (monnifyTransactionRef) {
+      const existingByMonnifyRef = await this.prisma.ledgerEntry.findFirst({
+        where: {
+          type: 'TICKET_SALE',
+          monnifyTransactionRef,
+          organizerId,
+        },
+        select: { id: true },
+      });
+
+      if (existingByMonnifyRef) {
+        this.logger.warn(
+          `Ledger entry already exists for monnifyTransactionRef: ${monnifyTransactionRef}. Skipping duplicate.`,
+        );
+        return { skipped: true, reason: 'duplicate_monnify_ref' };
+      }
+    }
+
+    // Priority 2: Check by ticketId (fallback for legacy Paystack or free tickets)
+    const existingByTicketId = await this.prisma.ledgerEntry.findFirst({
       where: {
         type: 'TICKET_SALE',
         ticketId,
@@ -30,24 +81,69 @@ export class LedgerService {
       select: { id: true },
     });
 
-    if (existing) {
-      return;
+    if (existingByTicketId) {
+      this.logger.warn(
+        `Ledger entry already exists for ticketId: ${ticketId}. Skipping duplicate.`,
+      );
+      return { skipped: true, reason: 'duplicate_ticket_id' };
     }
 
-    await this.prisma.ledgerEntry.create({
-      data: {
-        type: 'TICKET_SALE',
-        organizerId,
-        ticketId,
-        amount,
-        pendingBalanceAfter: Number(organizer.pendingBalance) + amount,
-        availableBalanceAfter: Number(organizer.availableBalance),
-        description: `Ticket sale - ${ticketId}`,
-      },
+    // ==========================================================================
+    // CREATE LEDGER ENTRY
+    // ==========================================================================
+    try {
+      const entry = await this.prisma.ledgerEntry.create({
+        data: {
+          type: 'TICKET_SALE',
+          organizerId,
+          ticketId,
+          amount,
+          monnifyTransactionRef: monnifyTransactionRef || null,
+          paymentReference: paymentReference || null,
+          paymentId: paymentId || null,
+          transactionDate: transactionDate || new Date(),
+          pendingBalanceAfter: Number(organizer.pendingBalance) + amount,
+          availableBalanceAfter: Number(organizer.availableBalance),
+          description: description || `Ticket sale - ${ticketId}`,
+        },
+      });
+
+      this.logger.log(
+        `Ledger entry created: ${entry.id} | Amount: ${amount} | MonnifyRef: ${monnifyTransactionRef || 'N/A'}`,
+      );
+
+      return { skipped: false, entry };
+    } catch (error: any) {
+      // Handle unique constraint violation (race condition fallback)
+      if (error.code === 'P2002' && error.meta?.target?.includes('monnifyTransactionRef')) {
+        this.logger.warn(
+          `Unique constraint violation for monnifyTransactionRef: ${monnifyTransactionRef}. Entry already exists.`,
+        );
+        return { skipped: true, reason: 'unique_constraint_violation' };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Legacy signature for backward compatibility
+   * @deprecated Use recordTicketSale(params) instead
+   */
+  async recordTicketSaleLegacy(
+    organizerId: string,
+    ticketId: string,
+    amount: number,
+    _platformFee: number,
+  ) {
+    return this.recordTicketSale({
+      organizerId,
+      ticketId,
+      amount,
+      platformFee: _platformFee,
     });
   }
 
-  async recordRefund(organizerId: string, ticketId: string, amount: number) {
+  async recordRefund(organizerId: string, ticketId: string, amount: number, transactionDate?: Date) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -65,11 +161,12 @@ export class LedgerService {
         pendingBalanceAfter: Number(organizer.pendingBalance),
         availableBalanceAfter: Number(organizer.availableBalance) - amount,
         description: `Refund processed - ${ticketId}`,
+        transactionDate: transactionDate || new Date(),
       },
     });
   }
 
-  async recordWithdrawal(organizerId: string, withdrawalId: string, amount: number) {
+  async recordWithdrawal(organizerId: string, withdrawalId: string, amount: number, transactionDate?: Date) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -87,11 +184,12 @@ export class LedgerService {
         pendingBalanceAfter: Number(organizer.pendingBalance),
         availableBalanceAfter: Number(organizer.availableBalance) - amount,
         description: `Withdrawal - ${withdrawalId}`,
+        transactionDate: transactionDate || new Date(),
       },
     });
   }
 
-  async recordChargeback(organizerId: string, ticketId: string, amount: number) {
+  async recordChargeback(organizerId: string, ticketId: string, amount: number, transactionDate?: Date) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -109,6 +207,7 @@ export class LedgerService {
         pendingBalanceAfter: Number(organizer.pendingBalance),
         availableBalanceAfter: Number(organizer.availableBalance) - amount,
         description: `Chargeback - ${ticketId}`,
+        transactionDate: transactionDate || new Date(),
       },
     });
   }
