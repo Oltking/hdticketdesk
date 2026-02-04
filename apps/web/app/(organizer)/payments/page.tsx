@@ -83,9 +83,18 @@ export default function PaymentHistoryPage() {
   }, [entries, searchQuery, typeFilter]);
 
   // Calculate stats
-  const totalSales = entries
+  // Note: Ledger TICKET_SALE amounts are already NET (after 5% platform fee deduction)
+  // To show gross revenue, we reverse-calculate: gross = net / 0.95
+  const platformFeePercent = 5;
+  
+  const netSalesFromLedger = entries
     .filter(e => e.type === 'TICKET_SALE')
     .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+  
+  // Calculate gross revenue (what buyers actually paid) from net amount
+  // Formula: net = gross * (1 - feePercent/100), so gross = net / (1 - feePercent/100)
+  const totalGrossRevenue = netSalesFromLedger > 0 ? netSalesFromLedger / (1 - platformFeePercent / 100) : 0;
+  const totalPlatformFees = totalGrossRevenue - netSalesFromLedger;
   
   const totalWithdrawals = entries
     .filter((e: any) => e.type === 'WITHDRAWAL' && (!e.withdrawalStatus || String(e.withdrawalStatus).toUpperCase() === 'COMPLETED'))
@@ -101,8 +110,10 @@ export default function PaymentHistoryPage() {
 
   const totalAdjustments = totalRefunds + totalChargebacks;
 
-  // Operational clarity: net = sales - adjustments - successful withdrawals
-  const net = totalSales - totalAdjustments - totalWithdrawals;
+  // Net earnings = sales revenue (after platform fee) - adjustments
+  // Available = net earnings - withdrawals
+  const netEarnings = netSalesFromLedger - totalAdjustments;
+  const availableAfterWithdrawals = netEarnings - totalWithdrawals;
 
   const getTypeConfig = (type: string) => {
     switch (type) {
@@ -203,8 +214,9 @@ export default function PaymentHistoryPage() {
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Sales</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(totalSales)}</p>
+                  <p className="text-xs text-muted-foreground">Your Earnings</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(netSalesFromLedger)}</p>
+                  <p className="text-[10px] text-muted-foreground">After {platformFeePercent}% platform fee</p>
                 </div>
               </div>
             </CardContent>
@@ -231,6 +243,7 @@ export default function PaymentHistoryPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Adjustments</p>
                   <p className="text-lg font-bold text-red-600">{formatCurrency(totalAdjustments)}</p>
+                  <p className="text-[10px] text-muted-foreground">Refunds & chargebacks</p>
                 </div>
               </div>
             </CardContent>
@@ -243,8 +256,9 @@ export default function PaymentHistoryPage() {
                   <Receipt className="h-4 w-4 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Net</p>
-                  <p className="text-lg font-bold text-purple-600">{formatCurrency(net)}</p>
+                  <p className="text-xs text-muted-foreground">Net Balance</p>
+                  <p className="text-lg font-bold text-purple-600">{formatCurrency(availableAfterWithdrawals)}</p>
+                  <p className="text-[10px] text-muted-foreground">Earnings - adjustments - withdrawn</p>
                 </div>
               </div>
             </CardContent>

@@ -296,12 +296,13 @@ export default function DashboardPage() {
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Revenue</p>
+                  <p className="text-xs text-muted-foreground">Your Earnings</p>
                   {loading ? (
                     <Skeleton className="h-6 w-16 mt-1" />
                   ) : (
                     <p className="text-2xl font-bold text-green-600">{formatCurrency(totalNetEarnings)}</p>
                   )}
+                  <p className="text-[10px] text-muted-foreground">After 5% platform fee</p>
                 </div>
                 <div className="p-2 rounded-full bg-green-500/10">
                   <TrendingUp className="h-4 w-4 text-green-500" />
