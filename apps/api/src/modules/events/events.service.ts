@@ -414,6 +414,12 @@ export class EventsService {
     // so we never double-deduct when "buyer pays extra" is enabled.
     const platformFeePercent = 5;
 
+    // Get organizer profile to access ledger entries
+    const organizerProfile = await this.prisma.organizerProfile.findUnique({
+      where: { id: organizerId },
+      select: { id: true },
+    });
+
     const events = await this.prisma.event.findMany({
       where: { organizerId },
       orderBy: { createdAt: 'desc' },
@@ -433,7 +439,7 @@ export class EventsService {
             status: { in: ['ACTIVE', 'CHECKED_IN'] },
             payment: { status: 'SUCCESS' },
           },
-          select: { id: true },
+          select: { id: true, paymentId: true },
         },
         payments: {
           where: {
@@ -441,6 +447,7 @@ export class EventsService {
             OR: [{ monnifyTransactionRef: { not: null } }, { amount: 0 }],
           },
           select: {
+            id: true,
             amount: true,
             reference: true,
             monnifyTransactionRef: true,
@@ -448,6 +455,34 @@ export class EventsService {
         },
       },
     });
+
+    // Get all ledger entries for this organizer (for earnings calculation)
+    const allLedgerEntries = organizerProfile ? await this.prisma.ledgerEntry.findMany({
+      where: {
+        organizerId,
+        type: 'TICKET_SALE',
+      },
+      select: {
+        id: true,
+        type: true,
+        credit: true,
+        amount: true,
+        ticketId: true,
+        paymentId: true,
+        monnifyTransactionRef: true,
+      },
+    }) : [];
+
+    // Create a map of paymentId -> ledger entries for quick lookup
+    const ledgerByPaymentId = new Map<string, typeof allLedgerEntries>();
+    for (const le of allLedgerEntries) {
+      if (le.paymentId) {
+        if (!ledgerByPaymentId.has(le.paymentId)) {
+          ledgerByPaymentId.set(le.paymentId, []);
+        }
+        ledgerByPaymentId.get(le.paymentId)!.push(le);
+      }
+    }
 
     return events.map((event: any) => {
       const processedTiers = event.tiers?.map((tier: any) => ({
@@ -458,35 +493,51 @@ export class EventsService {
       // =============================================================================
       // ORGANIZER EARNINGS CALCULATION
       // =============================================================================
-      // Must match the operational truth in payments.service.ts handleSuccessfulPayment:
-      //   organizerAmount = inflowAmount - (inflowAmount * 5%)
-      // where inflowAmount = Payment.amount (what buyer actually paid)
+      // The LEDGER is the source of truth for organizer earnings.
+      // Each ledger entry (TICKET_SALE) already contains the correct organizer amount:
+      //   - If passFeeTobuyer = true: organizer gets full tierPrice
+      //   - If passFeeTobuyer = false: organizer gets tierPrice - 5%
       //
-      // This means:
-      // - If passFeeTobuyer = true: buyer pays tierPrice + 5%, organizer gets (tierPrice*1.05)*0.95
-      // - If passFeeTobuyer = false: buyer pays tierPrice, organizer gets tierPrice * 0.95
+      // We also calculate grossRevenue (what buyers paid) for display purposes.
       // =============================================================================
 
-      // De-dupe successful payments in-memory in case the same Monnify transaction was recorded twice.
-      const seen = new Set<string>();
-      const grossRevenue = (event.payments || []).reduce((sum: number, p: any) => {
-        const key = p.monnifyTransactionRef || p.reference;
-        if (seen.has(key)) return sum;
-        seen.add(key);
-        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
-        return sum + amount;
-      }, 0);
+      // De-dupe successful payments to get gross revenue (what buyers actually paid)
+      const seenPayments = new Set<string>();
+      let grossRevenue = 0;
+      let netEarnings = 0;
+      const seenLedger = new Set<string>();
 
-      // Platform fee is 5% of what was actually paid (grossRevenue)
-      const platformFees = grossRevenue * (platformFeePercent / 100);
-      // Net earnings = what organizer actually receives (matches ledger TICKET_SALE amounts)
-      const netEarnings = grossRevenue - platformFees;
+      for (const p of (event.payments || [])) {
+        const paymentKey = p.monnifyTransactionRef || p.reference;
+        if (seenPayments.has(paymentKey)) continue;
+        seenPayments.add(paymentKey);
+        
+        const paymentAmount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+        grossRevenue += paymentAmount;
+
+        // Get ledger entry for this payment (the source of truth for organizer earnings)
+        const ledgerEntries = ledgerByPaymentId.get(p.id) || [];
+        for (const le of ledgerEntries) {
+          const ledgerKey = le.monnifyTransactionRef || le.ticketId || le.id;
+          if (seenLedger.has(ledgerKey)) continue;
+          seenLedger.add(ledgerKey);
+          
+          // Use credit field if available, fallback to amount
+          const leAmount = le.credit instanceof Decimal 
+            ? le.credit.toNumber() 
+            : (le.amount instanceof Decimal ? le.amount.toNumber() : Number(le.credit || le.amount || 0));
+          netEarnings += Math.abs(leAmount);
+        }
+      }
+
+      // Platform fees = what platform earned = grossRevenue - netEarnings
+      const platformFees = grossRevenue - netEarnings;
 
       return {
         ...event,
         tiers: processedTiers,
         // Replace tier.sold-based totals with payment-backed totals for organizer surfaces
-        totalTicketsSold: seen.size,
+        totalTicketsSold: seenPayments.size,
         grossRevenue,
         platformFees,
         netEarnings,
@@ -953,47 +1004,105 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // Organizer-facing revenue breakdown (must reconcile with ledger/balances)
-    // Gross = sum(Payment.amount) for SUCCESS tickets
-    // Fees = 5% of gross
-    // Organizer net = gross - fees
+    // =============================================================================
+    // ORGANIZER EARNINGS FROM LEDGER (SOURCE OF TRUTH)
+    // =============================================================================
+    // The ledger already contains the correct organizer amount for each sale:
+    //   - If passFeeTobuyer = true: organizer gets full tierPrice
+    //   - If passFeeTobuyer = false: organizer gets tierPrice - 5%
+    // We also calculate grossRevenue (what buyers paid) for display purposes.
+    // =============================================================================
     const platformFeePercent = 5;
-    const seen = new Set<string>();
 
-    const grossRevenue = activeTickets.reduce((sum: number, t: any) => {
-      const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
-      if (seen.has(key)) return sum;
-      seen.add(key);
-      const amount =
-        t.payment?.amount instanceof Decimal
-          ? t.payment.amount.toNumber()
-          : Number(t.payment?.amount || 0);
-      return sum + amount;
-    }, 0);
+    // Get ledger entries for this event's tickets
+    const ticketIds = activeTickets.map((t: any) => t.id);
+    const ledgerEntries = ticketIds.length > 0 ? await this.prisma.ledgerEntry.findMany({
+      where: {
+        ticketId: { in: ticketIds },
+        type: 'TICKET_SALE',
+      },
+      select: {
+        id: true,
+        ticketId: true,
+        credit: true,
+        amount: true,
+        monnifyTransactionRef: true,
+      },
+    }) : [];
 
-    const platformFees = grossRevenue * (platformFeePercent / 100);
-    const organizerNet = grossRevenue - platformFees;
+    // Create ticketId -> ledger entry map
+    const ledgerByTicketId = new Map<string, typeof ledgerEntries[0]>();
+    for (const le of ledgerEntries) {
+      if (le.ticketId && !ledgerByTicketId.has(le.ticketId)) {
+        ledgerByTicketId.set(le.ticketId, le);
+      }
+    }
 
+    // Calculate gross revenue (what buyers paid) and organizer net (from ledger)
+    const seenPayments = new Set<string>();
+    let grossRevenue = 0;
+    let organizerNet = 0;
+
+    for (const t of activeTickets as any[]) {
+      const paymentKey = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
+      if (seenPayments.has(paymentKey)) continue;
+      seenPayments.add(paymentKey);
+
+      // Gross revenue from payment amount
+      const paymentAmount = t.payment?.amount instanceof Decimal
+        ? t.payment.amount.toNumber()
+        : Number(t.payment?.amount || 0);
+      grossRevenue += paymentAmount;
+
+      // Organizer net from ledger (source of truth)
+      const ledgerEntry = ledgerByTicketId.get(t.id);
+      if (ledgerEntry) {
+        const leAmount = ledgerEntry.credit instanceof Decimal
+          ? ledgerEntry.credit.toNumber()
+          : (ledgerEntry.amount instanceof Decimal 
+              ? ledgerEntry.amount.toNumber() 
+              : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
+        organizerNet += Math.abs(leAmount);
+      }
+    }
+
+    // Platform fees = grossRevenue - organizerNet
+    const platformFees = grossRevenue - organizerNet;
+
+    // Tier breakdown with ledger-based earnings
     const tierBreakdown = event.tiers.map(
       (tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
-        const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-        const platformFeePercent = 5;
+        const tierTickets = (activeTickets as any[]).filter((t: { tierId: string }) => t.tierId === tier.id);
         const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
-        const seenTier = new Set<string>();
+        
+        const seenTierPayments = new Set<string>();
+        let tierGrossRevenue = 0;
+        let tierOrganizerNet = 0;
 
-        const tierGrossRevenue = tierTickets.reduce((sum: number, t: any) => {
-          const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
-          if (seenTier.has(key)) return sum;
-          seenTier.add(key);
-          const amount =
-            t.payment?.amount instanceof Decimal
-              ? t.payment.amount.toNumber()
-              : Number(t.payment?.amount || 0);
-          return sum + amount;
-        }, 0);
+        for (const t of tierTickets) {
+          const paymentKey = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
+          if (seenTierPayments.has(paymentKey)) continue;
+          seenTierPayments.add(paymentKey);
 
-        const tierPlatformFees = tierGrossRevenue * (platformFeePercent / 100);
-        const tierOrganizerNet = tierGrossRevenue - tierPlatformFees;
+          // Gross revenue from payment
+          const paymentAmount = t.payment?.amount instanceof Decimal
+            ? t.payment.amount.toNumber()
+            : Number(t.payment?.amount || 0);
+          tierGrossRevenue += paymentAmount;
+
+          // Organizer net from ledger
+          const ledgerEntry = ledgerByTicketId.get(t.id);
+          if (ledgerEntry) {
+            const leAmount = ledgerEntry.credit instanceof Decimal
+              ? ledgerEntry.credit.toNumber()
+              : (ledgerEntry.amount instanceof Decimal 
+                  ? ledgerEntry.amount.toNumber() 
+                  : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
+            tierOrganizerNet += Math.abs(leAmount);
+          }
+        }
+
+        const tierPlatformFees = tierGrossRevenue - tierOrganizerNet;
 
         return {
           name: tier.name,

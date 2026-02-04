@@ -35,16 +35,16 @@ export class AdminService {
     ]);
 
     // =============================================================================
-    // OPERATIONAL TRUTH FOR ADMIN DASHBOARD
+    // ADMIN DASHBOARD: LEDGER IS THE SOURCE OF TRUTH
     // =============================================================================
-    // Compute based on what actually hit the platform account: SUCCESS Payment.amount
-    // Platform fees = 5% of total inflow
-    // Organizer net = inflow - fees
-    // This avoids double-deduction when buyers pay extra at checkout.
+    // Gross revenue = sum of Payment.amount (what buyers paid)
+    // Organizer earnings = sum of ledger TICKET_SALE credits (already correct per passFeeTobuyer)
+    // Platform fees = gross - organizer earnings
     // =============================================================================
 
     const platformFeePercent = 5;
 
+    // Get gross revenue from payments
     const successfulPayments = await this.prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
@@ -53,19 +53,36 @@ export class AdminService {
       select: { amount: true, reference: true, monnifyTransactionRef: true },
     });
 
-    const seen = new Set<string>();
+    const seenPayments = new Set<string>();
     const grossRevenue = successfulPayments.reduce((sum, p: any) => {
       const key = p.monnifyTransactionRef || p.reference;
-      if (seen.has(key)) return sum;
-      seen.add(key);
+      if (seenPayments.has(key)) return sum;
+      seenPayments.add(key);
       const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
       return sum + amount;
     }, 0);
 
-    const platformFees = grossRevenue * (platformFeePercent / 100);
-    const organizerNet = grossRevenue - platformFees;
+    // Get organizer earnings from ledger (source of truth)
+    const ticketSaleLedgerEntries = await this.prisma.ledgerEntry.findMany({
+      where: { type: 'TICKET_SALE' },
+      select: { credit: true, amount: true, monnifyTransactionRef: true, ticketId: true, id: true },
+    });
 
-    const totalTickets = seen.size;
+    const seenLedger = new Set<string>();
+    const organizerNet = ticketSaleLedgerEntries.reduce((sum, le: any) => {
+      const key = le.monnifyTransactionRef || le.ticketId || le.id;
+      if (seenLedger.has(key)) return sum;
+      seenLedger.add(key);
+      const amount = le.credit instanceof Decimal 
+        ? le.credit.toNumber() 
+        : (le.amount instanceof Decimal ? le.amount.toNumber() : Number(le.credit || le.amount || 0));
+      return sum + Math.abs(amount);
+    }, 0);
+
+    // Platform fees = what platform earned = gross - organizer earnings
+    const platformFees = grossRevenue - organizerNet;
+
+    const totalTickets = seenPayments.size;
 
     return {
       totalUsers,
@@ -153,21 +170,60 @@ export class AdminService {
       this.prisma.event.count(),
     ]);
 
-    // Calculate gross revenue/platform fees/organizer net from SUCCESSFUL payments (truth source)
-    const platformFeePercent = 5; // 5% platform fee
+    // =============================================================================
+    // LEDGER IS THE SOURCE OF TRUTH FOR ORGANIZER EARNINGS
+    // =============================================================================
+    const platformFeePercent = 5;
+
+    // Get all ledger entries for earnings calculation
+    const allLedgerEntries = await this.prisma.ledgerEntry.findMany({
+      where: { type: 'TICKET_SALE' },
+      select: { 
+        id: true, 
+        credit: true, 
+        amount: true, 
+        paymentId: true, 
+        ticketId: true, 
+        monnifyTransactionRef: true 
+      },
+    });
+
+    // Create paymentId -> ledger entry map
+    const ledgerByPaymentId = new Map<string, typeof allLedgerEntries[0]>();
+    for (const le of allLedgerEntries) {
+      if (le.paymentId && !ledgerByPaymentId.has(le.paymentId)) {
+        ledgerByPaymentId.set(le.paymentId, le);
+      }
+    }
 
     const eventsWithRevenue = events.map((event: any) => {
-      const seen = new Set<string>();
-      const grossRevenue = (event.payments || []).reduce((sum: number, p: any) => {
-        const key = p.monnifyTransactionRef || p.reference;
-        if (seen.has(key)) return sum;
-        seen.add(key);
-        const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
-        return sum + amount;
-      }, 0);
+      const seenPayments = new Set<string>();
+      let grossRevenue = 0;
+      let organizerEarnings = 0;
 
-      const platformFees = grossRevenue * (platformFeePercent / 100);
-      const organizerEarnings = grossRevenue - platformFees;
+      for (const p of (event.payments || [])) {
+        const key = p.monnifyTransactionRef || p.reference;
+        if (seenPayments.has(key)) continue;
+        seenPayments.add(key);
+        
+        // Gross revenue from payment
+        const paymentAmount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+        grossRevenue += paymentAmount;
+
+        // Organizer earnings from ledger (source of truth)
+        const ledgerEntry = ledgerByPaymentId.get(p.id);
+        if (ledgerEntry) {
+          const leAmount = ledgerEntry.credit instanceof Decimal
+            ? ledgerEntry.credit.toNumber()
+            : (ledgerEntry.amount instanceof Decimal 
+                ? ledgerEntry.amount.toNumber() 
+                : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
+          organizerEarnings += Math.abs(leAmount);
+        }
+      }
+
+      // Platform fees = gross - organizer earnings
+      const platformFees = grossRevenue - organizerEarnings;
 
       const { payments, ...eventWithoutPayments } = event;
 
@@ -176,7 +232,7 @@ export class AdminService {
         grossRevenue,
         platformFees,
         organizerEarnings,
-        ticketsSold: (event.payments || []).length,
+        ticketsSold: seenPayments.size,
         platformFeePercent,
       };
     });
@@ -1274,21 +1330,59 @@ export class AdminService {
 
     const successfulPayments = await this.prisma.payment.findMany({
       where: paymentWhere,
-      select: { amount: true, reference: true, monnifyTransactionRef: true },
+      select: { id: true, amount: true, reference: true, monnifyTransactionRef: true },
     });
 
+    // =============================================================================
+    // LEDGER IS THE SOURCE OF TRUTH FOR ORGANIZER EARNINGS
+    // =============================================================================
     const platformFeePercent = 5;
-    const seenSum = new Set<string>();
-    const grossRevenue = successfulPayments.reduce((sum: number, p: any) => {
-      const key = p.monnifyTransactionRef || p.reference;
-      if (seenSum.has(key)) return sum;
-      seenSum.add(key);
-      const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
-      return sum + amount;
-    }, 0);
 
-    const platformFees = grossRevenue * (platformFeePercent / 100);
-    const organizerNet = grossRevenue - platformFees;
+    // Get payment IDs for ledger lookup
+    const paymentIds = successfulPayments.map(p => p.id);
+    const ledgerEntries = paymentIds.length > 0 ? await this.prisma.ledgerEntry.findMany({
+      where: { 
+        type: 'TICKET_SALE',
+        paymentId: { in: paymentIds },
+      },
+      select: { credit: true, amount: true, paymentId: true, monnifyTransactionRef: true, ticketId: true, id: true },
+    }) : [];
+
+    // Create paymentId -> ledger entry map
+    const ledgerByPaymentId = new Map<string, typeof ledgerEntries[0]>();
+    for (const le of ledgerEntries) {
+      if (le.paymentId && !ledgerByPaymentId.has(le.paymentId)) {
+        ledgerByPaymentId.set(le.paymentId, le);
+      }
+    }
+
+    const seenSum = new Set<string>();
+    let grossRevenue = 0;
+    let organizerNet = 0;
+
+    for (const p of successfulPayments) {
+      const key = p.monnifyTransactionRef || p.reference;
+      if (seenSum.has(key)) continue;
+      seenSum.add(key);
+      
+      // Gross revenue from payment
+      const amount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+      grossRevenue += amount;
+
+      // Organizer earnings from ledger (source of truth)
+      const ledgerEntry = ledgerByPaymentId.get(p.id);
+      if (ledgerEntry) {
+        const leAmount = ledgerEntry.credit instanceof Decimal
+          ? ledgerEntry.credit.toNumber()
+          : (ledgerEntry.amount instanceof Decimal 
+              ? ledgerEntry.amount.toNumber() 
+              : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
+        organizerNet += Math.abs(leAmount);
+      }
+    }
+
+    // Platform fees = gross - organizer earnings
+    const platformFees = grossRevenue - organizerNet;
 
     return {
       payments: paymentsDeduped.map((p: any) => ({

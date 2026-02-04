@@ -625,21 +625,31 @@ export class PaymentsService {
     });
 
     // =============================================================================
-    // ORGANIZER EARNINGS CALCULATION (OPERATIONAL TRUTH)
+    // ORGANIZER EARNINGS CALCULATION
     // =============================================================================
-    // We calculate from actual inflow into the platform: Payment.amount (storedAmount).
-    // Platform fee = 5% of inflow.
-    // Organizer earnings = inflow - 5%.
-    // This avoids double-deduction when the buyer pays extra at checkout.
+    // Service fee is ALWAYS 5% of the TICKET PRICE (not the total amount paid)
+    //
+    // If passFeeTobuyer = true:
+    //   - Buyer paid: tierPrice + 5% service fee (e.g., 1000 + 50 = 1050)
+    //   - Platform fee: 5% of tierPrice = 50
+    //   - Organizer receives: full tierPrice = 1000
+    //
+    // If passFeeTobuyer = false:
+    //   - Buyer paid: tierPrice only (e.g., 1000)
+    //   - Platform fee: 5% of tierPrice = 50
+    //   - Organizer receives: tierPrice - 5% = 950
     // =============================================================================
 
-    const inflowAmount = storedAmount; // what actually hit the platform for this payment
-    const platformFee = inflowAmount * (platformFeePercent / 100);
-    const organizerAmount = inflowAmount - platformFee;
+    const platformFee = actualTierPrice * (platformFeePercent / 100);
+    const organizerAmount = eventPassFeeTobuyer 
+      ? actualTierPrice  // Organizer gets full tier price when buyer pays the fee
+      : actualTierPrice - platformFee;  // Organizer absorbs the fee
 
     this.logger.log(`=== Earnings Calculation for ${reference} ===`);
-    this.logger.log(`  Inflow amount: ₦${inflowAmount.toFixed(2)}`);
-    this.logger.log(`  Platform fee (${platformFeePercent}%): ₦${platformFee.toFixed(2)}`);
+    this.logger.log(`  Tier price: ₦${actualTierPrice.toFixed(2)}`);
+    this.logger.log(`  Buyer paid: ₦${storedAmount.toFixed(2)}`);
+    this.logger.log(`  Pass fee to buyer: ${eventPassFeeTobuyer}`);
+    this.logger.log(`  Platform fee (${platformFeePercent}% of tier price): ₦${platformFee.toFixed(2)}`);
     this.logger.log(`  Organizer receives: ₦${organizerAmount.toFixed(2)}`);
     this.logger.log(`  ================================================`);
 
