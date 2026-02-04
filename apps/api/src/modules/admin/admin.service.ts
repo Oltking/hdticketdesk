@@ -715,6 +715,18 @@ export class AdminService {
     // Create ledger entry for the refund (negative amount)
     const refundAmountDecimal = new Decimal(refund.refundAmount.toString());
 
+    // Get current balances for accurate running balance calculation
+    const organizer = await this.prisma.organizerProfile.findUnique({
+      where: { id: refund.ticket.event.organizerId },
+    });
+    const currentPending = organizer?.pendingBalance instanceof Decimal
+      ? organizer.pendingBalance.toNumber()
+      : Number(organizer?.pendingBalance || 0);
+    const currentAvailable = organizer?.availableBalance instanceof Decimal
+      ? organizer.availableBalance.toNumber()
+      : Number(organizer?.availableBalance || 0);
+    const newAvailableBalance = currentAvailable - refundAmountDecimal.toNumber();
+
     await this.prisma.ledgerEntry.create({
       data: {
         organizerId: refund.ticket.event.organizerId,
@@ -723,13 +735,16 @@ export class AdminService {
         credit: 0,
         amount: refundAmountDecimal.negated(),
         description: `Refund for ticket #${refund.ticket.ticketNumber}`,
+        narration: `Debit: Refund processed for ticket #${refund.ticket.ticketNumber}`,
         ticketId: refund.ticketId,
         refundId: refundId,
-        pendingBalanceAfter: new Decimal(0),
-        availableBalanceAfter: new Decimal(0),
+        pendingBalanceAfter: currentPending,
+        availableBalanceAfter: newAvailableBalance,
+        runningBalance: currentPending + newAvailableBalance,
         // Reconciliation fields
         valueDate: new Date(),
         status: 'CONFIRMED',
+        createdBy: 'ADMIN',
       },
     });
 
