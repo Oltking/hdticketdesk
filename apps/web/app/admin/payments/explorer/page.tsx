@@ -6,11 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Sidebar } from '@/components/layouts/sidebar';
 import { formatCurrency } from '@/lib/utils';
 import { PLATFORM_FEE_PERCENTAGE } from '@/lib/constants';
 import { Search, RefreshCw, DollarSign, ArrowDownRight, AlertTriangle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminPaymentsExplorerPage() {
+  const { isLoading: authLoading } = useAuth(true, ['ADMIN']);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<'ALL' | 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED'>('ALL');
@@ -60,101 +64,120 @@ export default function AdminPaymentsExplorerPage() {
   const payments = data?.payments || [];
   const summary = data?.summary;
 
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar type="admin" />
+        <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-background">
+          <Skeleton className="h-8 w-48 mb-6" />
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+          <Skeleton className="h-96 w-full" />
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="container py-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Payments Explorer</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Full payments pipeline + ticket-truth summary (gross/fees/net)
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={fetchData} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600">
-                <DollarSign className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Gross Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(summary?.grossRevenue || 0)}</p>
-                <p className="text-xs text-muted-foreground mt-1">SUCCESS tickets: {summary?.successfulTickets || 0}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-700">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Platform Fees ({PLATFORM_FEE_PERCENTAGE}%)</p>
-                <p className="text-2xl font-bold">{formatCurrency(summary?.platformFees || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-purple-500/10 text-purple-700">
-                <ArrowDownRight className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Organizer Net</p>
-                <p className="text-2xl font-bold">{formatCurrency(summary?.organizerNet || 0)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col md:flex-row gap-3">
-          <div className="flex-1">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search: reference, email, event title..."
-            />
-          </div>
-          <div className="w-full md:w-48">
-            <Select value={status} onValueChange={(v: any) => { setPage(1); setStatus(v); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="SUCCESS">SUCCESS</SelectItem>
-                <SelectItem value="PENDING">PENDING</SelectItem>
-                <SelectItem value="FAILED">FAILED</SelectItem>
-                <SelectItem value="REFUNDED">REFUNDED</SelectItem>
-              </SelectContent>
-            </Select>
+    <div className="flex min-h-screen">
+      <Sidebar type="admin" />
+      <main className="flex-1 p-4 pt-20 lg:p-8 lg:pt-8 bg-background">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Payments Explorer</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Full payments pipeline + ticket-truth summary (gross/fees/net)
+            </p>
           </div>
 
-          <div className="w-full md:w-64">
-            <Select
-              value={organizerId}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={fetchData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-emerald-500/10 text-emerald-600">
+                  <DollarSign className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Gross Revenue</p>
+                  <p className="text-2xl font-bold">{formatCurrency(summary?.grossRevenue || 0)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">SUCCESS tickets: {summary?.successfulTickets || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-yellow-500/10 text-yellow-700">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Platform Fees ({PLATFORM_FEE_PERCENTAGE}%)</p>
+                  <p className="text-2xl font-bold">{formatCurrency(summary?.platformFees || 0)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-purple-500/10 text-purple-700">
+                  <ArrowDownRight className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Organizer Net</p>
+                  <p className="text-2xl font-bold">{formatCurrency(summary?.organizerNet || 0)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Filters</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search: reference, email, event title..."
+              />
+            </div>
+            <div className="w-full md:w-48">
+              <Select value={status} onValueChange={(v: any) => { setPage(1); setStatus(v); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All</SelectItem>
+                  <SelectItem value="SUCCESS">SUCCESS</SelectItem>
+                  <SelectItem value="PENDING">PENDING</SelectItem>
+                  <SelectItem value="FAILED">FAILED</SelectItem>
+                  <SelectItem value="REFUNDED">REFUNDED</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full md:w-64">
+              <Select
+                value={organizerId}
               onValueChange={async (v: any) => {
                 setPage(1);
                 setOrganizerId(v);
@@ -240,10 +263,10 @@ export default function AdminPaymentsExplorerPage() {
                       <td className="p-4 text-sm text-muted-foreground">{p.tier?.name || '-'}</td>
                       <td className="p-4 text-sm text-right font-medium">{formatCurrency(p.amount || 0)}</td>
                       <td className="p-4 text-sm text-right text-yellow-700">
-                        {formatCurrency(((p.amount || 0) * (PLATFORM_FEE_PERCENTAGE / 100)) || 0)}
+                        {formatCurrency(p.platformFee ?? ((p.amount || 0) * (PLATFORM_FEE_PERCENTAGE / 100)))}
                       </td>
                       <td className="p-4 text-sm text-right text-purple-700 font-medium">
-                        {formatCurrency(((p.amount || 0) * (1 - PLATFORM_FEE_PERCENTAGE / 100)) || 0)}
+                        {formatCurrency(p.organizerNet ?? ((p.amount || 0) * (1 - PLATFORM_FEE_PERCENTAGE / 100)))}
                       </td>
                       <td className="p-4 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -264,20 +287,21 @@ export default function AdminPaymentsExplorerPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-6">
-        <p className="text-sm text-muted-foreground">
-          Page {data?.page || 1} of {data?.totalPages || 1} • Total {data?.total || 0}
-        </p>
-        <div className="flex gap-2">
-          <Button variant="outline" disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)}>
-            Prev
-          </Button>
-          <Button variant="outline" disabled={page >= (data?.totalPages || 1) || loading} onClick={() => setPage(p => p + 1)}>
-            Next
-          </Button>
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-sm text-muted-foreground">
+            Page {data?.page || 1} of {data?.totalPages || 1} • Total {data?.total || 0}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)}>
+              Prev
+            </Button>
+            <Button variant="outline" disabled={page >= (data?.totalPages || 1) || loading} onClick={() => setPage(p => p + 1)}>
+              Next
+            </Button>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

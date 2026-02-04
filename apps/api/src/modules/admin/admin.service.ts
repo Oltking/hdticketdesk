@@ -1384,24 +1384,62 @@ export class AdminService {
     // Platform fees = gross - organizer earnings
     const platformFees = grossRevenue - organizerNet;
 
+    // Create paymentId -> ledger entry map for row-level earnings
+    const allPaymentIds = paymentsDeduped.map((p: any) => p.id);
+    const allLedgerEntries = allPaymentIds.length > 0 ? await this.prisma.ledgerEntry.findMany({
+      where: { 
+        type: 'TICKET_SALE',
+        paymentId: { in: allPaymentIds },
+      },
+      select: { credit: true, amount: true, paymentId: true },
+    }) : [];
+
+    const rowLedgerByPaymentId = new Map<string, typeof allLedgerEntries[0]>();
+    for (const le of allLedgerEntries) {
+      if (le.paymentId && !rowLedgerByPaymentId.has(le.paymentId)) {
+        rowLedgerByPaymentId.set(le.paymentId, le);
+      }
+    }
+
     return {
-      payments: paymentsDeduped.map((p: any) => ({
-        id: p.id,
-        reference: p.reference,
-        amount: p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount),
-        status: p.status,
-        buyerEmail: p.buyerEmail,
-        monnifyTransactionRef: p.monnifyTransactionRef,
-        monnifyPaymentRef: p.monnifyPaymentRef,
-        createdAt: p.createdAt,
-        paidAt: p.paidAt,
-        event: p.event,
-        tier: {
-          id: p.tier?.id,
-          name: p.tier?.name,
-          price: p.tier?.price instanceof Decimal ? p.tier.price.toNumber() : Number(p.tier?.price),
-        },
-      })),
+      payments: paymentsDeduped.map((p: any) => {
+        const paymentAmount = p.amount instanceof Decimal ? p.amount.toNumber() : Number(p.amount);
+        
+        // Get organizer net from ledger (source of truth)
+        const ledgerEntry = rowLedgerByPaymentId.get(p.id);
+        const organizerNetRow = ledgerEntry 
+          ? Math.abs(
+              ledgerEntry.credit instanceof Decimal
+                ? ledgerEntry.credit.toNumber()
+                : (ledgerEntry.amount instanceof Decimal 
+                    ? ledgerEntry.amount.toNumber() 
+                    : Number(ledgerEntry.credit || ledgerEntry.amount || 0))
+            )
+          : paymentAmount * 0.95; // Fallback for old entries without ledger
+
+        const platformFeeRow = paymentAmount - organizerNetRow;
+
+        return {
+          id: p.id,
+          reference: p.reference,
+          amount: paymentAmount,
+          status: p.status,
+          buyerEmail: p.buyerEmail,
+          monnifyTransactionRef: p.monnifyTransactionRef,
+          monnifyPaymentRef: p.monnifyPaymentRef,
+          createdAt: p.createdAt,
+          paidAt: p.paidAt,
+          event: p.event,
+          tier: {
+            id: p.tier?.id,
+            name: p.tier?.name,
+            price: p.tier?.price instanceof Decimal ? p.tier.price.toNumber() : Number(p.tier?.price),
+          },
+          // Row-level earnings from ledger
+          platformFee: platformFeeRow,
+          organizerNet: organizerNetRow,
+        };
+      }),
       summary: {
         grossRevenue,
         platformFees,
