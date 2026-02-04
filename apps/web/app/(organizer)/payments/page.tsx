@@ -11,7 +11,6 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { PLATFORM_FEE_PERCENTAGE } from '@/lib/constants';
 import { 
   Search, 
   TrendingUp, 
@@ -83,38 +82,37 @@ export default function PaymentHistoryPage() {
     setFilteredEntries(filtered);
   }, [entries, searchQuery, typeFilter]);
 
-  // Calculate stats
-  // Note: Ledger TICKET_SALE amounts are already NET (after 5% platform fee deduction)
-  // To show gross revenue, we reverse-calculate: gross = net / 0.95
-  const platformFeePercent = PLATFORM_FEE_PERCENTAGE;
+  // Calculate stats directly from ledger entries
+  // The ledger is the SINGLE SOURCE OF TRUTH for all financial data
+  // Ledger amounts are already the correct values:
+  // - TICKET_SALE.credit = organizer's net earnings (amount received - platform fee)
+  // - WITHDRAWAL.debit = amount withdrawn
+  // - REFUND.debit = amount refunded
+  // - CHARGEBACK.debit = amount charged back
   
-  const netSalesFromLedger = entries
+  // Use credit/debit columns if available, fallback to amount for older entries
+  const totalCredits = entries
     .filter(e => e.type === 'TICKET_SALE')
-    .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
-  
-  // Calculate gross revenue (what buyers actually paid) from net amount
-  // Formula: net = gross * (1 - feePercent/100), so gross = net / (1 - feePercent/100)
-  const totalGrossRevenue = netSalesFromLedger > 0 ? netSalesFromLedger / (1 - platformFeePercent / 100) : 0;
-  const totalPlatformFees = totalGrossRevenue - netSalesFromLedger;
+    .reduce((sum, e: any) => sum + Math.abs(Number(e.credit) || Number(e.amount) || 0), 0);
   
   const totalWithdrawals = entries
-    .filter((e: any) => e.type === 'WITHDRAWAL' && (!e.withdrawalStatus || String(e.withdrawalStatus).toUpperCase() === 'COMPLETED'))
-    .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+    .filter(e => e.type === 'WITHDRAWAL')
+    .reduce((sum, e: any) => sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
   
   const totalRefunds = entries
     .filter(e => e.type === 'REFUND')
-    .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+    .reduce((sum, e: any) => sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
 
   const totalChargebacks = entries
     .filter(e => e.type === 'CHARGEBACK')
-    .reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+    .reduce((sum, e: any) => sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
 
   const totalAdjustments = totalRefunds + totalChargebacks;
 
-  // Net earnings = sales revenue (after platform fee) - adjustments
-  // Available = net earnings - withdrawals
-  const netEarnings = netSalesFromLedger - totalAdjustments;
-  const availableAfterWithdrawals = netEarnings - totalWithdrawals;
+  // Your earnings = total credits from ticket sales
+  // Available balance = earnings - adjustments - withdrawals
+  const yourEarnings = totalCredits;
+  const availableBalance = yourEarnings - totalAdjustments - totalWithdrawals;
 
   const getTypeConfig = (type: string) => {
     switch (type) {
@@ -216,8 +214,8 @@ export default function PaymentHistoryPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Your Earnings</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(netSalesFromLedger)}</p>
-                  <p className="text-[10px] text-muted-foreground">After {platformFeePercent}% platform fee</p>
+                  <p className="text-lg font-bold text-green-600">{formatCurrency(yourEarnings)}</p>
+                  <p className="text-[10px] text-muted-foreground">Total from ticket sales</p>
                 </div>
               </div>
             </CardContent>
@@ -257,8 +255,8 @@ export default function PaymentHistoryPage() {
                   <Receipt className="h-4 w-4 text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Net Balance</p>
-                  <p className="text-lg font-bold text-purple-600">{formatCurrency(availableAfterWithdrawals)}</p>
+                  <p className="text-xs text-muted-foreground">Available Balance</p>
+                  <p className="text-lg font-bold text-purple-600">{formatCurrency(availableBalance)}</p>
                   <p className="text-[10px] text-muted-foreground">Earnings - adjustments - withdrawn</p>
                 </div>
               </div>

@@ -89,11 +89,9 @@ export default function AdminLedgerPage() {
     );
   }
 
-  // Calculate summary stats
-  // Ledger semantics:
-  // - TICKET_SALE entries are positive (organizer net)
-  // - WITHDRAWAL entries are stored as negative
-  // - REFUND/CHARGEBACK may be stored as negative (adjustments)
+  // Calculate summary stats directly from ledger entries
+  // The ledger is the SINGLE SOURCE OF TRUTH
+  // Use credit/debit columns if available, fallback to amount for older entries
   const ticketSales = entries.filter((e) => e.type === 'TICKET_SALE');
   const withdrawals = entries.filter((e: any) => e.type === 'WITHDRAWAL');
   const refunds = entries.filter((e: any) => e.type === 'REFUND');
@@ -103,16 +101,19 @@ export default function AdminLedgerPage() {
     (e: any) => (e.withdrawalStatus || '').toUpperCase() === 'COMPLETED',
   );
 
-  const totalSales = ticketSales.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+  // Use credit field for sales (money IN), fallback to amount
+  const totalSales = ticketSales.reduce((sum, e) => 
+    sum + Math.abs(Number(e.credit) || Number(e.amount) || 0), 0);
 
-  // Ledger withdrawal amounts are stored as negative values; the 'Withdrawn' summary should reflect only SUCCESSFUL withdrawals.
+  // Use debit field for withdrawals (money OUT), fallback to amount
   const totalWithdrawals = successfulWithdrawals.reduce(
-    (sum, e: any) => sum + Math.abs(Number(e.amount) || 0),
-    0,
-  );
+    (sum, e: any) => sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
 
-  const totalRefunds = refunds.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
-  const totalChargebacks = chargebacks.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+  // Use debit field for refunds and chargebacks
+  const totalRefunds = refunds.reduce((sum, e) => 
+    sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
+  const totalChargebacks = chargebacks.reduce((sum, e) => 
+    sum + Math.abs(Number(e.debit) || Number(e.amount) || 0), 0);
   const totalAdjustments = totalRefunds + totalChargebacks;
 
   // Get unique entry types for filter
