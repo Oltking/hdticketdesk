@@ -90,15 +90,20 @@ export default function AdminLedgerPage() {
   }
 
   // Calculate summary stats
-  const ticketSales = entries.filter(e => e.type === 'TICKET_SALE');
+  // Ledger semantics:
+  // - TICKET_SALE entries are positive (organizer net)
+  // - WITHDRAWAL entries are stored as negative
+  // - REFUND/CHARGEBACK may be stored as negative (adjustments)
+  const ticketSales = entries.filter((e) => e.type === 'TICKET_SALE');
   const withdrawals = entries.filter((e: any) => e.type === 'WITHDRAWAL');
   const refunds = entries.filter((e: any) => e.type === 'REFUND');
+  const chargebacks = entries.filter((e: any) => e.type === 'CHARGEBACK');
 
   const successfulWithdrawals = withdrawals.filter(
     (e: any) => (e.withdrawalStatus || '').toUpperCase() === 'COMPLETED',
   );
-  
-  const totalSales = ticketSales.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const totalSales = ticketSales.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
 
   // Ledger withdrawal amounts are stored as negative values; the 'Withdrawn' summary should reflect only SUCCESSFUL withdrawals.
   const totalWithdrawals = successfulWithdrawals.reduce(
@@ -106,7 +111,9 @@ export default function AdminLedgerPage() {
     0,
   );
 
-  const totalRefunds = refunds.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalRefunds = refunds.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+  const totalChargebacks = chargebacks.reduce((sum, e) => sum + Math.abs(Number(e.amount) || 0), 0);
+  const totalAdjustments = totalRefunds + totalChargebacks;
 
   // Get unique entry types for filter
   const entryTypes = [...new Set(entries.map(e => e.type))];
@@ -116,6 +123,7 @@ export default function AdminLedgerPage() {
       case 'TICKET_SALE': return <Ticket className="h-4 w-4" />;
       case 'WITHDRAWAL': return <Wallet className="h-4 w-4" />;
       case 'REFUND': return <ArrowUpRight className="h-4 w-4" />;
+      case 'CHARGEBACK': return <ArrowDownRight className="h-4 w-4" />;
       default: return <ArrowRightLeft className="h-4 w-4" />;
     }
   };
@@ -125,6 +133,7 @@ export default function AdminLedgerPage() {
       case 'TICKET_SALE': return 'bg-green-500/10 text-green-600';
       case 'WITHDRAWAL': return 'bg-blue-500/10 text-blue-600';
       case 'REFUND': return 'bg-red-500/10 text-red-600';
+      case 'CHARGEBACK': return 'bg-orange-500/10 text-orange-600';
       default: return 'bg-gray-500/10 text-gray-600';
     }
   };
@@ -134,6 +143,7 @@ export default function AdminLedgerPage() {
       case 'TICKET_SALE': return 'text-green-600';
       case 'WITHDRAWAL': return 'text-blue-600';
       case 'REFUND': return 'text-red-600';
+      case 'CHARGEBACK': return 'text-orange-600';
       default: return 'text-foreground';
     }
   };
@@ -205,8 +215,8 @@ export default function AdminLedgerPage() {
                   <TrendingDown className="h-5 w-5 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Refunds</p>
-                  <p className="text-xl font-bold text-red-600">{formatCurrency(totalRefunds)}</p>
+                  <p className="text-xs text-muted-foreground">Adjustments</p>
+                  <p className="text-xl font-bold text-red-600">{formatCurrency(totalAdjustments)}</p>
                 </div>
               </div>
             </CardContent>

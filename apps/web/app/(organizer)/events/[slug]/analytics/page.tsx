@@ -136,8 +136,9 @@ export default function AnalyticsPage() {
             <CardContent className="p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Revenue</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics?.totalRevenue || 0)}</p>
+                  <p className="text-xs text-muted-foreground">Your Earnings</p>
+                  <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics?.organizerNet || 0)}</p>
+                  <p className="text-[10px] text-muted-foreground">After {analytics?.platformFeePercent ?? 5}% platform fee</p>
                 </div>
                 <div className="p-2 rounded-full bg-green-500/10">
                   <DollarSign className="h-4 w-4 text-green-500" />

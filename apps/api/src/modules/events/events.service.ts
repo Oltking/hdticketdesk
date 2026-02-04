@@ -953,39 +953,56 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // Organizer-facing revenue: based on actual amount received (Payment.amount)
-    // Organizer earnings = amount - 5%
+    // Organizer-facing revenue breakdown (must reconcile with ledger/balances)
+    // Gross = sum(Payment.amount) for SUCCESS tickets
+    // Fees = 5% of gross
+    // Organizer net = gross - fees
     const platformFeePercent = 5;
     const seen = new Set<string>();
-    const totalRevenue = activeTickets.reduce((sum: number, t: any) => {
+
+    const grossRevenue = activeTickets.reduce((sum: number, t: any) => {
       const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
       if (seen.has(key)) return sum;
       seen.add(key);
-      const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
-      return sum + amount * (1 - platformFeePercent / 100);
+      const amount =
+        t.payment?.amount instanceof Decimal
+          ? t.payment.amount.toNumber()
+          : Number(t.payment?.amount || 0);
+      return sum + amount;
     }, 0);
+
+    const platformFees = grossRevenue * (platformFeePercent / 100);
+    const organizerNet = grossRevenue - platformFees;
 
     const tierBreakdown = event.tiers.map(
       (tier: { id: string; name: string; price: Decimal | number; capacity: number }) => {
         const tierTickets = activeTickets.filter((t: { tierId: string }) => t.tierId === tier.id);
-        // Organizer-facing revenue: based on actual amount received (Payment.amount)
         const platformFeePercent = 5;
         const tierPrice = tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price);
         const seenTier = new Set<string>();
-        const tierRevenueNet = tierTickets.reduce((sum: number, t: any) => {
+
+        const tierGrossRevenue = tierTickets.reduce((sum: number, t: any) => {
           const key = t.payment?.monnifyTransactionRef || t.payment?.reference || t.id;
           if (seenTier.has(key)) return sum;
           seenTier.add(key);
-          const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
-          return sum + amount * (1 - platformFeePercent / 100);
+          const amount =
+            t.payment?.amount instanceof Decimal
+              ? t.payment.amount.toNumber()
+              : Number(t.payment?.amount || 0);
+          return sum + amount;
         }, 0);
+
+        const tierPlatformFees = tierGrossRevenue * (platformFeePercent / 100);
+        const tierOrganizerNet = tierGrossRevenue - tierPlatformFees;
 
         return {
           name: tier.name,
           price: tierPrice,
           capacity: tier.capacity,
           sold: tierTickets.length,
-          revenue: tierRevenueNet,
+          grossRevenue: tierGrossRevenue,
+          platformFees: tierPlatformFees,
+          organizerNet: tierOrganizerNet,
         };
       },
     );
@@ -994,7 +1011,10 @@ export class EventsService {
       totalSold,
       checkedIn,
       checkInRate: totalSold > 0 ? Math.round((checkedIn / totalSold) * 100) : 0,
-      totalRevenue,
+      grossRevenue,
+      platformFees,
+      organizerNet,
+      platformFeePercent,
       tierBreakdown,
     };
   }

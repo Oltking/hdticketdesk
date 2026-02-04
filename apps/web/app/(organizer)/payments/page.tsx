@@ -11,6 +11,7 @@ import { Sidebar } from '@/components/layouts/sidebar';
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { PLATFORM_FEE_PERCENTAGE } from '@/lib/constants';
 import { 
   Search, 
   TrendingUp, 
@@ -85,7 +86,7 @@ export default function PaymentHistoryPage() {
   // Calculate stats
   // Note: Ledger TICKET_SALE amounts are already NET (after 5% platform fee deduction)
   // To show gross revenue, we reverse-calculate: gross = net / 0.95
-  const platformFeePercent = 5;
+  const platformFeePercent = PLATFORM_FEE_PERCENTAGE;
   
   const netSalesFromLedger = entries
     .filter(e => e.type === 'TICKET_SALE')

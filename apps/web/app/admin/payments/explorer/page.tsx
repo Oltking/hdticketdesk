@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
+import { PLATFORM_FEE_PERCENTAGE } from '@/lib/constants';
 import { Search, RefreshCw, DollarSign, ArrowDownRight, AlertTriangle } from 'lucide-react';
 
 export default function AdminPaymentsExplorerPage() {
@@ -239,10 +240,10 @@ export default function AdminPaymentsExplorerPage() {
                       <td className="p-4 text-sm text-muted-foreground">{p.tier?.name || '-'}</td>
                       <td className="p-4 text-sm text-right font-medium">{formatCurrency(p.amount || 0)}</td>
                       <td className="p-4 text-sm text-right text-yellow-700">
-                        {formatCurrency(((p.amount || 0) * 0.05) || 0)}
+                        {formatCurrency(((p.amount || 0) * (PLATFORM_FEE_PERCENTAGE / 100)) || 0)}
                       </td>
                       <td className="p-4 text-sm text-right text-purple-700 font-medium">
-                        {formatCurrency(((p.amount || 0) * 0.95) || 0)}
+                        {formatCurrency(((p.amount || 0) * (1 - PLATFORM_FEE_PERCENTAGE / 100)) || 0)}
                       </td>
                       <td className="p-4 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
