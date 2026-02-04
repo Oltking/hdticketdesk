@@ -455,6 +455,18 @@ export class EventsService {
         price: tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price),
       }));
 
+      // =============================================================================
+      // ORGANIZER EARNINGS CALCULATION
+      // =============================================================================
+      // Must match the operational truth in payments.service.ts handleSuccessfulPayment:
+      //   organizerAmount = inflowAmount - (inflowAmount * 5%)
+      // where inflowAmount = Payment.amount (what buyer actually paid)
+      //
+      // This means:
+      // - If passFeeTobuyer = true: buyer pays tierPrice + 5%, organizer gets (tierPrice*1.05)*0.95
+      // - If passFeeTobuyer = false: buyer pays tierPrice, organizer gets tierPrice * 0.95
+      // =============================================================================
+
       // De-dupe successful payments in-memory in case the same Monnify transaction was recorded twice.
       const seen = new Set<string>();
       const grossRevenue = (event.payments || []).reduce((sum: number, p: any) => {
@@ -465,7 +477,9 @@ export class EventsService {
         return sum + amount;
       }, 0);
 
+      // Platform fee is 5% of what was actually paid (grossRevenue)
       const platformFees = grossRevenue * (platformFeePercent / 100);
+      // Net earnings = what organizer actually receives (matches ledger TICKET_SALE amounts)
       const netEarnings = grossRevenue - platformFees;
 
       return {

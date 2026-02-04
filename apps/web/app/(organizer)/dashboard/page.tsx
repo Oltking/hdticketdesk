@@ -190,7 +190,12 @@ export default function DashboardPage() {
   );
 
   const totalSold = events.reduce((sum, e) => sum + (e.totalTicketsSold || 0), 0);
-  const totalNetEarnings = events.reduce((sum, e) => sum + (e.netEarnings || 0), 0);
+
+  // Use balances as the source of truth for organizer earnings.
+  // (pending + available + withdrawn) reflects net ticket sales after refunds/chargebacks,
+  // and stays consistent with payouts/ledger.
+  const totalEarnings = (Number(balance.pending) || 0) + (Number(balance.available) || 0) + (Number(balance.withdrawn) || 0);
+
   const publishedEvents = events.filter(e => e.status === 'PUBLISHED').length;
   const draftEvents = events.filter(e => e.status === 'DRAFT').length;
 
@@ -300,7 +305,7 @@ export default function DashboardPage() {
                   {loading ? (
                     <Skeleton className="h-6 w-16 mt-1" />
                   ) : (
-                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalNetEarnings)}</p>
+                    <p className="text-2xl font-bold text-green-600">{formatCurrency(totalEarnings)}</p>
                   )}
                   <p className="text-[10px] text-muted-foreground">After 5% platform fee</p>
                 </div>
