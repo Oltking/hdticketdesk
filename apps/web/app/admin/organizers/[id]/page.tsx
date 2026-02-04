@@ -295,8 +295,15 @@ export default function OrganizerDetailsPage() {
           <div className="grid gap-6 md:grid-cols-4 mb-8">
             <Card>
               <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground mb-1">Total Sales</p>
-                <p className="text-xl font-bold text-green-600">{formatCurrency(data.stats.totalSales)}</p>
+                <p className="text-sm text-muted-foreground mb-1">Total Earnings</p>
+                <p className="text-xl font-bold text-green-600">
+                  {formatCurrency(
+                    (Number(data.balances.pending) || 0) +
+                      (Number(data.balances.available) || 0) +
+                      (Number(data.balances.withdrawn) || 0),
+                  )}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Pending + available + withdrawn</p>
               </CardContent>
             </Card>
 
@@ -316,8 +323,9 @@ export default function OrganizerDetailsPage() {
 
             <Card>
               <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground mb-1">Net Earnings</p>
-                <p className="text-xl font-bold text-blue-600">{formatCurrency(data.stats.netEarnings)}</p>
+                <p className="text-sm text-muted-foreground mb-1">Ledger Sales (net)</p>
+                <p className="text-xl font-bold text-blue-600">{formatCurrency(data.stats.totalSales)}</p>
+                <p className="text-[10px] text-muted-foreground">For reconciliation</p>
               </CardContent>
             </Card>
           </div>

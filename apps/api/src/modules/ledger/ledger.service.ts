@@ -126,6 +126,9 @@ export class LedgerService {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Keep Monnify ref mapping in a stable variable (do NOT attach to array, because filter() returns a new array)
+    let ticketMonnifyRefById: Map<string, string | null> | undefined;
+
     // Filter withdrawals to only COMPLETED
     if (options?.includeOnlySuccessfulWithdrawals) {
       const withdrawalIds = entries
@@ -167,22 +170,23 @@ export class LedgerService {
           },
         });
 
-        const ticketMonnifyRefById = new Map<string, string | null>();
+        ticketMonnifyRefById = new Map<string, string | null>();
+
         const okTicketIds = new Set(
           tickets
             .filter((t) => {
               const status = (t.payment?.status || '').toUpperCase();
-              const amount = t.payment?.amount instanceof Decimal ? t.payment.amount.toNumber() : Number(t.payment?.amount || 0);
+              const amount =
+                t.payment?.amount instanceof Decimal
+                  ? t.payment.amount.toNumber()
+                  : Number(t.payment?.amount || 0);
               const monnifyRef = t.payment?.monnifyTransactionRef || null;
-              ticketMonnifyRefById.set(t.id, monnifyRef);
+              ticketMonnifyRefById!.set(t.id, monnifyRef);
               // Confirmed sale must be SUCCESS and have a Monnify transaction ref (or be free)
               return status === 'SUCCESS' && (Boolean(monnifyRef) || amount === 0);
             })
             .map((t) => t.id),
         );
-
-        // Attach for dedupe step
-        (entries as any).__ticketMonnifyRefById = ticketMonnifyRefById;
 
         entries = entries.filter((e) => {
           if (e.type !== 'TICKET_SALE') return true;
@@ -193,7 +197,6 @@ export class LedgerService {
 
     // Dedupe ticket sales (keep newest entry, list is desc)
     if (options?.dedupeTicketSales) {
-      const ticketMonnifyRefById: Map<string, string | null> | undefined = (entries as any).__ticketMonnifyRefById;
       const seen = new Set<string>();
 
       entries = entries.filter((e) => {
@@ -204,9 +207,6 @@ export class LedgerService {
         seen.add(key);
         return true;
       });
-
-      // Cleanup helper attachment
-      delete (entries as any).__ticketMonnifyRefById;
     }
 
     return entries;

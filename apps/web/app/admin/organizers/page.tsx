@@ -127,10 +127,15 @@ export default function AdminOrganizersPage() {
 
                           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
                             <div className="text-center lg:text-left">
-                              <p className="text-xs text-muted-foreground mb-1">Total Sales</p>
+                              <p className="text-xs text-muted-foreground mb-1">Total Earnings</p>
                               <p className="font-semibold text-green-600">
-                                {formatCurrency(organizer.earnings.totalSales)}
+                                {formatCurrency(
+                                  (Number(organizer.balances.pending) || 0) +
+                                    (Number(organizer.balances.available) || 0) +
+                                    (Number(organizer.balances.withdrawn) || 0),
+                                )}
                               </p>
+                              <p className="text-[10px] text-muted-foreground">Pending + available + withdrawn</p>
                             </div>
                             <div className="text-center lg:text-left">
                               <p className="text-xs text-muted-foreground mb-1">Refunded</p>

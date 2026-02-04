@@ -5,11 +5,10 @@ export default registerAs('monnify', () => ({
   apiKey: process.env.MONNIFY_API_KEY,
   secretKey: process.env.MONNIFY_SECRET_KEY,
   contractCode: process.env.MONNIFY_CONTRACT_CODE,
-  baseUrl: process.env.MONNIFY_BASE_URL || 'https://api.monnify.com', // Use sandbox.monnify.com for testing
+  baseUrl: process.env.MONNIFY_BASE_URL || 'https://api.monnify.com',
   walletAccountNumber: process.env.MONNIFY_WALLET_ACCOUNT_NUMBER, // Main wallet for platform fees
   // Default NIN for reserved account creation (required by Monnify)
-  // This should be the business owner's NIN or a designated NIN for the platform
   defaultNin: process.env.MONNIFY_DEFAULT_NIN,
-  // Alternative: Use BVN instead of NIN
+  // Alternative: BVN instead of NIN
   defaultBvn: process.env.MONNIFY_DEFAULT_BVN,
 }));
