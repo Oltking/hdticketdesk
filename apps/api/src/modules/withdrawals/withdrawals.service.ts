@@ -75,12 +75,12 @@ export class WithdrawalsService {
         type: 'TICKET_SALE',
         amount: { gt: 0 }, // Only paid tickets (amount > 0)
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { entryDate: 'asc' },
     });
 
     if (firstPaidSale) {
       const hoursSinceFirstSale =
-        (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
+        (Date.now() - firstPaidSale.entryDate.getTime()) / (1000 * 60 * 60);
       if (hoursSinceFirstSale < 24) {
         const hoursRemaining = Math.ceil(24 - hoursSinceFirstSale);
         throw new BadRequestException(
@@ -282,11 +282,12 @@ export class WithdrawalsService {
       // If transfer is already successful (some transfers complete immediately)
       if (transferResult.status === 'SUCCESS') {
         // Record in ledger now (successful withdrawal)
-        await this.ledgerService.recordWithdrawal(
-          withdrawal.organizerId,
+        await this.ledgerService.recordWithdrawal({
+          organizerId: withdrawal.organizerId,
           withdrawalId,
-          withdrawalAmount,
-        );
+          amount: withdrawalAmount,
+          description: `Withdrawal to ${withdrawal.bankName} - ${withdrawal.accountNumber}`,
+        });
         await this.prisma.withdrawal.update({
           where: { id: withdrawalId },
           data: {

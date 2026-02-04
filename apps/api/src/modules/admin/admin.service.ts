@@ -328,7 +328,7 @@ export class AdminService {
       this.prisma.ledgerEntry.findMany({
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { entryDate: 'desc' },
         include: {
           organizer: {
             select: {
@@ -719,13 +719,17 @@ export class AdminService {
       data: {
         organizerId: refund.ticket.event.organizerId,
         type: 'REFUND',
+        debit: refundAmountDecimal.abs(),
+        credit: 0,
         amount: refundAmountDecimal.negated(),
         description: `Refund for ticket #${refund.ticket.ticketNumber}`,
         ticketId: refund.ticketId,
+        refundId: refundId,
         pendingBalanceAfter: new Decimal(0),
         availableBalanceAfter: new Decimal(0),
         // Reconciliation fields
-        transactionDate: new Date(),
+        valueDate: new Date(),
+        status: 'CONFIRMED',
       },
     });
 
@@ -774,7 +778,7 @@ export class AdminService {
         organizerId,
         type: 'TICKET_SALE',
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { entryDate: 'desc' },
     });
 
     const withdrawals = await this.prisma.withdrawal.findMany({
@@ -1692,17 +1696,22 @@ export class AdminService {
       await prisma.ledgerEntry.create({
         data: {
           type: 'TICKET_SALE',
+          credit: organizerAmount,
+          debit: 0,
           amount: organizerAmount,
           description: `[ADMIN FORCE CONFIRM] ${payment.event.title} - ${payment.tier.name}${adminNotes ? ` | Note: ${adminNotes}` : ''}`,
           pendingBalanceAfter: currentPending,
           availableBalanceAfter: currentAvailable,
+          runningBalance: currentPending + currentAvailable,
           ticketId: ticket.id,
           organizerId: payment.event.organizerId,
           // Reconciliation fields
           monnifyTransactionRef: payment.monnifyTransactionRef || null,
           paymentReference: payment.reference,
           paymentId: payment.id,
-          transactionDate: new Date(),
+          valueDate: new Date(),
+          status: 'CONFIRMED',
+          createdBy: 'ADMIN',
         },
       });
 

@@ -332,9 +332,9 @@ export class ReconciliationService {
     const ledgerEntries = await this.prisma.ledgerEntry.findMany({
       where: {
         organizerId,
-        createdAt: { gte: startOfDay, lte: endOfDay },
+        entryDate: { gte: startOfDay, lte: endOfDay },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { entryDate: 'asc' },
     });
 
     const summary = {

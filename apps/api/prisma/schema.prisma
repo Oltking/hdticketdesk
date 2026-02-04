@@ -255,34 +255,86 @@ model Withdrawal {
 
 model LedgerEntry {
   id                    String           @id @default(cuid())
-  createdAt             DateTime         @default(now())
-  // transactionDate: when the actual financial transaction occurred (e.g., payment date, refund date)
-  // This is different from createdAt which is when the ledger entry was recorded
-  transactionDate       DateTime         @default(now())
+  
+  // ============================================================================
+  // PROFESSIONAL ACCOUNTING TIMESTAMPS
+  // ============================================================================
+  // entryDate: When this ledger entry was recorded in the system (audit trail)
+  entryDate             DateTime         @default(now()) @map("createdAt")
+  // valueDate: When the transaction actually occurred (e.g., payment timestamp from Monnify)
+  valueDate             DateTime         @default(now())
+  // settledDate: When the funds were actually settled/cleared (nullable until settled)
+  settledDate           DateTime?
+  
+  // ============================================================================
+  // TRANSACTION CLASSIFICATION
+  // ============================================================================
   type                  LedgerType
-  // For TICKET_SALE: positive (credit to organizer)
-  // For REFUND/WITHDRAWAL/CHARGEBACK: negative (debit from organizer)
+  // Entry number for sequential tracking within organizer's ledger
+  entryNumber           Int?             // Auto-generated sequential number per organizer
+  
+  // ============================================================================
+  // DOUBLE-ENTRY ACCOUNTING: DEBIT & CREDIT
+  // ============================================================================
+  // In accounting: 
+  //   - DEBIT increases assets/expenses, decreases liabilities/income
+  //   - CREDIT increases liabilities/income, decreases assets/expenses
+  // For organizer's perspective (their account is an asset to them):
+  //   - TICKET_SALE: Credit (money coming IN)
+  //   - WITHDRAWAL/REFUND/CHARGEBACK: Debit (money going OUT)
+  debit                 Decimal          @default(0) @db.Decimal(12, 2)  // Money OUT (withdrawals, refunds, chargebacks)
+  credit                Decimal          @default(0) @db.Decimal(12, 2) // Money IN (ticket sales)
+  // Net amount for quick calculations (credit - debit), kept for backward compatibility
   amount                Decimal          @db.Decimal(12, 2)
-  description           String?
+  
+  // ============================================================================
+  // RUNNING BALANCES (snapshot after this transaction)
+  // ============================================================================
   pendingBalanceAfter   Decimal          @db.Decimal(12, 2)
   availableBalanceAfter Decimal          @db.Decimal(12, 2)
-  // Payment gateway references for reconciliation and deduplication
+  runningBalance        Decimal?         @db.Decimal(12, 2) // Total balance (pending + available) after this entry
+  
+  // ============================================================================
+  // DESCRIPTION & NARRATION
+  // ============================================================================
+  description           String?          // Short description
+  narration             String?          // Detailed narration for accounting purposes
+  
+  // ============================================================================
+  // PAYMENT GATEWAY REFERENCES (for reconciliation & deduplication)
+  // ============================================================================
   monnifyTransactionRef String?          // Unique Monnify transaction reference (MNFY_xxx)
   paymentReference      String?          // Our internal payment reference (HD-xxx)
   paymentId             String?          // Link to Payment record
-  // Related entity IDs
+  externalReference     String?          // Any other external reference (Paystack, bank, etc.)
+  
+  // ============================================================================
+  // RELATED ENTITY IDs
+  // ============================================================================
   ticketId              String?
   withdrawalId          String?
+  refundId              String?
   organizerId           String
   organizer             OrganizerProfile @relation(fields: [organizerId], references: [id])
+  
+  // ============================================================================
+  // AUDIT & STATUS
+  // ============================================================================
+  status                LedgerStatus     @default(CONFIRMED)
+  createdBy             String?          // User/system that created this entry
+  notes                 String?          // Internal notes (admin use)
 
-  @@unique([monnifyTransactionRef, type], name: "unique_monnify_ref_per_type") // Prevent duplicate entries for same Monnify transaction
+  @@unique([monnifyTransactionRef, type], name: "unique_monnify_ref_per_type")
   @@index([organizerId])
   @@index([type])
-  @@index([createdAt])
-  @@index([transactionDate])
+  @@index([entryDate])
+  @@index([valueDate])
+  @@index([settledDate])
   @@index([monnifyTransactionRef])
   @@index([paymentId])
+  @@index([status])
+  @@index([organizerId, entryDate])
+  @@index([organizerId, valueDate])
 }
 
 model RefreshToken {
@@ -347,4 +399,11 @@ enum LedgerType {
   WITHDRAWAL
   CHARGEBACK
   ADJUSTMENT
+}
+
+enum LedgerStatus {
+  PENDING     // Entry created but not yet confirmed (e.g., pending payment verification)
+  CONFIRMED   // Entry confirmed and final
+  REVERSED    // Entry has been reversed/cancelled
+  DISPUTED    // Entry is under dispute
 }

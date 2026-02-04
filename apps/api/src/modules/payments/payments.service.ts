@@ -387,13 +387,14 @@ export class PaymentsService {
 
     // Record withdrawal in ledger (only on successful completion)
     try {
-      await this.ledgerService.recordWithdrawal(
-        withdrawal.organizerId,
-        withdrawal.id,
-        withdrawal.amount instanceof Decimal
+      await this.ledgerService.recordWithdrawal({
+        organizerId: withdrawal.organizerId,
+        withdrawalId: withdrawal.id,
+        amount: withdrawal.amount instanceof Decimal
           ? withdrawal.amount.toNumber()
           : Number(withdrawal.amount),
-      );
+        description: `Withdrawal completed via Monnify`,
+      });
     } catch (e) {
       this.logger.warn(`Failed to record withdrawal in ledger: ${withdrawal.id}`, e as any);
     }
@@ -660,8 +661,9 @@ export class PaymentsService {
       monnifyTransactionRef: data.id?.toString() || null,
       paymentReference: payment.reference,
       paymentId: payment.id,
-      transactionDate: data.paid_at ? new Date(data.paid_at) : new Date(),
+      valueDate: data.paid_at ? new Date(data.paid_at) : new Date(),
       description: `${event.title} - ${tier.name || 'Ticket'}`,
+      narration: `Credit: Ticket sale for ${event.title} - ${tier.name || 'Ticket'}`,
     });
 
     // Update payment status

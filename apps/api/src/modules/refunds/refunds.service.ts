@@ -188,7 +188,13 @@ export class RefundsService {
       });
 
       // Record in ledger (idempotent by ticketId)
-      await this.ledgerService.recordRefund(organizerId, refund.ticketId, refundAmount);
+      await this.ledgerService.recordRefund({
+        organizerId,
+        ticketId: refund.ticketId,
+        refundId: refund.id,
+        amount: refundAmount,
+        description: `Refund for ticket #${refund.ticket.ticketNumber}`,
+      });
 
       // Send email to buyer
       await this.emailService.sendRefundEmail(refund.ticket.buyerEmail, {

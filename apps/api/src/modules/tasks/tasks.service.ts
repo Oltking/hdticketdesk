@@ -50,7 +50,7 @@ export class TasksService {
           where: {
             organizerId: organizer.id,
             type: 'TICKET_SALE',
-            createdAt: { lte: twentyFourHoursAgo },
+            entryDate: { lte: twentyFourHoursAgo },
           },
           _sum: { amount: true },
         });
@@ -175,7 +175,7 @@ export class TasksService {
           type: 'TICKET_SALE',
           amount: { gt: 0 },
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { entryDate: 'asc' },
       });
 
       if (!firstPaidSale) {
@@ -183,7 +183,7 @@ export class TasksService {
       }
 
       const hoursSinceFirstSale =
-        (Date.now() - firstPaidSale.createdAt.getTime()) / (1000 * 60 * 60);
+        (Date.now() - firstPaidSale.entryDate.getTime()) / (1000 * 60 * 60);
 
       if (hoursSinceFirstSale < 24) {
         return {
@@ -197,7 +197,7 @@ export class TasksService {
         where: {
           organizerId,
           type: 'TICKET_SALE',
-          createdAt: { lte: twentyFourHoursAgo },
+          entryDate: { lte: twentyFourHoursAgo },
         },
         _sum: { amount: true },
       });

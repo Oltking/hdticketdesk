@@ -1,34 +1,62 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { LedgerType, LedgerStatus } from '@prisma/client';
 
+/**
+ * ============================================================================
+ * PROFESSIONAL ACCOUNTING LEDGER SERVICE
+ * ============================================================================
+ * 
+ * This service implements proper double-entry accounting principles:
+ * 
+ * DEBIT vs CREDIT (from organizer's perspective):
+ * - CREDIT: Money coming IN (ticket sales) - increases balance
+ * - DEBIT: Money going OUT (withdrawals, refunds, chargebacks) - decreases balance
+ * 
+ * TIMESTAMPS:
+ * - entryDate: When the ledger entry was recorded (audit trail)
+ * - valueDate: When the actual transaction occurred (e.g., payment time)
+ * - settledDate: When funds were settled/cleared
+ * 
+ * DEDUPLICATION:
+ * - Primary key: monnifyTransactionRef (for Monnify payments)
+ * - Fallback: ticketId (for legacy Paystack or free tickets)
+ * - Database constraint prevents duplicates at DB level
+ * 
+ * ============================================================================
+ */
 @Injectable()
 export class LedgerService {
   private readonly logger = new Logger(LedgerService.name);
 
   constructor(private prisma: PrismaService) {}
 
+  // ==========================================================================
+  // CREDIT ENTRY: Record money coming IN (Ticket Sales)
+  // ==========================================================================
   /**
-   * Record a ticket sale in the ledger with proper deduplication.
-   * 
-   * Deduplication Strategy:
-   * 1. Primary: Check by monnifyTransactionRef (for Monnify payments)
-   * 2. Fallback: Check by ticketId (for legacy Paystack or free tickets)
-   * 
-   * The database also has a unique constraint on (monnifyTransactionRef, type)
-   * for non-NULL values to prevent race conditions.
+   * Record a ticket sale as a CREDIT entry in the ledger.
+   * Money is coming IN to the organizer's account.
    */
   async recordTicketSale(params: {
     organizerId: string;
     ticketId: string;
     amount: number;
     platformFee?: number;
-    // New fields for proper reconciliation
+    // Payment references for reconciliation
     monnifyTransactionRef?: string | null;
     paymentReference?: string | null;
     paymentId?: string | null;
-    transactionDate?: Date;
+    externalReference?: string | null;
+    // Timestamps
+    valueDate?: Date;       // When payment was made
+    settledDate?: Date;     // When funds were settled (if known)
+    // Description
     description?: string;
+    narration?: string;
+    // Audit
+    createdBy?: string;
   }) {
     const {
       organizerId,
@@ -37,8 +65,12 @@ export class LedgerService {
       monnifyTransactionRef,
       paymentReference,
       paymentId,
-      transactionDate,
+      externalReference,
+      valueDate,
+      settledDate,
       description,
+      narration,
+      createdBy,
     } = params;
 
     const organizer = await this.prisma.organizerProfile.findUnique({
@@ -52,7 +84,6 @@ export class LedgerService {
     // ==========================================================================
     // IDEMPOTENCY CHECK: Prevent duplicate ledger entries
     // ==========================================================================
-    // Priority 1: Check by Monnify transaction reference (most reliable for paid tickets)
     if (monnifyTransactionRef) {
       const existingByMonnifyRef = await this.prisma.ledgerEntry.findFirst({
         where: {
@@ -71,7 +102,6 @@ export class LedgerService {
       }
     }
 
-    // Priority 2: Check by ticketId (fallback for legacy Paystack or free tickets)
     const existingByTicketId = await this.prisma.ledgerEntry.findFirst({
       where: {
         type: 'TICKET_SALE',
@@ -89,7 +119,15 @@ export class LedgerService {
     }
 
     // ==========================================================================
-    // CREATE LEDGER ENTRY
+    // CALCULATE BALANCES
+    // ==========================================================================
+    const currentPending = Number(organizer.pendingBalance) || 0;
+    const currentAvailable = Number(organizer.availableBalance) || 0;
+    const newPendingBalance = currentPending + amount;
+    const runningBalance = newPendingBalance + currentAvailable;
+
+    // ==========================================================================
+    // CREATE CREDIT ENTRY
     // ==========================================================================
     try {
       const entry = await this.prisma.ledgerEntry.create({
@@ -97,24 +135,37 @@ export class LedgerService {
           type: 'TICKET_SALE',
           organizerId,
           ticketId,
-          amount,
+          // Double-entry: CREDIT for money IN
+          credit: amount,
+          debit: 0,
+          amount: amount, // Net amount (positive for credits)
+          // Balances
+          pendingBalanceAfter: newPendingBalance,
+          availableBalanceAfter: currentAvailable,
+          runningBalance,
+          // References
           monnifyTransactionRef: monnifyTransactionRef || null,
           paymentReference: paymentReference || null,
           paymentId: paymentId || null,
-          transactionDate: transactionDate || new Date(),
-          pendingBalanceAfter: Number(organizer.pendingBalance) + amount,
-          availableBalanceAfter: Number(organizer.availableBalance),
-          description: description || `Ticket sale - ${ticketId}`,
+          externalReference: externalReference || null,
+          // Timestamps
+          valueDate: valueDate || new Date(),
+          settledDate: settledDate || null,
+          // Description
+          description: description || `Ticket sale`,
+          narration: narration || `Credit: Ticket sale for ticket ${ticketId}`,
+          // Audit
+          status: 'CONFIRMED',
+          createdBy: createdBy || 'SYSTEM',
         },
       });
 
       this.logger.log(
-        `Ledger entry created: ${entry.id} | Amount: ${amount} | MonnifyRef: ${monnifyTransactionRef || 'N/A'}`,
+        `✅ CREDIT Entry: ${entry.id} | +₦${amount} | MonnifyRef: ${monnifyTransactionRef || 'N/A'}`,
       );
 
       return { skipped: false, entry };
     } catch (error: any) {
-      // Handle unique constraint violation (race condition fallback)
       if (error.code === 'P2002' && error.meta?.target?.includes('monnifyTransactionRef')) {
         this.logger.warn(
           `Unique constraint violation for monnifyTransactionRef: ${monnifyTransactionRef}. Entry already exists.`,
@@ -125,25 +176,35 @@ export class LedgerService {
     }
   }
 
+  // ==========================================================================
+  // DEBIT ENTRIES: Record money going OUT
+  // ==========================================================================
+
   /**
-   * Legacy signature for backward compatibility
-   * @deprecated Use recordTicketSale(params) instead
+   * Record a refund as a DEBIT entry in the ledger.
+   * Money is going OUT from the organizer's account.
    */
-  async recordTicketSaleLegacy(
-    organizerId: string,
-    ticketId: string,
-    amount: number,
-    _platformFee: number,
-  ) {
-    return this.recordTicketSale({
+  async recordRefund(params: {
+    organizerId: string;
+    ticketId: string;
+    refundId?: string;
+    amount: number;
+    valueDate?: Date;
+    description?: string;
+    narration?: string;
+    createdBy?: string;
+  }) {
+    const {
       organizerId,
       ticketId,
+      refundId,
       amount,
-      platformFee: _platformFee,
-    });
-  }
+      valueDate,
+      description,
+      narration,
+      createdBy,
+    } = params;
 
-  async recordRefund(organizerId: string, ticketId: string, amount: number, transactionDate?: Date) {
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -152,21 +213,63 @@ export class LedgerService {
       throw new Error('Organizer not found');
     }
 
-    await this.prisma.ledgerEntry.create({
+    const currentPending = Number(organizer.pendingBalance) || 0;
+    const currentAvailable = Number(organizer.availableBalance) || 0;
+    const newAvailableBalance = currentAvailable - amount;
+    const runningBalance = currentPending + newAvailableBalance;
+
+    const entry = await this.prisma.ledgerEntry.create({
       data: {
         type: 'REFUND',
         organizerId,
         ticketId,
-        amount: -amount,
-        pendingBalanceAfter: Number(organizer.pendingBalance),
-        availableBalanceAfter: Number(organizer.availableBalance) - amount,
-        description: `Refund processed - ${ticketId}`,
-        transactionDate: transactionDate || new Date(),
+        refundId: refundId || null,
+        // Double-entry: DEBIT for money OUT
+        debit: amount,
+        credit: 0,
+        amount: -amount, // Net amount (negative for debits)
+        // Balances
+        pendingBalanceAfter: currentPending,
+        availableBalanceAfter: newAvailableBalance,
+        runningBalance,
+        // Timestamps
+        valueDate: valueDate || new Date(),
+        // Description
+        description: description || `Refund processed`,
+        narration: narration || `Debit: Refund for ticket ${ticketId}`,
+        // Audit
+        status: 'CONFIRMED',
+        createdBy: createdBy || 'SYSTEM',
       },
     });
+
+    this.logger.log(`✅ DEBIT Entry (Refund): ${entry.id} | -₦${amount}`);
+    return entry;
   }
 
-  async recordWithdrawal(organizerId: string, withdrawalId: string, amount: number, transactionDate?: Date) {
+  /**
+   * Record a withdrawal as a DEBIT entry in the ledger.
+   * Money is going OUT from the organizer's account.
+   */
+  async recordWithdrawal(params: {
+    organizerId: string;
+    withdrawalId: string;
+    amount: number;
+    valueDate?: Date;
+    description?: string;
+    narration?: string;
+    createdBy?: string;
+  }) {
+    const {
+      organizerId,
+      withdrawalId,
+      amount,
+      valueDate,
+      description,
+      narration,
+      createdBy,
+    } = params;
+
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -175,21 +278,64 @@ export class LedgerService {
       throw new Error('Organizer not found');
     }
 
-    await this.prisma.ledgerEntry.create({
+    const currentPending = Number(organizer.pendingBalance) || 0;
+    const currentAvailable = Number(organizer.availableBalance) || 0;
+    const newAvailableBalance = currentAvailable - amount;
+    const runningBalance = currentPending + newAvailableBalance;
+
+    const entry = await this.prisma.ledgerEntry.create({
       data: {
         type: 'WITHDRAWAL',
         organizerId,
         withdrawalId,
-        amount: -amount,
-        pendingBalanceAfter: Number(organizer.pendingBalance),
-        availableBalanceAfter: Number(organizer.availableBalance) - amount,
-        description: `Withdrawal - ${withdrawalId}`,
-        transactionDate: transactionDate || new Date(),
+        // Double-entry: DEBIT for money OUT
+        debit: amount,
+        credit: 0,
+        amount: -amount, // Net amount (negative for debits)
+        // Balances
+        pendingBalanceAfter: currentPending,
+        availableBalanceAfter: newAvailableBalance,
+        runningBalance,
+        // Timestamps
+        valueDate: valueDate || new Date(),
+        // Description
+        description: description || `Withdrawal`,
+        narration: narration || `Debit: Withdrawal ${withdrawalId}`,
+        // Audit
+        status: 'CONFIRMED',
+        createdBy: createdBy || 'SYSTEM',
       },
     });
+
+    this.logger.log(`✅ DEBIT Entry (Withdrawal): ${entry.id} | -₦${amount}`);
+    return entry;
   }
 
-  async recordChargeback(organizerId: string, ticketId: string, amount: number, transactionDate?: Date) {
+  /**
+   * Record a chargeback as a DEBIT entry in the ledger.
+   * Money is going OUT from the organizer's account (forcibly by payment provider).
+   */
+  async recordChargeback(params: {
+    organizerId: string;
+    ticketId: string;
+    amount: number;
+    externalReference?: string;
+    valueDate?: Date;
+    description?: string;
+    narration?: string;
+    createdBy?: string;
+  }) {
+    const {
+      organizerId,
+      ticketId,
+      amount,
+      externalReference,
+      valueDate,
+      description,
+      narration,
+      createdBy,
+    } = params;
+
     const organizer = await this.prisma.organizerProfile.findUnique({
       where: { id: organizerId },
     });
@@ -198,18 +344,38 @@ export class LedgerService {
       throw new Error('Organizer not found');
     }
 
-    await this.prisma.ledgerEntry.create({
+    const currentPending = Number(organizer.pendingBalance) || 0;
+    const currentAvailable = Number(organizer.availableBalance) || 0;
+    const newAvailableBalance = currentAvailable - amount;
+    const runningBalance = currentPending + newAvailableBalance;
+
+    const entry = await this.prisma.ledgerEntry.create({
       data: {
         type: 'CHARGEBACK',
         organizerId,
         ticketId,
-        amount: -amount,
-        pendingBalanceAfter: Number(organizer.pendingBalance),
-        availableBalanceAfter: Number(organizer.availableBalance) - amount,
-        description: `Chargeback - ${ticketId}`,
-        transactionDate: transactionDate || new Date(),
+        externalReference: externalReference || null,
+        // Double-entry: DEBIT for money OUT
+        debit: amount,
+        credit: 0,
+        amount: -amount, // Net amount (negative for debits)
+        // Balances
+        pendingBalanceAfter: currentPending,
+        availableBalanceAfter: newAvailableBalance,
+        runningBalance,
+        // Timestamps
+        valueDate: valueDate || new Date(),
+        // Description
+        description: description || `Chargeback`,
+        narration: narration || `Debit: Chargeback for ticket ${ticketId}`,
+        // Audit
+        status: 'CONFIRMED',
+        createdBy: createdBy || 'SYSTEM',
       },
     });
+
+    this.logger.log(`✅ DEBIT Entry (Chargeback): ${entry.id} | -₦${amount}`);
+    return entry;
   }
 
   async getOrganizerLedger(
@@ -222,7 +388,7 @@ export class LedgerService {
   ) {
     let entries: any[] = await this.prisma.ledgerEntry.findMany({
       where: { organizerId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { entryDate: 'desc' },
     });
 
     // Keep Monnify ref mapping in a stable variable (do NOT attach to array, because filter() returns a new array)
@@ -313,7 +479,7 @@ export class LedgerService {
 
   async getPlatformLedger() {
     return this.prisma.ledgerEntry.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { entryDate: 'desc' },
       include: {
         organizer: {
           select: { id: true, title: true },
