@@ -72,6 +72,23 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // 🎫 Check if this email has any existing guest ticket purchases
+    // If so, force the role to BUYER regardless of what they selected
+    let effectiveRole: 'BUYER' | 'ORGANIZER' = dto.role || 'BUYER';
+    const existingGuestTickets = await this.prisma.ticket.findFirst({
+      where: {
+        buyerEmail: dto.email.toLowerCase(),
+        buyerId: null, // Guest purchase (not linked to any user yet)
+      },
+    });
+
+    if (existingGuestTickets && dto.role === 'ORGANIZER') {
+      this.logger.log(
+        `User ${dto.email} tried to register as ORGANIZER but has existing guest ticket purchases. Forcing BUYER role.`,
+      );
+      effectiveRole = 'BUYER';
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 12);
 
@@ -86,11 +103,11 @@ export class AuthService {
         password: hashedPassword,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        role: dto.role || 'BUYER',
+        role: effectiveRole,
         verificationToken: otp,
         verificationTokenExpiry: otpExpiry,
         organizerProfile:
-          dto.role === 'ORGANIZER'
+          effectiveRole === 'ORGANIZER'
             ? {
                 create: {
                   title: dto.organizerTitle || `${dto.firstName} ${dto.lastName}`,
@@ -802,7 +819,23 @@ export class AuthService {
       } else {
         // Create new user from Google data
         isNewUser = true;
-        const isOrganizer = intendedRole === 'organizer';
+        let isOrganizer = intendedRole === 'organizer';
+
+        // 🎫 Check if this email has any existing guest ticket purchases
+        // If so, force the role to BUYER regardless of what they selected
+        const existingGuestTickets = await this.prisma.ticket.findFirst({
+          where: {
+            buyerEmail: googleUser.email.toLowerCase(),
+            buyerId: null, // Guest purchase (not linked to any user yet)
+          },
+        });
+
+        if (existingGuestTickets && isOrganizer) {
+          this.logger.log(
+            `OAuth user ${googleUser.email} tried to register as ORGANIZER but has existing guest ticket purchases. Forcing BUYER role.`,
+          );
+          isOrganizer = false;
+        }
 
         this.logger.log(
           `Creating new user from Google: ${googleUser.email}, role: ${isOrganizer ? 'ORGANIZER' : 'BUYER'}`,
