@@ -54,22 +54,30 @@ export class RefundsService {
       throw new BadRequestException('Cannot request refund after event has started');
     }
 
-    // Calculate ticket amount
-    const ticketAmount =
-      ticket.amountPaid instanceof Decimal
-        ? ticket.amountPaid.toNumber()
-        : Number(ticket.amountPaid);
+    // Get the tier price (the base ticket price, not what buyer paid including service fee)
+    const tierPrice =
+      ticket.tier.price instanceof Decimal
+        ? ticket.tier.price.toNumber()
+        : Number(ticket.tier.price);
 
     // Check for free tickets - no refund for free tickets
-    if (ticketAmount === 0) {
+    if (tierPrice === 0) {
       throw new BadRequestException(
         'Free tickets cannot be refunded. Please cancel the ticket instead.',
       );
     }
 
-    // Calculate refund amount (minus platform fee - 5%)
-    const platformFee = ticketAmount * 0.05;
-    const refundAmount = ticketAmount - platformFee;
+    // Calculate refund amount based on what organizer received
+    // The organizer receives: tierPrice - 5% platform fee (if they absorbed it)
+    // OR just tierPrice (if buyer paid the fee separately)
+    // In both cases, the refund to organizer is what they received: tierPrice - 5% of tierPrice
+    // This is because:
+    // - If organizer absorbed fee: they got tierPrice - 5%, refund is tierPrice - 5%
+    // - If buyer paid fee: they got tierPrice, but refund still needs to account for platform fee
+    //   since platform already took their cut. So refund is still tierPrice - 5%
+    const platformFeePercent = 0.05; // 5%
+    const platformFee = tierPrice * platformFeePercent;
+    const refundAmount = tierPrice - platformFee;
 
     const refund = await this.prisma.refund.create({
       data: {

@@ -171,7 +171,7 @@ export class AuthService {
   // ==================== LOGIN ====================
   async login(dto: LoginDto, ip: string, userAgent: string) {
     // First, find the user
-    const user = await this.prisma.user.findUnique({
+    let user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
       include: { organizerProfile: true },
     });
@@ -224,6 +224,43 @@ export class AuthService {
         where: { id: user.id },
         data: { failedLoginAttempts: 0, lockedUntil: null },
       });
+    }
+
+    // 🎫 Check if an ORGANIZER user has any ticket purchases (guest or linked)
+    // If so, switch them to BUYER role since they've acted as a buyer
+    if (user.role === 'ORGANIZER') {
+      const hasTicketPurchases = await this.prisma.ticket.findFirst({
+        where: {
+          OR: [
+            { buyerId: user.id }, // Tickets already linked to this user
+            { buyerEmail: user.email.toLowerCase(), buyerId: null }, // Guest tickets with their email
+          ],
+        },
+      });
+
+      if (hasTicketPurchases) {
+        this.logger.log(
+          `ORGANIZER user ${user.email} has ticket purchases. Switching to BUYER role.`,
+        );
+        
+        // Update user role to BUYER
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'BUYER' },
+          include: { organizerProfile: true },
+        });
+
+        // Link any unlinked guest tickets
+        await this.prisma.ticket.updateMany({
+          where: {
+            buyerEmail: user.email.toLowerCase(),
+            buyerId: null,
+          },
+          data: {
+            buyerId: user.id,
+          },
+        });
+      }
     }
 
     // ⚠️ CHECK IF EMAIL IS VERIFIED - This is the key check!
@@ -902,6 +939,43 @@ export class AuthService {
           where: { id: user.id },
           data: { avatarUrl: googleUser.avatarUrl },
           include: { organizerProfile: true },
+        });
+      }
+    }
+
+    // 🎫 Check if an ORGANIZER user has any ticket purchases (guest or linked)
+    // If so, switch them to BUYER role since they've acted as a buyer
+    if (user.role === 'ORGANIZER') {
+      const hasTicketPurchases = await this.prisma.ticket.findFirst({
+        where: {
+          OR: [
+            { buyerId: user.id }, // Tickets already linked to this user
+            { buyerEmail: user.email.toLowerCase(), buyerId: null }, // Guest tickets with their email
+          ],
+        },
+      });
+
+      if (hasTicketPurchases) {
+        this.logger.log(
+          `OAuth ORGANIZER user ${user.email} has ticket purchases. Switching to BUYER role.`,
+        );
+        
+        // Update user role to BUYER
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'BUYER' },
+          include: { organizerProfile: true },
+        });
+
+        // Link any unlinked guest tickets
+        await this.prisma.ticket.updateMany({
+          where: {
+            buyerEmail: user.email.toLowerCase(),
+            buyerId: null,
+          },
+          data: {
+            buyerId: user.id,
+          },
         });
       }
     }
