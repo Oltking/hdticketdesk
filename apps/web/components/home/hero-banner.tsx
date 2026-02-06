@@ -33,11 +33,6 @@ export function HeroBanner() {
       />
       
       <div className="container relative z-10 pt-2 pb-9 text-center">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 mb-2 animate-in" style={{ animationDelay: '0.1s' }}>
-          <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
-          <span className="text-[11px] md:text-sm font-medium text-primary">Africa&apos;s #1 Event Platform</span>
-        </div>
         
         {/* Main heading */}
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-3 animate-in" style={{ animationDelay: '0.2s' }}>
