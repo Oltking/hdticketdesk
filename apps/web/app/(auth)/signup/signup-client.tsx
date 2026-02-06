@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, X, AlertCircle, CheckCircle2, Loader2, User, Building2 } from 'lucide-react';
+import { Eye, EyeOff, X, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/ui/logo';
 import { Separator } from '@/components/ui/separator';
 
@@ -37,7 +37,7 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const baseSchema = z.object({
+const schema = z.object({
   firstName: z.string().min(1, 'First name is required').min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(1, 'Last name is required').min(2, 'Last name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
@@ -47,19 +47,9 @@ const baseSchema = z.object({
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
-  organizerTitle: z.string().optional(),
 });
 
-// Schema with required organizerTitle for organizers
-const organizerSchema = baseSchema.extend({
-  organizerTitle: z
-    .string()
-    .min(1, 'Organization name is required')
-    .min(2, 'Organization name must be at least 2 characters')
-    .max(100, 'Organization name must be less than 100 characters'),
-});
-
-type FormData = z.infer<typeof baseSchema>;
+type FormData = z.infer<typeof schema>;
 
 // Error message mapping for user-friendly messages
 const getErrorMessage = (error: string): { message: string; action?: string; actionType?: 'login' | 'resend' } => {
@@ -118,14 +108,9 @@ const getPasswordStrength = (password: string): { score: number; label: string; 
 
 function SignupContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isOrganizer = searchParams.get('role') === 'organizer';
   const { success, error: showError } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [errorState, setErrorState] = useState<{ message: string; action?: string; actionType?: string } | null>(null);
-  
-  // Use different schema based on role
-  const schema = isOrganizer ? organizerSchema : baseSchema;
   
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({ 
     resolver: zodResolver(schema),
@@ -146,17 +131,18 @@ function SignupContent() {
     setErrorState(null);
     
     try {
+      // Register without a role - user will select role after email verification
       const result = await api.register({ 
         ...data, 
-        role: isOrganizer ? 'ORGANIZER' : 'BUYER' 
+        role: 'BUYER' // Default role, will be updated after role selection
       });
       
       success('Account created! Please check your email for verification code.');
       try {
         localStorage.setItem('pendingVerificationUserId', result.userId);
         localStorage.setItem('pendingVerificationEmail', data.email);
-        localStorage.setItem('pendingVerificationRole', result.role || (isOrganizer ? 'ORGANIZER' : 'BUYER'));
-        console.debug('[Signup] stored pending verification', { userId: result.userId, email: data.email, role: result.role || (isOrganizer ? 'ORGANIZER' : 'BUYER') });
+        localStorage.setItem('pendingRoleSelection', 'true'); // Flag to show role selection after verification
+        console.debug('[Signup] stored pending verification', { userId: result.userId, email: data.email });
       } catch (e) {
         // ignore localStorage errors
       }
@@ -197,40 +183,9 @@ function SignupContent() {
             <Logo href="/" size="lg" showText={false} />
           </div>
           
-          {/* Role Toggle */}
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Link 
-              href="/signup"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                !isOrganizer 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <User className="h-3.5 w-3.5" />
-              Attendee
-            </Link>
-            <Link 
-              href="/signup?role=organizer"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                isOrganizer 
-                  ? 'bg-primary text-white' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              Organizer
-            </Link>
-          </div>
-          
-          <CardTitle className="text-xl">
-            {isOrganizer ? 'Create Organizer Account' : 'Create Account'}
-          </CardTitle>
+          <CardTitle className="text-xl">Create Account</CardTitle>
           <CardDescription>
-            {isOrganizer 
-              ? 'Start selling tickets and managing events today' 
-              : 'Join HDTicketDesk to discover and attend amazing events'
-            }
+            Join HDTicketDesk to discover events or start hosting your own
           </CardDescription>
         </CardHeader>
         
@@ -241,7 +196,7 @@ function SignupContent() {
             variant="outline"
             className="w-full mb-4 flex items-center justify-center gap-2 h-11 border-gray-300 hover:bg-gray-50"
             onClick={() => {
-              window.location.href = api.getGoogleAuthUrl(isOrganizer ? 'organizer' : undefined);
+              window.location.href = api.getGoogleAuthUrl(); // No role - will select after OAuth
             }}
           >
             <GoogleIcon />
@@ -381,24 +336,6 @@ function SignupContent() {
               )}
             </div>
             
-            {isOrganizer && (
-              <div className="space-y-1.5">
-                <Label htmlFor="organizerTitle">
-                  Organization Name <span className="text-red-500">*</span>
-                </Label>
-                <Input 
-                  id="organizerTitle"
-                  placeholder="Your company or brand name"
-                  {...register('organizerTitle')} 
-                  className={errors.organizerTitle ? 'border-red-500' : ''}
-                />
-                {errors.organizerTitle ? (
-                  <p className="text-xs text-red-500">{errors.organizerTitle.message}</p>
-                ) : (
-                  <p className="text-xs text-gray-500">This will be displayed on your events and tickets</p>
-                )}
-              </div>
-            )}
             
             <Button 
               type="submit" 

@@ -149,19 +149,26 @@ function VerifyEmailContent() {
         setAuthenticated(true);
         success('Email verified successfully!');
 
-        // Clear pending verification info
+        // Check if this is a new signup that needs role selection
+        let needsRoleSelection = false;
         try {
+          needsRoleSelection = localStorage.getItem('pendingRoleSelection') === 'true';
+          // Clear pending verification info
           localStorage.removeItem('pendingVerificationUserId');
           localStorage.removeItem('pendingVerificationEmail');
-          localStorage.removeItem('pendingVerificationRole');
+          localStorage.removeItem('pendingRoleSelection');
         } catch (e) {
           // ignore localStorage errors
         }
 
-        // Use server-provided role if available, otherwise fall back to the pending role stored during signup
-        const roleToUse = freshUser?.role || (result.user && result.user.role) || (() => {
-          try { return localStorage.getItem('pendingVerificationRole') || undefined; } catch (e) { return undefined; }
-        })();
+        // If this is a new signup, redirect to role selection
+        if (needsRoleSelection) {
+          router.replace('/auth/role-selection');
+          return;
+        }
+
+        // For existing users (e.g., password reset verification), use role-based redirect
+        const roleToUse = freshUser?.role || (result.user && result.user.role);
 
         // Immediate redirect for admins and organizers; keep short delay for other roles to show success
         if (roleToUse === 'ADMIN') {
