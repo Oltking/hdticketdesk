@@ -606,41 +606,59 @@ export default function AgentPortalPage() {
         {/* Camera Scanner */}
         <Card className="shadow-lg overflow-hidden">
           <CardContent className="p-0">
+            {/* Camera View - Always present in DOM for Html5Qrcode */}
+            <div className="relative w-full aspect-square bg-black/5 overflow-hidden">
+              <div id="agent-scanner" className="w-full h-full" />
+              
+              {/* Placeholder when camera is not active */}
+              {!cameraActive && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50">
+                  <div className="relative">
+                    <div className="w-32 h-32 border-4 border-primary/30 rounded-2xl flex items-center justify-center">
+                      <QrCode className="h-16 w-16 text-primary/40" />
+                    </div>
+                    <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                    <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                    <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                  </div>
+                  <p className="mt-6 text-sm text-muted-foreground text-center px-4">
+                    Click the button below to start scanning
+                  </p>
+                </div>
+              )}
+
+              {/* Processing overlay */}
+              {cameraActive && scanning && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="text-center text-white">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                    <p>Processing...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Camera Toggle Button */}
-            <div className="p-4 border-b bg-gray-50">
+            <div className="p-4 border-t">
               <Button
                 onClick={cameraActive ? stopCamera : startCamera}
                 variant={cameraActive ? "destructive" : "default"}
-                className="w-full h-12"
+                className="w-full h-12 text-base gap-2"
               >
                 {cameraActive ? (
                   <>
-                    <CameraOff className="h-5 w-5 mr-2" />
-                    Stop Camera
+                    <CameraOff className="h-5 w-5" />
+                    Stop Scanner
                   </>
                 ) : (
                   <>
-                    <Camera className="h-5 w-5 mr-2" />
-                    Start Camera Scanner
+                    <Camera className="h-5 w-5" />
+                    Start Scanner
                   </>
                 )}
               </Button>
             </div>
-
-            {/* Camera View */}
-            {cameraActive && (
-              <div className="relative bg-black">
-                <div id="agent-scanner" className="w-full" style={{ minHeight: '300px' }} />
-                {scanning && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                      <p>Processing...</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Camera Error */}
             {cameraError && (
@@ -653,7 +671,7 @@ export default function AgentPortalPage() {
             )}
 
             {/* Manual Input Section */}
-            <div className="p-4 space-y-4">
+            <div className="p-4 border-t space-y-4">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <div className="flex-1 h-px bg-border" />
                 <span>or enter manually</span>
