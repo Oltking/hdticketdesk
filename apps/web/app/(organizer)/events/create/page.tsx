@@ -146,6 +146,20 @@ export default function CreateEventPage() {
     }
   };
 
+  // Helper function to convert datetime-local string to ISO string
+  // datetime-local gives us "2024-02-10T22:00" without timezone
+  // We need to interpret this as Africa/Lagos timezone and convert to ISO
+  const toISOString = (dateTimeLocal: string | undefined): string | undefined => {
+    if (!dateTimeLocal || dateTimeLocal.trim() === '') return undefined;
+    // The datetime-local input returns a string like "2024-02-10T22:00"
+    // We treat this as the local time the user intended (in their timezone)
+    // Create a Date object which interprets it as local time
+    const date = new Date(dateTimeLocal);
+    if (isNaN(date.getTime())) return undefined;
+    // Return as ISO string which includes timezone offset
+    return date.toISOString();
+  };
+
   const onSubmit = async (data: FormData, publish = false) => {
     try {
       if (publish) {
@@ -172,18 +186,21 @@ export default function CreateEventPage() {
           price: price,
           capacity: capacity,
           refundEnabled: !!tier.refundEnabled,
-          saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
+          // Convert tier sale end date to ISO string
+          saleEndDate: toISOString(tier.saleEndDate),
         };
       });
 
       // Include cover image in the event data
       // Filter out empty strings for optional fields
+      // Convert dates to ISO strings for consistent timezone handling
       const eventData = {
         ...data,
         tiers: sanitizedTiers,
         coverImage: coverImage || undefined,
-        // Only include endDate if it has a value
-        endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : undefined,
+        // Convert dates to ISO strings
+        startDate: toISOString(data.startDate) || data.startDate,
+        endDate: toISOString(data.endDate),
         // Only include location fields if not online and has value
         location: !data.isOnline && data.location ? data.location : undefined,
         latitude: !data.isOnline && data.latitude ? data.latitude : undefined,

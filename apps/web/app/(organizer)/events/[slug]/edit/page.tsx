@@ -171,6 +171,19 @@ export default function EditEventPage() {
     }
   };
 
+  // Helper function to convert datetime-local string to ISO string
+  // datetime-local gives us "2024-02-10T22:00" without timezone
+  // We interpret this as the local time the user intended and convert to ISO
+  const toISOString = (dateTimeLocal: string | undefined | null): string | undefined => {
+    if (!dateTimeLocal || dateTimeLocal.trim() === '') return undefined;
+    // The datetime-local input returns a string like "2024-02-10T22:00"
+    // Create a Date object which interprets it as local time
+    const date = new Date(dateTimeLocal);
+    if (isNaN(date.getTime())) return undefined;
+    // Return as ISO string which includes timezone offset
+    return date.toISOString();
+  };
+
   const onSubmit = async (data: any, publish = false) => {
     try {
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
@@ -181,26 +194,31 @@ export default function EditEventPage() {
         price: tier.isFree ? 0 : tier.price,
         capacity: tier.capacity,
         refundEnabled: tier.refundEnabled,
-        saleEndDate: tier.saleEndDate && tier.saleEndDate.trim() !== '' ? tier.saleEndDate : undefined,
+        // Convert tier sale end date to ISO string
+        saleEndDate: toISOString(tier.saleEndDate),
       })) || [];
 
       // Build payload. If there are sales, only send allowed fields to avoid backend rejection.
+      // Convert dates to ISO strings for consistent timezone handling
       const basePayload: any = {
         tiers: sanitizedTiers,
         coverImage: coverImage || undefined,
-        // Only include endDate if it has a value
-        endDate: data.endDate && data.endDate.trim() !== '' ? data.endDate : null,
+        // Convert endDate to ISO string
+        endDate: toISOString(data.endDate) || null,
       };
 
       const eventData = hasSales
         ? {
             ...basePayload,
             description: data.description,
-            startDate: data.startDate,
+            // Convert startDate to ISO string
+            startDate: toISOString(data.startDate) || data.startDate,
           }
         : {
             ...data,
             ...basePayload,
+            // Convert startDate to ISO string
+            startDate: toISOString(data.startDate) || data.startDate,
             // Only include location fields if not online and has value
             location: !data.isOnline && data.location ? data.location : undefined,
             latitude: !data.isOnline && data.latitude ? data.latitude : undefined,

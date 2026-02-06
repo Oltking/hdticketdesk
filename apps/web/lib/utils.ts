@@ -14,6 +14,9 @@ export function formatCurrency(amount: number, currency = 'NGN'): string {
   }).format(amount);
 }
 
+// Nigeria timezone (WAT - West Africa Time, UTC+1)
+const TIMEZONE = 'Africa/Lagos';
+
 export function formatDate(date: string | Date | null | undefined, style: 'full' | 'short' | 'time' = 'full'): string {
   // Handle null, undefined, or empty string
   if (!date) {
@@ -29,6 +32,7 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   
   if (style === 'short') {
     return d.toLocaleDateString('en-NG', {
+      timeZone: TIMEZONE,
       month: 'short',
       day: 'numeric',
     });
@@ -36,6 +40,7 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   
   if (style === 'time') {
     return d.toLocaleTimeString('en-NG', {
+      timeZone: TIMEZONE,
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -43,6 +48,7 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   }
   
   return d.toLocaleDateString('en-NG', {
+    timeZone: TIMEZONE,
     weekday: 'short',
     year: 'numeric',
     month: 'short',
@@ -58,7 +64,6 @@ export function formatTimeUntil(date: string | Date | null | undefined): string 
     return '-';
   }
   
-  const now = new Date();
   const target = new Date(date);
   
   // Check if the date is invalid
@@ -66,6 +71,9 @@ export function formatTimeUntil(date: string | Date | null | undefined): string 
     return '-';
   }
   
+  // Get current time - both times are compared in their absolute UTC values
+  // so timezone doesn't affect the difference calculation
+  const now = new Date();
   const diff = target.getTime() - now.getTime();
   
   if (diff < 0) {

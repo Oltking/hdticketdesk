@@ -25,6 +25,8 @@ import {
   Volume2,
   VolumeX,
   RotateCcw,
+  Camera,
+  CameraOff,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -88,6 +90,12 @@ export default function AgentPortalPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const successSoundRef = useRef<HTMLAudioElement | null>(null);
   const errorSoundRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Camera scanner refs
+  const scannerRef = useRef<any>(null);
+  const lastScannedRef = useRef<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   
   // Track recently scanned codes to prevent rapid duplicate submissions
   const recentlyScannedRef = useRef<Set<string>>(new Set());
@@ -161,6 +169,134 @@ export default function AgentPortalPage() {
       // Ignore localStorage errors
     }
   }, [soundEnabled]);
+
+  // Cleanup scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.stop?.().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Start camera scanner
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      scannerRef.current = new Html5Qrcode('agent-scanner');
+      await scannerRef.current.start(
+        { facingMode: 'environment' },
+        { 
+          fps: 10, 
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+        },
+        async (decodedText: string) => {
+          // Prevent duplicate scans while processing
+          if (scanLockRef.current || lastScannedRef.current === decodedText) {
+            return;
+          }
+          lastScannedRef.current = decodedText;
+          // Process the scanned code
+          await handleCameraScan(decodedText);
+        },
+        () => {} // Ignore scan failures
+      );
+      setCameraActive(true);
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      setCameraError(err.message || 'Failed to start camera. Please check permissions.');
+      setCameraActive(false);
+    }
+  };
+
+  // Stop camera scanner
+  const stopCamera = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch (e) {
+        // Ignore stop errors
+      }
+      scannerRef.current = null;
+    }
+    setCameraActive(false);
+    lastScannedRef.current = null;
+  };
+
+  // Handle camera scan result
+  const handleCameraScan = async (code: string) => {
+    // Reuse the same logic as manual scan
+    setQrInput(code);
+    
+    // PROTECTION: Prevent rapid duplicate scans
+    const codeKey = code.toUpperCase();
+    if (recentlyScannedRef.current.has(codeKey)) {
+      return;
+    }
+
+    try {
+      scanLockRef.current = true;
+      setScanning(true);
+      setLastResult(null);
+      
+      recentlyScannedRef.current.add(codeKey);
+      setTimeout(() => {
+        recentlyScannedRef.current.delete(codeKey);
+      }, 3000);
+      
+      const result = await api.agentCheckIn(code, accessCode);
+      setLastResult(result);
+      
+      if (result.ticket) {
+        const newCheckIn: RecentCheckIn = {
+          ticketNumber: result.ticket.ticketNumber,
+          buyerName: result.ticket.buyerName,
+          tierName: result.ticket.tierName,
+          timestamp: new Date(),
+          success: result.success,
+        };
+        
+        const updatedRecent = [newCheckIn, ...recentCheckIns].slice(0, 10);
+        setRecentCheckIns(updatedRecent);
+        
+        try {
+          const savedSession = localStorage.getItem('agentSession');
+          if (savedSession) {
+            const session = JSON.parse(savedSession);
+            session.recentCheckIns = updatedRecent;
+            if (result.success) {
+              session.checkInCount = sessionCheckInCount + 1;
+            }
+            localStorage.setItem('agentSession', JSON.stringify(session));
+          }
+        } catch (e) {}
+      }
+      
+      if (result.success) {
+        setSessionCheckInCount((prev) => prev + 1);
+        playSound(true);
+      } else {
+        playSound(false);
+      }
+      
+      setQrInput('');
+    } catch (err: any) {
+      setLastResult({
+        success: false,
+        message: err.message || 'Failed to check in ticket',
+      });
+      playSound(false);
+    } finally {
+      scanLockRef.current = false;
+      setScanning(false);
+      // Allow scanning the same code again after 2 seconds
+      setTimeout(() => {
+        lastScannedRef.current = null;
+      }, 2000);
+    }
+  };
 
   const handleActivate = async () => {
     const code = accessCode.toUpperCase().trim();
@@ -467,14 +603,67 @@ export default function AgentPortalPage() {
           </CardContent>
         </Card>
 
-        {/* Scan Input - Prominent */}
-        <Card className="shadow-lg">
-          <CardContent className="pt-6 pb-4">
-            <div className="space-y-4">
+        {/* Camera Scanner */}
+        <Card className="shadow-lg overflow-hidden">
+          <CardContent className="p-0">
+            {/* Camera Toggle Button */}
+            <div className="p-4 border-b bg-gray-50">
+              <Button
+                onClick={cameraActive ? stopCamera : startCamera}
+                variant={cameraActive ? "destructive" : "default"}
+                className="w-full h-12"
+              >
+                {cameraActive ? (
+                  <>
+                    <CameraOff className="h-5 w-5 mr-2" />
+                    Stop Camera
+                  </>
+                ) : (
+                  <>
+                    <Camera className="h-5 w-5 mr-2" />
+                    Start Camera Scanner
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Camera View */}
+            {cameraActive && (
+              <div className="relative bg-black">
+                <div id="agent-scanner" className="w-full" style={{ minHeight: '300px' }} />
+                {scanning && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                      <p>Processing...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Camera Error */}
+            {cameraError && (
+              <div className="p-4 bg-red-50 border-t border-red-200">
+                <p className="text-sm text-red-600 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {cameraError}
+                </p>
+              </div>
+            )}
+
+            {/* Manual Input Section */}
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex-1 h-px bg-border" />
+                <span>or enter manually</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              
               <div className="relative">
                 <Input
                   ref={inputRef}
-                  placeholder="Scan QR code or enter ticket number"
+                  placeholder="Enter ticket number"
                   value={qrInput}
                   onChange={(e) => setQrInput(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, handleScan)}
