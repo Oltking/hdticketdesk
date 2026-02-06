@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { EmailService } from '../emails/email.service';
 import { UpdateProfileDto, UpdateBankDetailsDto } from './dto';
 import { ERROR_MESSAGES } from '../../common/constants/error-messages';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
@@ -22,8 +28,8 @@ export class UsersService {
   }
 
   /**
-   * Update user role (for new OAuth users who need to select their role)
-   * Only allows updating from BUYER to ORGANIZER for new users
+   * Update user role (for new users who need to select their role after signup/OAuth)
+   * Also sends the welcome email after role selection
    */
   async updateUserRole(userId: string, role: 'BUYER' | 'ORGANIZER') {
     const user = await this.prisma.user.findUnique({
@@ -46,6 +52,20 @@ export class UsersService {
       data: { role },
       include: { organizerProfile: true },
     });
+
+    // Send welcome email now that the user has selected their role
+    try {
+      const welcomeResult = await this.emailService.sendWelcomeEmail(
+        updatedUser.email,
+        updatedUser.firstName ?? '',
+        role,
+      );
+      if (!welcomeResult.success) {
+        this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
+      }
+    } catch (e) {
+      this.logger.error('Error sending welcome email', e);
+    }
 
     const { password: _, ...userWithoutPassword } = updatedUser;
 

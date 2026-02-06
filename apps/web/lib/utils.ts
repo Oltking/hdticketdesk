@@ -14,8 +14,18 @@ export function formatCurrency(amount: number, currency = 'NGN'): string {
   }).format(amount);
 }
 
-export function formatDate(date: string | Date, style: 'full' | 'short' | 'time' = 'full'): string {
+export function formatDate(date: string | Date | null | undefined, style: 'full' | 'short' | 'time' = 'full'): string {
+  // Handle null, undefined, or empty string
+  if (!date) {
+    return '-';
+  }
+  
   const d = new Date(date);
+  
+  // Check if the date is invalid
+  if (isNaN(d.getTime())) {
+    return '-';
+  }
   
   if (style === 'short') {
     return d.toLocaleDateString('en-NG', {
@@ -42,9 +52,20 @@ export function formatDate(date: string | Date, style: 'full' | 'short' | 'time'
   });
 }
 
-export function formatTimeUntil(date: string | Date): string {
+export function formatTimeUntil(date: string | Date | null | undefined): string {
+  // Handle null, undefined, or empty string
+  if (!date) {
+    return '-';
+  }
+  
   const now = new Date();
   const target = new Date(date);
+  
+  // Check if the date is invalid
+  if (isNaN(target.getTime())) {
+    return '-';
+  }
+  
   const diff = target.getTime() - now.getTime();
   
   if (diff < 0) {

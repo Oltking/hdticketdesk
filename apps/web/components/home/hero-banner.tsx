@@ -32,7 +32,7 @@ export function HeroBanner() {
         }}
       />
       
-      <div className="container relative z-10 pt-2 pb-9 text-center">
+      <div className="container relative z-10 pt-4 pb-9 text-center">
         
         {/* Main heading */}
         <h1 className="text-5xl md:text-7xl lg:text-8xl font-display font-bold mb-3 animate-in" style={{ animationDelay: '0.2s' }}>

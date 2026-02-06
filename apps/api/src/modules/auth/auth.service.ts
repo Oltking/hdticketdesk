@@ -370,19 +370,8 @@ export class AuthService {
       },
     });
 
-    // Send welcome email (best-effort)
-    try {
-      const welcomeResult = await this.emailService.sendWelcomeEmail(
-        user.email,
-        user.firstName ?? '',
-        user.role as any,
-      );
-      if (!welcomeResult.success) {
-        this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
-      }
-    } catch (e) {
-      this.logger.error('Error sending welcome email', e);
-    }
+    // Note: Welcome email is sent after role selection (in updateUserRole)
+    // since users now select their role after email verification
 
     // Generate tokens and log user in
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -918,19 +907,8 @@ export class AuthService {
           needsOrganizerSetup = true;
         }
 
-        // Send welcome email (best-effort)
-        try {
-          const welcomeResult = await this.emailService.sendWelcomeEmail(
-            user.email,
-            user.firstName ?? '',
-            user.role as any,
-          );
-          if (!welcomeResult.success) {
-            this.logger.error(`Failed to send welcome email: ${welcomeResult.error}`);
-          }
-        } catch (e) {
-          this.logger.error('Error sending welcome email', e);
-        }
+        // Note: Welcome email is sent after role selection (in updateUserRole)
+        // since new OAuth users also need to select/confirm their role
       }
     } else {
       // User found by Google ID - update profile pic if changed

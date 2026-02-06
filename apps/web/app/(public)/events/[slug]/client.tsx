@@ -179,8 +179,16 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     );
   }
 
-  const isLive = new Date(event.startDate) <= new Date() && (!event.endDate || new Date(event.endDate) >= new Date());
-  const isPast = event.endDate ? new Date(event.endDate) < new Date() : new Date(event.startDate) < new Date();
+  // Event status logic:
+  // - isPast: event has ended (endDate < now, or if no endDate, startDate < now)
+  // - isLive: event is currently happening (started but not ended)
+  // Note: isPast takes precedence - an event cannot be both live and past
+  const now = new Date();
+  const startDate = new Date(event.startDate);
+  const endDate = event.endDate ? new Date(event.endDate) : null;
+  
+  const isPast = endDate ? endDate < now : startDate < now;
+  const isLive = !isPast && startDate <= now && (!endDate || endDate >= now);
 
   return (
     <>
