@@ -42,6 +42,8 @@ export default function ScanPage() {
   const [loading, setLoading] = useState(true);
   const scannerRef = useRef<any>(null);
   const lastScannedRef = useRef<string | null>(null);
+  // Track recently processed codes to prevent rapid duplicate submissions
+  const recentlyProcessedRef = useRef<Set<string>>(new Set());
 
   // Fetch event to get the ID from slug
   useEffect(() => {
@@ -113,8 +115,28 @@ export default function ScanPage() {
       return;
     }
     
+    // PROTECTION 1: Prevent concurrent processing
+    if (isProcessing) {
+      return;
+    }
+
+    // PROTECTION 2: Prevent rapid duplicate scans of the same code (within 3 seconds)
+    const codeKey = code.toUpperCase().trim();
+    if (recentlyProcessedRef.current.has(codeKey)) {
+      error('This code was just scanned. Please wait a moment.');
+      return;
+    }
+    
     // Set processing state to prevent multiple scans
     setIsProcessing(true);
+    
+    // Mark code as recently processed
+    recentlyProcessedRef.current.add(codeKey);
+    
+    // Clear from recently processed after 3 seconds
+    setTimeout(() => {
+      recentlyProcessedRef.current.delete(codeKey);
+    }, 3000);
     
     try {
       // Use scanQr which validates AND checks in the ticket in one call
@@ -195,12 +217,22 @@ export default function ScanPage() {
               <p className="text-muted-foreground mt-1">{eventTitle}</p>
             )}
           </div>
-          <Link href={`/events/${slug}/analytics`}>
-            <Button variant="outline" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              View Analytics
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/events/${slug}/agents`}>
+              <Button variant="outline" className="gap-2">
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Manage Agents</span>
+                <span className="sm:hidden">Agents</span>
+              </Button>
+            </Link>
+            <Link href={`/events/${slug}/analytics`}>
+              <Button variant="outline" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">View Analytics</span>
+                <span className="sm:hidden">Analytics</span>
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats Summary */}

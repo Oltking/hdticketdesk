@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/ui/logo';
 import { useAuthStore } from '@/store/auth-store';
 import { cn } from '@/lib/utils';
-import { Menu, X, User, LogOut, LayoutDashboard, Settings } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, Settings, QrCode } from 'lucide-react';
 
 export function Header() {
   const pathname = usePathname();
@@ -16,6 +16,7 @@ export function Header() {
 
   const navLinks = [
     { href: '/events', label: 'Events' },
+    { href: '/agent', label: 'Event Agent', icon: QrCode },
     { href: '/about', label: 'About' },
   ];
 

@@ -250,7 +250,16 @@ export class TicketsService {
     return this.getTicketsByEvent(eventId);
   }
 
+  /**
+   * Check in a ticket by ticket number
+   * 
+   * IMPORTANT: Uses atomic database operations to prevent:
+   * 1. Race conditions (simultaneous check-in attempts)
+   * 2. Duplicate check-ins
+   * 3. Invalid state transitions
+   */
   async checkInTicket(ticketNumber: string, checkedInBy?: string) {
+    // First, find and validate the ticket
     const ticket = await this.prisma.ticket.findUnique({
       where: { ticketNumber },
       include: {
@@ -263,6 +272,7 @@ export class TicketsService {
       throw new NotFoundException('Ticket not found');
     }
 
+    // Check current status before attempting update
     if (ticket.status === 'CHECKED_IN') {
       return {
         success: false,
@@ -305,13 +315,40 @@ export class TicketsService {
       };
     }
 
-    const updated = await this.prisma.ticket.update({
-      where: { id: ticket.id },
+    // ATOMIC CHECK-IN: Only update if status is still ACTIVE
+    // This prevents race conditions where two requests try to check in simultaneously
+    const checkInTime = new Date();
+    const updateResult = await this.prisma.ticket.updateMany({
+      where: {
+        id: ticket.id,
+        status: 'ACTIVE', // CRITICAL: Only update if still ACTIVE
+      },
       data: {
         status: 'CHECKED_IN',
-        checkedInAt: new Date(),
+        checkedInAt: checkInTime,
         checkedInBy: checkedInBy || null,
       },
+    });
+
+    // If no rows were updated, another request already checked in this ticket
+    if (updateResult.count === 0) {
+      // Re-fetch to get the actual current state
+      const currentTicket = await this.prisma.ticket.findUnique({
+        where: { id: ticket.id },
+        include: { event: true, tier: true },
+      });
+
+      return {
+        success: false,
+        message: 'Ticket already checked in',
+        checkedInAt: currentTicket?.checkedInAt,
+        ticket: currentTicket || ticket,
+      };
+    }
+
+    // Fetch the updated ticket for the response
+    const updated = await this.prisma.ticket.findUnique({
+      where: { id: ticket.id },
       include: {
         event: true,
         tier: true,

@@ -38,6 +38,7 @@ import { EmailModule } from './modules/emails/email.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ReconciliationModule } from './modules/reconciliation/reconciliation.module';
+import { AgentsModule } from './modules/agents/agents.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { ReconciliationModule } from './modules/reconciliation/reconciliation.mo
     AdminModule,
     TasksModule,
     ReconciliationModule,
+    AgentsModule,
   ],
   providers: [
     // Global Rate Limiting Guard

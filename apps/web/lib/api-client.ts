@@ -1190,6 +1190,116 @@ class ApiClient {
       transactions: number;
     }>(`/reconciliation/daily-summary${query}`);
   }
+
+  // ==================== AGENT METHODS ====================
+
+  /**
+   * Create a new agent access code for an event (organizer only)
+   */
+  async createAgentCode(eventId: string, label?: string) {
+    return this.request<{
+      id: string;
+      code: string;
+      label: string | null;
+      isActive: boolean;
+      checkInCount: number;
+      createdAt: string;
+      event: { id: string; title: string; slug: string };
+    }>(`/agents/events/${eventId}/codes`, {
+      method: 'POST',
+      body: JSON.stringify({ label }),
+    });
+  }
+
+  /**
+   * Get all agent access codes for an event (organizer only)
+   */
+  async getEventAgentCodes(eventId: string) {
+    return this.request<Array<{
+      id: string;
+      code: string;
+      label: string | null;
+      isActive: boolean;
+      activatedAt: string | null;
+      lastUsedAt: string | null;
+      checkInCount: number;
+      createdAt: string;
+    }>>(`/agents/events/${eventId}/codes`);
+  }
+
+  /**
+   * Deactivate an agent access code (organizer only)
+   */
+  async deactivateAgentCode(codeId: string) {
+    return this.request(`/agents/codes/${codeId}/deactivate`, {
+      method: 'PATCH',
+    });
+  }
+
+  /**
+   * Reactivate an agent access code (organizer only)
+   */
+  async reactivateAgentCode(codeId: string) {
+    return this.request(`/agents/codes/${codeId}/reactivate`, {
+      method: 'PATCH',
+    });
+  }
+
+  /**
+   * Delete an agent access code (organizer only)
+   */
+  async deleteAgentCode(codeId: string) {
+    return this.request(`/agents/codes/${codeId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * Activate/verify an agent access code (public - no auth required)
+   */
+  async activateAgentCode(code: string) {
+    return this.request<{
+      valid: boolean;
+      event: {
+        id: string;
+        title: string;
+        slug: string;
+        startDate: string;
+        endDate: string | null;
+        location: string | null;
+        coverImage: string | null;
+        status: string;
+      };
+      label: string | null;
+      checkInCount: number;
+    }>('/agents/activate', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  /**
+   * Check in a ticket using agent access code (public - no auth required)
+   */
+  async agentCheckIn(qrCode: string, accessCode: string) {
+    return this.request<{
+      success: boolean;
+      message: string;
+      checkedInAt?: string;
+      checkedInBy?: string;
+      ticket?: {
+        ticketNumber: string;
+        tierName: string;
+        buyerName: string;
+        checkedInAt?: string;
+        checkedInBy?: string;
+        status?: string;
+      };
+    }>('/agents/check-in', {
+      method: 'POST',
+      body: JSON.stringify({ qrCode, accessCode }),
+    });
+  }
 }
 
 export const api = new ApiClient();

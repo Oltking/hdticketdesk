@@ -92,28 +92,29 @@ model VirtualAccount {
 }
 
 model Event {
-  id                 String           @id @default(cuid())
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id                 String             @id @default(cuid())
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   title              String
-  slug               String           @unique
+  slug               String             @unique
   description        String?
-  status             EventStatus      @default(DRAFT)
+  status             EventStatus        @default(DRAFT)
   startDate          DateTime
   endDate            DateTime?
   location           String?
   latitude           Float?
   longitude          Float?
-  isLocationPublic   Boolean          @default(true)
-  isOnline           Boolean          @default(false)
+  isLocationPublic   Boolean            @default(true)
+  isOnline           Boolean            @default(false)
   onlineLink         String?
   coverImage         String?
-  gallery            String[]         @default([])
-  isFeatured         Boolean          @default(false)
-  maxTicketsPerOrder Int              @default(10)
-  passFeeTobuyer     Boolean          @default(false) // If true, 5% service fee is added to buyer's payment
+  gallery            String[]           @default([])
+  isFeatured         Boolean            @default(false)
+  maxTicketsPerOrder Int                @default(10)
+  passFeeTobuyer     Boolean            @default(false) // If true, 5% service fee is added to buyer's payment
   organizerId        String
-  organizer          OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  organizer          OrganizerProfile   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  agentAccessCodes   AgentAccessCode[]
   payments           Payment[]
   tickets            Ticket[]
   tiers              TicketTier[]
@@ -406,4 +407,25 @@ enum LedgerStatus {
   CONFIRMED   // Entry confirmed and final
   REVERSED    // Entry has been reversed/cancelled
   DISPUTED    // Entry is under dispute
+}
+
+// Agent access codes for event check-in
+// These are 9-character codes (mixed letters and numbers) that organizers generate
+// for agents to use for scanning tickets at events without needing an account
+model AgentAccessCode {
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  code            String    @unique  // 9-character secure code (e.g., "A3B7C9D2E")
+  label           String?   // Optional label/name for the agent (e.g., "Gate 1", "John")
+  isActive        Boolean   @default(true)
+  activatedAt     DateTime? // When the code was first used
+  lastUsedAt      DateTime? // Last time the code was used for check-in
+  checkInCount    Int       @default(0) // Number of successful check-ins by this agent
+  eventId         String
+  event           Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([eventId])
+  @@index([eventId, isActive])
 }
