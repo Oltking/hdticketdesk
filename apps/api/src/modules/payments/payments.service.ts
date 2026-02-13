@@ -21,6 +21,20 @@ export class PaymentsService {
   ) {}
 
   async initializePayment(eventId: string, tierId: string, userId: string | null, email: string) {
+    this.logger.log(`initializePayment called: eventId=${eventId}, tierId=${tierId}, userId=${userId}, email=${email}`);
+    
+    // Validate required parameters
+    if (!eventId || !tierId) {
+      throw new BadRequestException('Event ID and Tier ID are required');
+    }
+    
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      throw new BadRequestException('A valid email address is required');
+    }
+    
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+    
     // Get event and tier
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -83,7 +97,7 @@ export class PaymentsService {
     } else {
       // For guest checkout, first check if this email belongs to an organizer account
       const existingUser = await this.prisma.user.findUnique({
-        where: { email: email.toLowerCase() },
+        where: { email: normalizedEmail },
         select: { role: true, emailVerified: true },
       });
 
@@ -106,7 +120,7 @@ export class PaymentsService {
       const existingTicket = await this.prisma.ticket.findFirst({
         where: {
           eventId,
-          buyerEmail: email,
+          buyerEmail: normalizedEmail,
           status: {
             in: ['ACTIVE', 'CHECKED_IN'],
           },
@@ -169,7 +183,7 @@ export class PaymentsService {
           eventId,
           tierId,
           buyerId: userId || null,
-          buyerEmail: email,
+          buyerEmail: normalizedEmail,
         },
       });
 
@@ -178,7 +192,7 @@ export class PaymentsService {
         eventId,
         tierId,
         buyerId: userId || '',
-        buyerEmail: email,
+        buyerEmail: normalizedEmail,
         buyerFirstName: user?.firstName || undefined,
         buyerLastName: user?.lastName || undefined,
         paymentId: payment.id,
@@ -215,7 +229,7 @@ export class PaymentsService {
         eventId,
         tierId,
         buyerId: userId || null,
-        buyerEmail: email,
+        buyerEmail: normalizedEmail,
         organizerId: event.organizerId, // Track organizer for reconciliation
       },
     });
@@ -228,7 +242,7 @@ export class PaymentsService {
 
     // Initialize Monnify transaction with total amount buyer will pay
     const monnifyResponse = await this.monnifyService.initializeTransaction(
-      email,
+      normalizedEmail,
       totalAmountForBuyer, // Total amount buyer pays (Monnify expects Naira, not kobo)
       reference,
       {

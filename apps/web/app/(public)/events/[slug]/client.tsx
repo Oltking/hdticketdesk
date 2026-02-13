@@ -127,9 +127,11 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
       return;
     }
 
+    console.log('[Payment] Starting purchase flow', { tierId, email, eventId: event?.id, isAuthenticated });
     setPurchasing(tierId);
     try {
       const response = await api.initializePayment(event!.id, tierId, email);
+      console.log('[Payment] API response received', response);
       
       // Handle free tickets - no payment gateway needed
       if (response.isFree) {
@@ -141,7 +143,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
         return;
       }
       
-      // For paid tickets, show checkout dialog with price breakdown if there's a service fee
+      // For paid tickets, redirect to payment gateway
       if (response.authorizationUrl) {
         const tier = event!.tiers?.find(t => t.id === tierId);
         const tierPrice = response.tierPrice || Number(tier?.price) || 0;
@@ -160,14 +162,17 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
             authorizationUrl: response.authorizationUrl,
           });
         } else {
-          // No service fee, redirect directly
+          // No service fee, redirect directly to payment gateway
+          console.log('[Payment] Redirecting to payment gateway:', response.authorizationUrl);
+          // Use assign instead of replace for better compatibility
           window.location.href = response.authorizationUrl;
         }
       } else {
-        throw new Error('Payment initialization failed - no authorization URL');
+        throw new Error('Payment initialization failed - no authorization URL received');
       }
     } catch (err: any) {
-      error(err.message || 'Failed to initialize payment');
+      console.error('Payment initialization error:', err);
+      error(err.message || 'Failed to initialize payment. Please try again.');
       // Close the dialog if it was open
       setCheckoutDialog(null);
     } finally {
@@ -652,19 +657,31 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setGuestEmailDialog(null)}>
+            <Button variant="outline" onClick={() => setGuestEmailDialog(null)} disabled={purchasing !== null}>
               Cancel
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (guestEmail && guestEmailDialog) {
+                  // Capture values before closing dialog
+                  const tierId = guestEmailDialog.tierId;
+                  const email = guestEmail.trim();
+                  // Close dialog first
                   setGuestEmailDialog(null);
-                  handlePurchase(guestEmailDialog.tierId, guestEmail);
+                  // Then process payment with captured values
+                  await handlePurchase(tierId, email);
                 }
               }}
-              disabled={!guestEmail || !/\S+@\S+\.\S+/.test(guestEmail)}
+              disabled={!guestEmail || !/\S+@\S+\.\S+/.test(guestEmail) || purchasing !== null}
             >
-              Continue to Payment
+              {purchasing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Continue to Payment'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
