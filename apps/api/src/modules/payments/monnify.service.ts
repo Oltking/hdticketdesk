@@ -228,18 +228,40 @@ export class MonnifyService {
     // Round to 2 decimal places to avoid floating point issues
     const roundedAmount = Math.round(amount * 100) / 100;
 
+    // Sanitize text fields - remove emojis and special characters that might cause issues
+    const sanitizeField = (text: string): string => {
+      if (!text) return text;
+      // Remove emojis and other problematic Unicode characters
+      return text
+        .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width characters
+        .substring(0, 500) // Limit length
+        .trim();
+    };
+
+    const sanitizedDescription = sanitizeField(
+      metadata?.description || 'Ticket Purchase'
+    );
+    const sanitizedCustomerName = sanitizeField(
+      metadata?.customerName || 'Customer'
+    );
+
     // Build request body - ensure all values are properly formatted
     const requestBody = {
       amount: roundedAmount,
-      customerName: metadata?.customerName || 'Customer',
+      customerName: sanitizedCustomerName,
       customerEmail: email,
       paymentReference: reference,
-      paymentDescription: metadata?.description || 'Ticket Purchase',
+      paymentDescription: sanitizedDescription,
       currencyCode: 'NGN',
       contractCode: this.contractCode,
       redirectUrl: `${frontendUrl}/payment/callback`,
       paymentMethods: ['CARD', 'ACCOUNT_TRANSFER'],
-      metadata,
+      metadata: metadata ? {
+        ...metadata,
+        description: sanitizedDescription,
+        customerName: sanitizedCustomerName,
+      } : undefined,
     };
 
     this.logger.log(`Initializing Monnify transaction:`, {
@@ -249,6 +271,7 @@ export class MonnifyService {
       contractCode: this.contractCode,
       frontendUrl,
       metadataKeys: metadata ? Object.keys(metadata) : [],
+      description: sanitizedDescription,
     });
 
     let response;
@@ -303,6 +326,8 @@ export class MonnifyService {
         userMessage = 'Invalid payment request. Please check your details and try again.';
       } else if (data.responseCode === '02') {
         userMessage = 'Invalid payment credentials. Please contact support.';
+      } else if (data.responseCode === '99') {
+        userMessage = 'Payment service temporarily unavailable. Please try again.';
       } else if (userMessage.includes('contract')) {
         userMessage = 'Payment configuration error. Please contact support.';
       }
