@@ -228,6 +228,7 @@ export class MonnifyService {
     // Round to 2 decimal places to avoid floating point issues
     const roundedAmount = Math.round(amount * 100) / 100;
 
+    // Build request body - ensure all values are properly formatted
     const requestBody = {
       amount: roundedAmount,
       customerName: metadata?.customerName || 'Customer',
@@ -241,25 +242,80 @@ export class MonnifyService {
       metadata,
     };
 
-    this.logger.log(`Initializing Monnify transaction: ${reference}, amount: ${roundedAmount}`);
-
-    const response = await fetch(`${this.baseUrl}/api/v1/merchant/transactions/init-transaction`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    this.logger.log(`Initializing Monnify transaction:`, {
+      reference,
+      amount: roundedAmount,
+      email,
+      contractCode: this.contractCode,
+      frontendUrl,
+      metadataKeys: metadata ? Object.keys(metadata) : [],
     });
 
-    const data = await response.json();
-
-    if (!data.requestSuccessful) {
-      this.logger.error('Failed to initialize transaction:', JSON.stringify(data));
-      throw new Error(data.responseMessage || 'Failed to initialize transaction');
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}/api/v1/merchant/transactions/init-transaction`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (fetchError) {
+      this.logger.error(`Network error calling Monnify:`, {
+        error: (fetchError as any).message,
+        stack: (fetchError as any).stack,
+      });
+      throw new Error(`Failed to connect to payment gateway: ${(fetchError as any).message}`);
     }
 
-    this.logger.log(`Transaction initialized: ${data.responseBody.transactionReference}`);
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      this.logger.error(`Failed to parse Monnify response:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: (parseError as any).message,
+      });
+      throw new Error(`Invalid response from payment gateway. Status: ${response.status}`);
+    }
+
+    this.logger.log(`Monnify response received:`, {
+      requestSuccessful: data.requestSuccessful,
+      responseCode: data.responseCode,
+      responseMessage: data.responseMessage,
+      hasResponseBody: !!data.responseBody,
+    });
+
+    if (!data.requestSuccessful) {
+      const errorDetails = {
+        responseCode: data.responseCode,
+        responseMessage: data.responseMessage,
+        requestBody: requestBody,
+        fullResponse: JSON.stringify(data),
+      };
+      this.logger.error('Failed to initialize transaction:', errorDetails);
+      
+      // Provide more specific error message based on response
+      let userMessage = data.responseMessage || 'Failed to initialize transaction';
+      if (data.responseCode === '04' || data.responseCode === 'INVALID_REQUEST') {
+        userMessage = 'Invalid payment request. Please check your details and try again.';
+      } else if (data.responseCode === '02') {
+        userMessage = 'Invalid payment credentials. Please contact support.';
+      } else if (userMessage.includes('contract')) {
+        userMessage = 'Payment configuration error. Please contact support.';
+      }
+      
+      throw new Error(userMessage);
+    }
+
+    if (!data.responseBody?.transactionReference) {
+      this.logger.error('Missing transaction reference in Monnify response:', JSON.stringify(data));
+      throw new Error('Payment gateway did not return transaction reference');
+    }
+
+    this.logger.log(`Transaction initialized successfully: ${data.responseBody.transactionReference}`);
 
     return {
       transactionReference: data.responseBody.transactionReference,
