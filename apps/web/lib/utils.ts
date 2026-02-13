@@ -14,16 +14,63 @@ export function formatCurrency(amount: number, currency = 'NGN'): string {
   }).format(amount);
 }
 
-// Nigeria timezone (WAT - West Africa Time, UTC+1)
-const TIMEZONE = 'Africa/Lagos';
-
+// Format dates WITHOUT timezone conversion
+// We store dates as literal times (what the organizer entered), so we display them as-is
 export function formatDate(date: string | Date | null | undefined, style: 'full' | 'short' | 'time' = 'full'): string {
   // Handle null, undefined, or empty string
   if (!date) {
     return '-';
   }
   
-  const d = new Date(date);
+  // Parse the date - for ISO strings ending in Z, we extract the literal time
+  let d: Date;
+  if (typeof date === 'string' && date.endsWith('Z')) {
+    // Extract the date/time parts directly from the ISO string without timezone conversion
+    // "2024-02-10T22:00:00.000Z" -> we want to show "22:00" not converted to local time
+    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      // Create date using UTC methods to avoid timezone shift
+      d = new Date(Date.UTC(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute)
+      ));
+      
+      // Format using UTC to preserve the literal time
+      if (style === 'short') {
+        return d.toLocaleDateString('en-NG', {
+          timeZone: 'UTC',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+      
+      if (style === 'time') {
+        return d.toLocaleTimeString('en-NG', {
+          timeZone: 'UTC',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+      }
+      
+      return d.toLocaleDateString('en-NG', {
+        timeZone: 'UTC',
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    }
+  }
+  
+  // Fallback for non-ISO strings or Date objects
+  d = new Date(date);
   
   // Check if the date is invalid
   if (isNaN(d.getTime())) {
@@ -32,7 +79,6 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   
   if (style === 'short') {
     return d.toLocaleDateString('en-NG', {
-      timeZone: TIMEZONE,
       month: 'short',
       day: 'numeric',
     });
@@ -40,7 +86,6 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   
   if (style === 'time') {
     return d.toLocaleTimeString('en-NG', {
-      timeZone: TIMEZONE,
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -48,7 +93,6 @@ export function formatDate(date: string | Date | null | undefined, style: 'full'
   }
   
   return d.toLocaleDateString('en-NG', {
-    timeZone: TIMEZONE,
     weekday: 'short',
     year: 'numeric',
     month: 'short',

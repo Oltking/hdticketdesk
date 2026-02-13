@@ -89,11 +89,26 @@ export default function EditEventPage() {
         }
         
         // Format dates for datetime-local input (YYYY-MM-DDTHH:MM)
+        // We preserve the exact time the organizer entered without timezone conversion
         const formatDateForInput = (dateStr: string | null | undefined) => {
           if (!dateStr) return '';
           try {
+            // If it's already in datetime-local format, return as-is
+            if (dateStr.length === 16 && dateStr.includes('T')) {
+              return dateStr;
+            }
+            // Parse ISO string and extract local components without UTC conversion
+            // ISO format: "2024-02-10T22:00:00.000Z" - we want "2024-02-10T22:00"
+            // But we need to use local timezone, not UTC
             const date = new Date(dateStr);
-            return date.toISOString().slice(0, 16);
+            if (isNaN(date.getTime())) return '';
+            // Format as local time: YYYY-MM-DDTHH:MM
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
           } catch {
             return '';
           }
@@ -176,14 +191,22 @@ export default function EditEventPage() {
   // Helper function to convert datetime-local string to ISO string
   // datetime-local gives us "2024-02-10T22:00" without timezone
   // We interpret this as the local time the user intended and convert to ISO
+  // Convert datetime-local input to ISO string WITHOUT timezone conversion
+  // This preserves the exact time the organizer entered
   const toISOString = (dateTimeLocal: string | undefined | null): string | undefined => {
     if (!dateTimeLocal || dateTimeLocal.trim() === '') return undefined;
     // The datetime-local input returns a string like "2024-02-10T22:00"
-    // Create a Date object which interprets it as local time
-    const date = new Date(dateTimeLocal);
-    if (isNaN(date.getTime())) return undefined;
-    // Return as ISO string which includes timezone offset
-    return date.toISOString();
+    // We append seconds and Z to make it a valid ISO string, but treat it as the literal time
+    // This means "22:00" stays "22:00" regardless of timezone
+    if (dateTimeLocal.length === 16 && dateTimeLocal.includes('T')) {
+      return `${dateTimeLocal}:00.000Z`;
+    }
+    // If it's already an ISO string, return as-is
+    if (dateTimeLocal.includes('Z') || dateTimeLocal.includes('+')) {
+      return dateTimeLocal;
+    }
+    // Fallback: append Z to treat as UTC literal
+    return `${dateTimeLocal}:00.000Z`;
   };
 
   const onSubmit = async (data: any, publish = false) => {

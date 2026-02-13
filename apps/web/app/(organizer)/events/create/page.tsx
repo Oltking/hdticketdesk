@@ -147,18 +147,23 @@ export default function CreateEventPage() {
     }
   };
 
-  // Helper function to convert datetime-local string to ISO string
-  // datetime-local gives us "2024-02-10T22:00" without timezone
-  // We need to interpret this as Africa/Lagos timezone and convert to ISO
+  // Convert datetime-local input to ISO string WITHOUT timezone conversion
+  // This preserves the exact time the organizer entered
+  // datetime-local gives us "2024-02-10T22:00" - we keep this exact time
   const toISOString = (dateTimeLocal: string | undefined): string | undefined => {
     if (!dateTimeLocal || dateTimeLocal.trim() === '') return undefined;
     // The datetime-local input returns a string like "2024-02-10T22:00"
-    // We treat this as the local time the user intended (in their timezone)
-    // Create a Date object which interprets it as local time
-    const date = new Date(dateTimeLocal);
-    if (isNaN(date.getTime())) return undefined;
-    // Return as ISO string which includes timezone offset
-    return date.toISOString();
+    // We append seconds and Z to make it a valid ISO string, but treat it as the literal time
+    // This means "22:00" stays "22:00" regardless of timezone
+    if (dateTimeLocal.length === 16 && dateTimeLocal.includes('T')) {
+      return `${dateTimeLocal}:00.000Z`;
+    }
+    // If it's already an ISO string, return as-is
+    if (dateTimeLocal.includes('Z') || dateTimeLocal.includes('+')) {
+      return dateTimeLocal;
+    }
+    // Fallback: append Z to treat as UTC literal
+    return `${dateTimeLocal}:00.000Z`;
   };
 
   const onSubmit = async (data: FormData, publish = false) => {
