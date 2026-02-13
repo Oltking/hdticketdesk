@@ -44,7 +44,17 @@ export class PaymentsController {
     const userId = req.user?.id || req.user?.sub || null;
     const email = req.user?.email || guestEmail;
 
+    console.log('[PaymentsController] Initialize payment request:', {
+      userId,
+      email,
+      eventId,
+      tierId,
+      guestEmail,
+      hasUser: !!req.user,
+    });
+
     if (!email) {
+      console.error('[PaymentsController] Email is missing. req.user:', req.user, 'guestEmail:', guestEmail);
       throw new BadRequestException('Email is required for payment initialization');
     }
 

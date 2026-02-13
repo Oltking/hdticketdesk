@@ -25,10 +25,12 @@ export class PaymentsService {
     
     // Validate required parameters
     if (!eventId || !tierId) {
+      this.logger.error('Missing required parameters', { eventId, tierId });
       throw new BadRequestException('Event ID and Tier ID are required');
     }
     
     if (!email || typeof email !== 'string' || !email.includes('@')) {
+      this.logger.error('Invalid email provided', { email });
       throw new BadRequestException('A valid email address is required');
     }
     
@@ -42,25 +44,30 @@ export class PaymentsService {
     });
 
     if (!event) {
+      this.logger.error('Event not found', { eventId });
       throw new NotFoundException('Event not found');
     }
 
     if (event.status !== 'PUBLISHED') {
+      this.logger.error('Event is not published', { eventId, status: event.status });
       throw new BadRequestException('Event is not published');
     }
 
     const tier = event.tiers.find((t: { id: string }) => t.id === tierId);
     if (!tier) {
+      this.logger.error('Ticket tier not found', { tierId, availableTiers: event.tiers.map((t: any) => t.id) });
       throw new NotFoundException('Ticket tier not found');
     }
 
     // Check availability
     if (tier.sold >= tier.capacity) {
+      this.logger.error('Tickets sold out', { tierId, sold: tier.sold, capacity: tier.capacity });
       throw new BadRequestException('Tickets sold out');
     }
 
     // Check if ticket sales have ended for this tier
     if (tier.saleEndDate && new Date(tier.saleEndDate) < new Date()) {
+      this.logger.error('Ticket sales have ended', { tierId, saleEndDate: tier.saleEndDate });
       throw new BadRequestException('Ticket sales have ended for this tier');
     }
 
