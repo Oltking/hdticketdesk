@@ -221,18 +221,25 @@ export class PaymentsService {
     // For paid tickets, proceed with Monnify payment
     // Store the TOTAL amount the buyer will pay (including service fee if passed to buyer)
     // This is critical for payment verification - Monnify will return this exact amount
-    const payment = await this.prisma.payment.create({
-      data: {
-        reference,
-        amount: totalAmountForBuyer, // Store TOTAL amount buyer pays (tier price + service fee if applicable)
-        status: 'PENDING',
-        eventId,
-        tierId,
-        buyerId: userId || null,
-        buyerEmail: normalizedEmail,
-        organizerId: event.organizerId, // Track organizer for reconciliation
-      },
-    });
+    let payment;
+    try {
+      payment = await this.prisma.payment.create({
+        data: {
+          reference,
+          amount: totalAmountForBuyer, // Store TOTAL amount buyer pays (tier price + service fee if applicable)
+          status: 'PENDING',
+          eventId,
+          tierId,
+          buyerId: userId || null,
+          buyerEmail: normalizedEmail,
+          organizerId: event.organizerId, // Track organizer for reconciliation
+        },
+      });
+      this.logger.log(`Payment record created: ${payment.id}, reference: ${reference}`);
+    } catch (dbError) {
+      this.logger.error(`Failed to create payment record: ${dbError.message}`, dbError.stack);
+      throw new BadRequestException('Unable to initialize payment. Please try again.');
+    }
 
     // Get user info for customer name
     const user = userId ? await this.prisma.user.findUnique({ where: { id: userId } }) : null;
@@ -241,23 +248,38 @@ export class PaymentsService {
       : 'Customer';
 
     // Initialize Monnify transaction with total amount buyer will pay
-    const monnifyResponse = await this.monnifyService.initializeTransaction(
-      normalizedEmail,
-      totalAmountForBuyer, // Total amount buyer pays (Monnify expects Naira, not kobo)
-      reference,
-      {
-        eventId,
-        tierId,
-        paymentId: payment.id,
-        organizerId: event.organizerId,
-        tierPrice: tierPrice.toString(), // Original ticket price
-        serviceFee: serviceFee.toString(), // 5% fee amount
-        passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
-        totalAmount: totalAmountForBuyer.toString(), // What buyer is paying
-        customerName,
-        description: `Ticket for ${event.title} - ${tier.name}`,
-      },
-    );
+    let monnifyResponse;
+    try {
+      this.logger.log(`Calling Monnify initializeTransaction for ${reference}, amount: ${totalAmountForBuyer}`);
+      monnifyResponse = await this.monnifyService.initializeTransaction(
+        normalizedEmail,
+        totalAmountForBuyer, // Total amount buyer pays (Monnify expects Naira, not kobo)
+        reference,
+        {
+          eventId,
+          tierId,
+          paymentId: payment.id,
+          organizerId: event.organizerId,
+          tierPrice: tierPrice.toString(), // Original ticket price
+          serviceFee: serviceFee.toString(), // 5% fee amount
+          passFeeTobuyer: passFeeTobuyer ? 'true' : 'false',
+          totalAmount: totalAmountForBuyer.toString(), // What buyer is paying
+          customerName,
+          description: `Ticket for ${event.title} - ${tier.name}`,
+        },
+      );
+      this.logger.log(`Monnify response received: ${JSON.stringify(monnifyResponse)}`);
+    } catch (monnifyError) {
+      this.logger.error(`Monnify initialization failed: ${monnifyError.message}`, monnifyError.stack);
+      // Mark the payment as failed since Monnify couldn't initialize
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'FAILED' },
+      });
+      throw new BadRequestException(
+        `Payment gateway error: ${monnifyError.message || 'Unable to connect to payment provider. Please try again.'}`,
+      );
+    }
 
     // Update payment with Monnify transaction reference
     await this.prisma.payment.update({
