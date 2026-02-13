@@ -52,7 +52,7 @@ function ToastContainer({ toasts, removeToast }: { toasts: Toast[]; removeToast:
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-32 right-4 z-[100] flex flex-col gap-2 max-w-sm">
+    <div className="fixed top-50 right-4 z-[100] flex flex-col gap-2 max-w-sm">
       {toasts.map((toast) => (
         <div
           key={toast.id}
