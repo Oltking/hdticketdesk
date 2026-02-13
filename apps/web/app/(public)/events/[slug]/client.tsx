@@ -190,7 +190,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
   const isPast = endDate ? endDate < now : startDate < now;
   const isLive = !isPast && startDate <= now && (!endDate || endDate >= now);
 
-  // Helper component for rendering ticket tiers
+  // Helper component for rendering ticket tiers - compact on mobile
   const TicketTierCard = ({ tier }: { tier: any }) => {
     const soldOut = tier.sold >= tier.capacity;
     const percentSold = (tier.sold / tier.capacity) * 100;
@@ -202,55 +202,59 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     return (
       <div 
         className={cn(
-          "p-4 border rounded-xl transition-all",
+          "p-3 sm:p-4 border rounded-lg sm:rounded-xl transition-all",
           isUnavailable ? "opacity-60" : "hover:border-primary hover:shadow-md",
           isFree && !isUnavailable && "border-green-200 bg-green-50/50 dark:bg-green-950/20"
         )}
       >
-        <div className="flex justify-between items-start gap-3 mb-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold truncate">{tier.name}</h3>
-              {isFree && (
-                <Badge className="bg-green-500 text-white text-xs flex-shrink-0">FREE</Badge>
-              )}
-              {salesEnded && (
-                <Badge variant="secondary" className="text-xs flex-shrink-0">Sales Ended</Badge>
-              )}
-            </div>
-            {tier.description && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{tier.description}</p>
+        {/* Header row: Name + Price */}
+        <div className="flex justify-between items-center gap-2 mb-1.5 sm:mb-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <h3 className="font-semibold text-sm sm:text-base truncate">{tier.name}</h3>
+            {isFree && (
+              <Badge className="bg-green-500 text-white text-[10px] sm:text-xs px-1.5 py-0 sm:px-2 sm:py-0.5 flex-shrink-0">FREE</Badge>
             )}
           </div>
           <span className={cn(
-            "font-display font-bold text-lg flex-shrink-0",
+            "font-display font-bold text-base sm:text-lg flex-shrink-0",
             isFree && "text-green-600"
           )}>
             {isFree ? 'Free' : formatCurrency(tier.price)}
           </span>
         </div>
         
-        {/* Sale End Countdown */}
-        {tier.saleEndDate && !salesEnded && (
-          <div className="flex items-center gap-1.5 text-xs mb-2 text-orange-600 dark:text-orange-400">
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            <Countdown 
-              targetDate={tier.saleEndDate} 
-              prefix="Sales end in"
-              expiredText="Sales ended"
-              compact
-            />
+        {/* Description - hidden on mobile if too long */}
+        {tier.description && (
+          <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-1 sm:line-clamp-2">{tier.description}</p>
+        )}
+        
+        {/* Status badges row */}
+        {(salesEnded || (tier.saleEndDate && !salesEnded)) && (
+          <div className="flex items-center gap-2 mb-2 text-xs">
+            {salesEnded ? (
+              <Badge variant="secondary" className="text-[10px] sm:text-xs">Sales Ended</Badge>
+            ) : tier.saleEndDate && (
+              <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                <Clock className="w-3 h-3 flex-shrink-0" />
+                <Countdown 
+                  targetDate={tier.saleEndDate} 
+                  prefix=""
+                  expiredText="Ended"
+                  compact
+                />
+              </div>
+            )}
           </div>
         )}
         
-        {/* Capacity bar - hidden when hideTicketSalesProgress is enabled */}
+        {/* Capacity bar - compact on mobile, hidden when hideTicketSalesProgress is enabled */}
         {!hideProgress && (
-          <div className="mb-3">
-            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+          <div className="mb-2 sm:mb-3">
+            <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">
               <span>{tier.capacity - tier.sold} left</span>
-              <span>{Math.round(percentSold)}% sold</span>
+              <span>{Math.round(percentSold)}%</span>
             </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div className="h-1 sm:h-1.5 bg-muted rounded-full overflow-hidden">
               <div 
                 className={cn(
                   "h-full rounded-full transition-all",
@@ -262,29 +266,32 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
           </div>
         )}
         
+        {/* CTA Button - compact on mobile */}
         <Button 
+          size="sm"
           className={cn(
-            "w-full",
+            "w-full h-8 sm:h-10 text-xs sm:text-sm",
             isFree && !isUnavailable && "bg-green-600 hover:bg-green-700"
           )}
           disabled={isUnavailable || purchasing === tier.id}
           onClick={() => handlePurchase(tier.id)}
         >
           {purchasing === tier.id ? (
-            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+            <><Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 animate-spin" />Processing</>
           ) : salesEnded ? (
             'Sales Ended'
           ) : soldOut ? (
             'Sold Out'
           ) : isFree ? (
-            'Claim Free Ticket'
+            'Claim Free'
           ) : (
-            'Get Tickets'
+            'Get Ticket'
           )}
         </Button>
         
+        {/* Refund info - only on larger screens */}
         {tier.refundEnabled && (
-          <p className="text-xs text-muted-foreground mt-2 text-center">
+          <p className="hidden sm:block text-xs text-muted-foreground mt-2 text-center">
             ✓ Refunds available
           </p>
         )}
@@ -461,21 +468,21 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
               {/* Mobile: Inline card, Desktop: Sticky sidebar */}
               <div className="lg:sticky lg:top-24">
                 <Card className="shadow-lg overflow-hidden">
-                  <CardHeader className="pb-3 sm:pb-4 bg-gradient-to-r from-primary/5 to-purple-500/5">
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                      <Ticket className="w-5 h-5 text-primary" />
+                  <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3 bg-gradient-to-r from-primary/5 to-purple-500/5">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <Ticket className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                       Tickets
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 space-y-3 sm:space-y-4">
+                  <CardContent className="p-3 sm:p-4 pt-2 sm:pt-3 space-y-2 sm:space-y-3">
                     {isPast ? (
-                      <div className="text-center py-6 sm:py-8">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                          <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                      <div className="text-center py-4 sm:py-8">
+                        <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                          <Clock className="w-5 h-5 sm:w-8 sm:h-8 text-muted-foreground" />
                         </div>
-                        <p className="text-muted-foreground font-medium">This event has ended</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Check out other upcoming events</p>
-                        <Button variant="outline" className="mt-4" onClick={() => router.push('/events')}>
+                        <p className="text-sm sm:text-base text-muted-foreground font-medium">This event has ended</p>
+                        <p className="text-xs text-muted-foreground mt-1 hidden sm:block">Check out other upcoming events</p>
+                        <Button variant="outline" size="sm" className="mt-3 sm:mt-4" onClick={() => router.push('/events')}>
                           Browse Events
                         </Button>
                       </div>
@@ -486,8 +493,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                         ))}
                         
                         {/* Scroll indicator on mobile if there's more content below */}
-                        <div className="flex items-center justify-center pt-2 lg:hidden text-muted-foreground">
-                          <ChevronDown className="w-5 h-5 animate-bounce" />
+                        <div className="flex items-center justify-center pt-1 lg:hidden text-muted-foreground">
+                          <ChevronDown className="w-4 h-4 animate-bounce" />
                         </div>
                       </>
                     )}
