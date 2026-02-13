@@ -216,7 +216,8 @@ export default function EditEventPage() {
             // Convert startDate to ISO string
             startDate: toISOString(data.startDate) || data.startDate,
             // hideTicketSalesProgress is safe to change after sales (display-only setting)
-            hideTicketSalesProgress: data.hideTicketSalesProgress,
+            // Convert to boolean in case checkbox returns string "on" 
+            hideTicketSalesProgress: data.hideTicketSalesProgress === true || data.hideTicketSalesProgress === 'on',
           }
         : {
             ...data,
@@ -229,6 +230,8 @@ export default function EditEventPage() {
             longitude: !data.isOnline && data.longitude ? data.longitude : undefined,
             // Only include onlineLink if online and has value
             onlineLink: data.isOnline && data.onlineLink ? data.onlineLink : undefined,
+            // Convert to boolean in case checkbox returns string "on"
+            hideTicketSalesProgress: data.hideTicketSalesProgress === true || data.hideTicketSalesProgress === 'on',
           };
       
       await api.updateEvent(eventId as string, eventData);

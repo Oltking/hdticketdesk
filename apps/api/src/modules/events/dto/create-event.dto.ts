@@ -10,7 +10,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateTicketTierDto {
   // Optional on create, required on update for existing tiers
@@ -108,5 +108,6 @@ export class CreateEventDto {
 
   @IsBoolean()
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === 'on')
   hideTicketSalesProgress?: boolean; // If true, hides ticket sales indicators (quantity left, % sold, progress bars) from public views
 }
