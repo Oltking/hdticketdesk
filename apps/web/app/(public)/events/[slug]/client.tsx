@@ -16,7 +16,7 @@ import { api } from '@/lib/api-client';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink, ChevronDown } from 'lucide-react';
+import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { Countdown } from '@/components/ui/countdown';
 import { MapPreviewDialog } from '@/components/ui/map-preview-dialog';
 import type { Event } from '@/types';
@@ -24,6 +24,53 @@ import type { Event } from '@/types';
 interface Props {
   slug: string;
   initialEvent: Event | null;
+}
+
+// Collapsible About Section component - prevents long descriptions from making page too long on mobile
+function AboutSection({ description }: { description: string | null }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const maxLength = 300; // Characters to show before truncating on mobile
+  
+  if (!description) return null;
+  
+  const isLong = description.length > maxLength;
+  const shouldTruncate = isLong && !isExpanded;
+  const displayText = shouldTruncate 
+    ? description.slice(0, maxLength).trim() + '...' 
+    : description;
+  
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2 sm:pb-4">
+        <CardTitle className="text-lg sm:text-xl">About This Event</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {/* Mobile: truncated with expand button */}
+        <div className="sm:hidden">
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground leading-relaxed break-words">
+            {displayText}
+          </p>
+          {isLong && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="mt-2 text-primary text-sm font-medium flex items-center gap-1 hover:underline"
+            >
+              {isExpanded ? (
+                <>Show less <ChevronUp className="w-4 h-4" /></>
+              ) : (
+                <>Read more <ChevronDown className="w-4 h-4" /></>
+              )}
+            </button>
+          )}
+        </div>
+        
+        {/* Desktop: full description */}
+        <p className="hidden sm:block whitespace-pre-wrap text-sm sm:text-base text-muted-foreground leading-relaxed break-words">
+          {description}
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function EventDetailClient({ slug, initialEvent }: Props) {
@@ -202,99 +249,97 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
     return (
       <div 
         className={cn(
-          "p-3 sm:p-4 border rounded-lg sm:rounded-xl transition-all",
+          "flex flex-col border rounded-lg transition-all overflow-hidden",
           isUnavailable ? "opacity-60" : "hover:border-primary hover:shadow-md",
           isFree && !isUnavailable && "border-green-200 bg-green-50/50 dark:bg-green-950/20"
         )}
       >
-        {/* Header row: Name + Price */}
-        <div className="flex justify-between items-center gap-2 mb-1.5 sm:mb-2">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-            <h3 className="font-semibold text-sm sm:text-base truncate">{tier.name}</h3>
-            {isFree && (
-              <Badge className="bg-green-500 text-white text-[10px] sm:text-xs px-1.5 py-0 sm:px-2 sm:py-0.5 flex-shrink-0">FREE</Badge>
-            )}
+        {/* Card Content - with proper padding */}
+        <div className="p-3 flex-1">
+          {/* Header row: Name + Price - always on one line */}
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <h3 className="font-semibold text-sm truncate">{tier.name}</h3>
+              {isFree && (
+                <Badge className="bg-green-500 text-white text-[10px] px-1.5 py-0 flex-shrink-0">FREE</Badge>
+              )}
+            </div>
+            <span className={cn(
+              "font-display font-bold text-sm flex-shrink-0",
+              isFree && "text-green-600"
+            )}>
+              {isFree ? 'Free' : formatCurrency(tier.price)}
+            </span>
           </div>
-          <span className={cn(
-            "font-display font-bold text-base sm:text-lg flex-shrink-0",
-            isFree && "text-green-600"
-          )}>
-            {isFree ? 'Free' : formatCurrency(tier.price)}
-          </span>
-        </div>
-        
-        {/* Description - hidden on mobile if too long */}
-        {tier.description && (
-          <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-1 sm:line-clamp-2">{tier.description}</p>
-        )}
-        
-        {/* Status badges row */}
-        {(salesEnded || (tier.saleEndDate && !salesEnded)) && (
-          <div className="flex items-center gap-2 mb-2 text-xs">
-            {salesEnded ? (
-              <Badge variant="secondary" className="text-[10px] sm:text-xs">Sales Ended</Badge>
-            ) : tier.saleEndDate && (
-              <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                <Clock className="w-3 h-3 flex-shrink-0" />
-                <Countdown 
-                  targetDate={tier.saleEndDate} 
-                  prefix=""
-                  expiredText="Ended"
-                  compact
-                />
+          
+          {/* Description - single line only on mobile */}
+          {tier.description && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{tier.description}</p>
+          )}
+          
+          {/* Status/Progress row - inline on mobile */}
+          <div className="flex items-center justify-between gap-2 mt-2">
+            {/* Left: Status badge or countdown */}
+            <div className="flex items-center gap-1 text-xs min-w-0 flex-shrink">
+              {salesEnded ? (
+                <Badge variant="secondary" className="text-[10px]">Sales Ended</Badge>
+              ) : tier.saleEndDate ? (
+                <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400 truncate">
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <Countdown 
+                    targetDate={tier.saleEndDate} 
+                    prefix=""
+                    expiredText="Ended"
+                    compact
+                  />
+                </div>
+              ) : !hideProgress ? (
+                <span className="text-muted-foreground">{tier.capacity - tier.sold} left</span>
+              ) : null}
+            </div>
+            
+            {/* Right: Progress indicator (compact) */}
+            {!hideProgress && !salesEnded && (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="w-12 h-1 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full",
+                      percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
+                    )}
+                    style={{ width: `${Math.min(percentSold, 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground w-7 text-right">{Math.round(percentSold)}%</span>
               </div>
             )}
           </div>
-        )}
+        </div>
         
-        {/* Capacity bar - compact on mobile, hidden when hideTicketSalesProgress is enabled */}
-        {!hideProgress && (
-          <div className="mb-2 sm:mb-3">
-            <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">
-              <span>{tier.capacity - tier.sold} left</span>
-              <span>{Math.round(percentSold)}%</span>
-            </div>
-            <div className="h-1 sm:h-1.5 bg-muted rounded-full overflow-hidden">
-              <div 
-                className={cn(
-                  "h-full rounded-full transition-all",
-                  percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
-                )}
-                style={{ width: `${Math.min(percentSold, 100)}%` }}
-              />
-            </div>
-          </div>
-        )}
-        
-        {/* CTA Button - compact on mobile */}
-        <Button 
-          size="sm"
-          className={cn(
-            "w-full h-8 sm:h-10 text-xs sm:text-sm",
-            isFree && !isUnavailable && "bg-green-600 hover:bg-green-700"
-          )}
-          disabled={isUnavailable || purchasing === tier.id}
-          onClick={() => handlePurchase(tier.id)}
-        >
-          {purchasing === tier.id ? (
-            <><Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 animate-spin" />Processing</>
-          ) : salesEnded ? (
-            'Sales Ended'
-          ) : soldOut ? (
-            'Sold Out'
-          ) : isFree ? (
-            'Claim Free'
-          ) : (
-            'Get Ticket'
-          )}
-        </Button>
-        
-        {/* Refund info - only on larger screens */}
-        {tier.refundEnabled && (
-          <p className="hidden sm:block text-xs text-muted-foreground mt-2 text-center">
-            ✓ Refunds available
-          </p>
-        )}
+        {/* CTA Button - fixed at bottom with its own padding */}
+        <div className="px-3 pb-3">
+          <Button 
+            size="sm"
+            className={cn(
+              "w-full h-9 text-xs font-medium",
+              isFree && !isUnavailable && "bg-green-600 hover:bg-green-700"
+            )}
+            disabled={isUnavailable || purchasing === tier.id}
+            onClick={() => handlePurchase(tier.id)}
+          >
+            {purchasing === tier.id ? (
+              <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Processing...</>
+            ) : salesEnded ? (
+              'Sales Ended'
+            ) : soldOut ? (
+              'Sold Out'
+            ) : isFree ? (
+              'Claim Free Ticket'
+            ) : (
+              'Get Ticket'
+            )}
+          </Button>
+        </div>
       </div>
     );
   };
@@ -429,17 +474,8 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                 </CardContent>
               </Card>
 
-              {/* About Section */}
-              <Card className="overflow-hidden">
-                <CardHeader className="pb-2 sm:pb-4">
-                  <CardTitle className="text-lg sm:text-xl">About This Event</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="whitespace-pre-wrap text-sm sm:text-base text-muted-foreground leading-relaxed break-words">
-                    {event.description}
-                  </p>
-                </CardContent>
-              </Card>
+              {/* About Section - collapsible on mobile for long descriptions */}
+              <AboutSection description={event.description} />
 
               {/* Gallery Section */}
               {event.gallery && event.gallery.length > 0 && (
