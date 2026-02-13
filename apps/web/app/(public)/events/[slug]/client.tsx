@@ -16,7 +16,7 @@ import { api } from '@/lib/api-client';
 import { formatDate, formatCurrency, cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink } from 'lucide-react';
+import { Calendar, MapPin, Globe, Ticket, Users, Clock, Share2, Heart, Loader2, Info, ExternalLink, ChevronDown } from 'lucide-react';
 import { Countdown } from '@/components/ui/countdown';
 import { MapPreviewDialog } from '@/components/ui/map-preview-dialog';
 import type { Event } from '@/types';
@@ -190,109 +190,265 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
   const isPast = endDate ? endDate < now : startDate < now;
   const isLive = !isPast && startDate <= now && (!endDate || endDate >= now);
 
+  // Helper component for rendering ticket tiers
+  const TicketTierCard = ({ tier }: { tier: any }) => {
+    const soldOut = tier.sold >= tier.capacity;
+    const percentSold = (tier.sold / tier.capacity) * 100;
+    const salesEnded = tier.saleEndDate && new Date(tier.saleEndDate) < new Date();
+    const isUnavailable = soldOut || salesEnded;
+    const hideProgress = event?.hideTicketSalesProgress;
+    const isFree = Number(tier.price) === 0;
+    
+    return (
+      <div 
+        className={cn(
+          "p-4 border rounded-xl transition-all",
+          isUnavailable ? "opacity-60" : "hover:border-primary hover:shadow-md",
+          isFree && !isUnavailable && "border-green-200 bg-green-50/50 dark:bg-green-950/20"
+        )}
+      >
+        <div className="flex justify-between items-start gap-3 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-semibold truncate">{tier.name}</h3>
+              {isFree && (
+                <Badge className="bg-green-500 text-white text-xs flex-shrink-0">FREE</Badge>
+              )}
+              {salesEnded && (
+                <Badge variant="secondary" className="text-xs flex-shrink-0">Sales Ended</Badge>
+              )}
+            </div>
+            {tier.description && (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{tier.description}</p>
+            )}
+          </div>
+          <span className={cn(
+            "font-display font-bold text-lg flex-shrink-0",
+            isFree && "text-green-600"
+          )}>
+            {isFree ? 'Free' : formatCurrency(tier.price)}
+          </span>
+        </div>
+        
+        {/* Sale End Countdown */}
+        {tier.saleEndDate && !salesEnded && (
+          <div className="flex items-center gap-1.5 text-xs mb-2 text-orange-600 dark:text-orange-400">
+            <Clock className="w-3 h-3 flex-shrink-0" />
+            <Countdown 
+              targetDate={tier.saleEndDate} 
+              prefix="Sales end in"
+              expiredText="Sales ended"
+              compact
+            />
+          </div>
+        )}
+        
+        {/* Capacity bar - hidden when hideTicketSalesProgress is enabled */}
+        {!hideProgress && (
+          <div className="mb-3">
+            <div className="flex justify-between text-xs text-muted-foreground mb-1">
+              <span>{tier.capacity - tier.sold} left</span>
+              <span>{Math.round(percentSold)}% sold</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
+                )}
+                style={{ width: `${Math.min(percentSold, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+        
+        <Button 
+          className={cn(
+            "w-full",
+            isFree && !isUnavailable && "bg-green-600 hover:bg-green-700"
+          )}
+          disabled={isUnavailable || purchasing === tier.id}
+          onClick={() => handlePurchase(tier.id)}
+        >
+          {purchasing === tier.id ? (
+            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</>
+          ) : salesEnded ? (
+            'Sales Ended'
+          ) : soldOut ? (
+            'Sold Out'
+          ) : isFree ? (
+            'Claim Free Ticket'
+          ) : (
+            'Get Tickets'
+          )}
+        </Button>
+        
+        {tier.refundEnabled && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            ✓ Refunds available
+          </p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <Header />
-      <main className="flex-1">
+      <main className="flex-1 min-w-0 overflow-x-hidden">
         {/* Hero Image */}
-        <div className="relative h-64 md:h-80 lg:h-96 bg-gradient-to-br from-primary/20 to-purple-500/20">
+        <div className="relative h-48 sm:h-64 md:h-80 lg:h-96 bg-gradient-to-br from-primary/20 to-purple-500/20">
           {event.coverImage ? (
-            <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />
+            <img 
+              src={event.coverImage} 
+              alt={event.title} 
+              className="w-full h-full object-cover"
+            />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Ticket className="w-20 h-20 text-muted-foreground/30" />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-purple-500/10">
+              <Ticket className="w-16 h-16 sm:w-20 sm:h-20 text-muted-foreground/30" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
           
           {/* Status Badge */}
-          <div className="absolute top-4 left-4">
+          <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
             {isLive && (
-              <Badge className="bg-red-500 text-white animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-white mr-2 animate-ping" />
+              <Badge className="bg-red-500 text-white animate-pulse text-xs sm:text-sm">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white mr-1.5 sm:mr-2 animate-ping" />
                 LIVE NOW
               </Badge>
             )}
-            {isPast && <Badge variant="secondary">Event Ended</Badge>}
+            {isPast && <Badge variant="secondary" className="text-xs sm:text-sm">Event Ended</Badge>}
           </div>
           
           {/* Action buttons */}
-          <div className="absolute top-4 right-4 flex gap-2">
-            <Button variant="secondary" size="icon" onClick={handleShare}>
+          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex gap-2">
+            <Button variant="secondary" size="icon" onClick={handleShare} className="h-8 w-8 sm:h-10 sm:w-10">
               <Share2 className="w-4 h-4" />
             </Button>
-            <Button variant="secondary" size="icon">
+            <Button variant="secondary" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
               <Heart className="w-4 h-4" />
             </Button>
           </div>
         </div>
 
-        <div className="container py-8 -mt-20 relative">
-          <div className="grid gap-8 lg:grid-cols-3">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="glass">
-                <CardContent className="p-6">
-                  <Badge className="mb-3">{event.status}</Badge>
-                  <h1 className="text-3xl md:text-4xl font-display font-bold mb-3">{event.title}</h1>
-                  <p className="text-muted-foreground mb-4">by {event.organizer?.title || 'Organizer'}</p>
+        {/* Main Content Area */}
+        <div className="container px-4 sm:px-6 lg:px-8 py-6 sm:py-8 -mt-16 sm:-mt-20 relative">
+          <div className="grid gap-6 lg:gap-8 lg:grid-cols-3">
+            
+            {/* Event Info Card - Full width on mobile, 2 cols on desktop */}
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6 order-2 lg:order-1">
+              {/* Main Event Card */}
+              <Card className="backdrop-blur-sm bg-card/95 shadow-lg border-0 sm:border overflow-hidden">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge className="text-xs">{event.status}</Badge>
+                    {event.organizer?.title && (
+                      <span className="text-xs text-muted-foreground">by {event.organizer.title}</span>
+                    )}
+                  </div>
                   
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-primary" />
-                      <span>{formatDate(event.startDate)}</span>
-                    </div>
-                    {event.isOnline ? (
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-5 h-5 text-primary" />
-                        <span>{event.isLocationPublic === false ? 'Online Event (link sent after purchase)' : 'Online Event'}</span>
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-4 break-words">
+                    {event.title}
+                  </h1>
+                  
+                  {/* Event Meta Info */}
+                  <div className="space-y-3">
+                    {/* Date */}
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                        <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        {event.isLocationPublic === false ? (
-                          <span>Location revealed after purchase</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm sm:text-base">{formatDate(event.startDate)}</p>
+                        {event.endDate && (
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            to {formatDate(event.endDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Location */}
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                        {event.isOnline ? (
+                          <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                        ) : (
+                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {event.isOnline ? (
+                          <p className="font-medium text-sm sm:text-base">
+                            {event.isLocationPublic === false ? 'Online Event' : 'Online Event'}
+                          </p>
+                        ) : event.isLocationPublic === false ? (
+                          <p className="font-medium text-sm sm:text-base">Location revealed after purchase</p>
                         ) : event.location ? (
                           <button 
                             onClick={() => setShowMapDialog(true)}
-                            className="text-left hover:text-primary hover:underline transition-colors flex items-center gap-1"
+                            className="text-left hover:text-primary transition-colors group w-full"
                           >
-                            <span className="line-clamp-1">{event.location}</span>
-                            <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                            <p className="font-medium text-sm sm:text-base group-hover:underline break-words">
+                              {event.location}
+                            </p>
+                            <p className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                              View on map <ExternalLink className="w-3 h-3" />
+                            </p>
                           </button>
                         ) : (
-                          <span>TBA</span>
+                          <p className="font-medium text-sm sm:text-base">Location TBA</p>
+                        )}
+                        {event.isOnline && event.isLocationPublic === false && (
+                          <p className="text-xs text-muted-foreground mt-0.5">Link sent after purchase</p>
                         )}
                       </div>
-                    )}
+                    </div>
+                    
+                    {/* Attendees - only show if not hidden */}
                     {!event.hideTicketSalesProgress && (event.totalTicketsSold || 0) > 0 && (
-                      <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <span>{event.totalTicketsSold} attending</span>
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm sm:text-base">{event.totalTicketsSold} attending</p>
+                        </div>
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>About This Event</CardTitle>
+              {/* About Section */}
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-2 sm:pb-4">
+                  <CardTitle className="text-lg sm:text-xl">About This Event</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="whitespace-pre-wrap text-muted-foreground">{event.description}</p>
+                <CardContent className="pt-0">
+                  <p className="whitespace-pre-wrap text-sm sm:text-base text-muted-foreground leading-relaxed break-words">
+                    {event.description}
+                  </p>
                 </CardContent>
               </Card>
 
+              {/* Gallery Section */}
               {event.gallery && event.gallery.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Gallery</CardTitle>
+                <Card className="overflow-hidden">
+                  <CardHeader className="pb-2 sm:pb-4">
+                    <CardTitle className="text-lg sm:text-xl">Gallery</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4">
                       {event.gallery.map((img, i) => (
-                        <img key={i} src={img} alt={`Gallery ${i + 1}`} className="rounded-lg object-cover aspect-square" />
+                        <img 
+                          key={i} 
+                          src={img} 
+                          alt={`Gallery ${i + 1}`} 
+                          className="rounded-lg object-cover aspect-square w-full"
+                        />
                       ))}
                     </div>
                   </CardContent>
@@ -300,122 +456,44 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
               )}
             </div>
 
-            {/* Tickets Sidebar */}
-            <div className="space-y-4">
-              <Card className="sticky top-24">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Ticket className="w-5 h-5" />
-                    Tickets
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {isPast ? (
-                    <p className="text-center text-muted-foreground py-4">This event has ended</p>
-                  ) : (
-                    event.tiers?.map((tier) => {
-                      const soldOut = tier.sold >= tier.capacity;
-                      const percentSold = (tier.sold / tier.capacity) * 100;
-                      const salesEnded = tier.saleEndDate && new Date(tier.saleEndDate) < new Date();
-                      const isUnavailable = soldOut || salesEnded;
-                      const hideProgress = event.hideTicketSalesProgress;
-                      
-                      return (
-                        <div 
-                          key={tier.id} 
-                          className={cn(
-                            "p-4 border rounded-xl transition-all",
-                            isUnavailable ? "opacity-60" : "hover:border-primary hover:shadow-md",
-                            Number(tier.price) === 0 && !isUnavailable && "border-green-200 bg-green-50/50"
-                          )}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold">{tier.name}</h3>
-                                {Number(tier.price) === 0 && (
-                                  <Badge className="bg-green-500 text-white text-xs">FREE</Badge>
-                                )}
-                                {salesEnded && (
-                                  <Badge variant="secondary" className="text-xs">Sales Ended</Badge>
-                                )}
-                              </div>
-                              {tier.description && (
-                                <p className="text-sm text-muted-foreground">{tier.description}</p>
-                              )}
-                            </div>
-                            <span className={cn(
-                              "font-display font-bold text-lg",
-                              Number(tier.price) === 0 && "text-green-600"
-                            )}>
-                              {Number(tier.price) === 0 ? 'Free' : formatCurrency(tier.price)}
-                            </span>
-                          </div>
-                          
-                          {/* Sale End Countdown */}
-                          {tier.saleEndDate && !salesEnded && (
-                            <div className="flex items-center gap-1.5 text-xs mb-2">
-                              <Clock className="w-3 h-3 text-orange-500" />
-                              <Countdown 
-                                targetDate={tier.saleEndDate} 
-                                prefix="Sales end in"
-                                expiredText="Sales ended"
-                                compact
-                              />
-                            </div>
-                          )}
-                          
-                          {/* Capacity bar - hidden when hideTicketSalesProgress is enabled */}
-                          {!hideProgress && (
-                            <div className="mb-3">
-                              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                                <span>{tier.capacity - tier.sold} left</span>
-                                <span>{Math.round(percentSold)}% sold</span>
-                              </div>
-                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className={cn(
-                                    "h-full rounded-full transition-all",
-                                    percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
-                                  )}
-                                  style={{ width: `${percentSold}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          
-                          <Button 
-                            className={cn(
-                              "w-full",
-                              Number(tier.price) === 0 && !isUnavailable && "bg-green-600 hover:bg-green-700"
-                            )}
-                            disabled={isUnavailable || purchasing === tier.id}
-                            onClick={() => handlePurchase(tier.id)}
-                          >
-                            {purchasing === tier.id ? (
-                              <>Processing...</>
-                            ) : salesEnded ? (
-                              'Sales Ended'
-                            ) : soldOut ? (
-                              'Sold Out'
-                            ) : Number(tier.price) === 0 ? (
-                              'Claim Free Ticket'
-                            ) : (
-                              'Get Tickets'
-                            )}
-                          </Button>
-                          
-                          {tier.refundEnabled && (
-                            <p className="text-xs text-muted-foreground mt-2 text-center">
-                              ✓ Refunds available
-                            </p>
-                          )}
+            {/* Tickets Section - Shows first on mobile */}
+            <div className="order-1 lg:order-2">
+              {/* Mobile: Inline card, Desktop: Sticky sidebar */}
+              <div className="lg:sticky lg:top-24">
+                <Card className="shadow-lg overflow-hidden">
+                  <CardHeader className="pb-3 sm:pb-4 bg-gradient-to-r from-primary/5 to-purple-500/5">
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                      <Ticket className="w-5 h-5 text-primary" />
+                      Tickets
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3 sm:space-y-4">
+                    {isPast ? (
+                      <div className="text-center py-6 sm:py-8">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                          <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                         </div>
-                      );
-                    })
-                  )}
-                </CardContent>
-              </Card>
+                        <p className="text-muted-foreground font-medium">This event has ended</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Check out other upcoming events</p>
+                        <Button variant="outline" className="mt-4" onClick={() => router.push('/events')}>
+                          Browse Events
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {event.tiers?.map((tier) => (
+                          <TicketTierCard key={tier.id} tier={tier} />
+                        ))}
+                        
+                        {/* Scroll indicator on mobile if there's more content below */}
+                        <div className="flex items-center justify-center pt-2 lg:hidden text-muted-foreground">
+                          <ChevronDown className="w-5 h-5 animate-bounce" />
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
         </div>

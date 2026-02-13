@@ -750,11 +750,22 @@ export class EventsService {
                 throw new ForbiddenException('Cannot change tier price after sales begin.');
               }
 
-              // Allow capacity change
+              // Allow capacity change and saleEndDate change (both are safe after sales)
+              const updateTierData: any = {};
+              
               if (tier.capacity !== undefined && Number(tier.capacity) !== Number(existing.capacity)) {
+                updateTierData.capacity = Number(tier.capacity);
+              }
+              
+              // Allow saleEndDate to be updated (organizers can extend or change sale deadlines)
+              if (tier.saleEndDate !== undefined) {
+                updateTierData.saleEndDate = tier.saleEndDate ? new Date(tier.saleEndDate) : null;
+              }
+              
+              if (Object.keys(updateTierData).length > 0) {
                 await tx.ticketTier.update({
                   where: { id: tier.id },
-                  data: { capacity: Number(tier.capacity) },
+                  data: updateTierData,
                 });
               }
             } else {

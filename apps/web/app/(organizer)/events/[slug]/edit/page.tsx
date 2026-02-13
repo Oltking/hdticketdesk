@@ -727,12 +727,11 @@ export default function EditEventPage() {
                         <Label>Sale End Date & Time (Optional)</Label>
                         <Input
                           type="datetime-local"
-                          disabled={hasSales && isExistingTier}
                           {...register(`tiers.${index}.saleEndDate`)}
                           max={startDate || undefined}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Leave empty to allow sales until the event starts
+                          Leave empty to allow sales until the event starts. You can change this anytime.
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
