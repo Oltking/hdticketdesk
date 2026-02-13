@@ -35,44 +35,6 @@ Africa's premier event ticketing platform - SEO-optimized with stunning homepage
 
 ## 🚀 Getting Started
 
-```bash
-# Install dependencies
-npm install
-
-# Set up environment
-cp .env.example .env.local
-
-# Start development
-npm run dev
-```
-
-## 📁 Project Structure
-
-```
-app/
-├── page.tsx              # Homepage with all sections
-├── layout.tsx            # SEO-optimized root layout
-├── robots.ts             # Search engine rules
-├── sitemap.ts            # Dynamic sitemap
-├── (auth)/               # Login, signup, verify
-├── (public)/events/[slug]/ # SEO event pages
-├── (organizer)/          # Organizer dashboard
-├── (buyer)/              # Buyer pages
-└── admin/                # Admin panel
-
-components/
-├── home/                 # Homepage sections
-│   ├── hero-banner.tsx
-│   ├── event-carousel.tsx
-│   ├── live-now-section.tsx
-│   ├── trending-section.tsx
-│   ├── upcoming-section.tsx
-│   ├── featured-section.tsx
-│   └── cta-section.tsx
-├── ui/                   # Base components
-└── layouts/              # Header, footer, sidebar
-```
-
 ## 🔌 API Endpoints Required
 
 Your backend needs these new endpoints:
