@@ -144,6 +144,8 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
     return acc + (tier.sold / tier.capacity) * 100;
   }, 0) || 0) / (event.tiers?.length || 1);
 
+  const hideProgress = event.hideTicketSalesProgress;
+
   return (
     <Link
       href={`/events/${event.slug}`}
@@ -199,27 +201,29 @@ function TrendingEventCard({ event, rank }: { event: Event; rank: number }) {
             </span>
           </div>
 
-          {/* Progress bar */}
-          <div className="mb-2">
-            <div className="flex items-center justify-between text-[10px] mb-1">
-              <span className="text-muted-foreground">{event.totalTicketsSold} sold</span>
-              <span className={cn(
-                "font-semibold",
-                soldPercentage >= 80 ? "text-red-500" : soldPercentage >= 50 ? "text-orange-500" : "text-green-500"
-              )}>
-                {soldPercentage >= 80 ? 'Almost gone!' : soldPercentage >= 50 ? 'Selling fast' : 'Available'}
-              </span>
+          {/* Progress bar - hidden when hideTicketSalesProgress is enabled */}
+          {!hideProgress && (
+            <div className="mb-2">
+              <div className="flex items-center justify-between text-[10px] mb-1">
+                <span className="text-muted-foreground">{event.totalTicketsSold} sold</span>
+                <span className={cn(
+                  "font-semibold",
+                  soldPercentage >= 80 ? "text-red-500" : soldPercentage >= 50 ? "text-orange-500" : "text-green-500"
+                )}>
+                  {soldPercentage >= 80 ? 'Almost gone!' : soldPercentage >= 50 ? 'Selling fast' : 'Available'}
+                </span>
+              </div>
+              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    soldPercentage >= 80 ? "bg-red-500" : soldPercentage >= 50 ? "bg-orange-500" : "bg-green-500"
+                  )}
+                  style={{ width: `${Math.min(soldPercentage, 100)}%` }}
+                />
+              </div>
             </div>
-            <div className="h-1 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  soldPercentage >= 80 ? "bg-red-500" : soldPercentage >= 50 ? "bg-orange-500" : "bg-green-500"
-                )}
-                style={{ width: `${Math.min(soldPercentage, 100)}%` }}
-              />
-            </div>
-          </div>
+          )}
 
           {/* Price */}
           <div className="flex items-center justify-between mt-auto">

@@ -105,4 +105,8 @@ export class CreateEventDto {
   @IsBoolean()
   @IsOptional()
   passFeeTobuyer?: boolean; // If true, 5% service fee is added to buyer's payment at checkout
+
+  @IsBoolean()
+  @IsOptional()
+  hideTicketSalesProgress?: boolean; // If true, hides ticket sales indicators (quantity left, % sold, progress bars) from public views
 }

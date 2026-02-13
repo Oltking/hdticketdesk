@@ -42,6 +42,7 @@ const schema = z.object({
   onlineLink: z.string().optional(),
   tiers: z.array(tierSchema).min(1, 'At least one ticket tier is required'),
   passFeeTobuyer: z.boolean().default(false),
+  hideTicketSalesProgress: z.boolean().default(false),
 }).refine((data) => {
   // Validate that all tier saleEndDates (if provided) are before or equal to event startDate
   if (!data.startDate) return true;
@@ -86,7 +87,7 @@ export default function CreateEventPage() {
 
   const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { isOnline: false, isLocationPublic: true, passFeeTobuyer: false, tiers: [{ name: 'General', isFree: false, price: 0, capacity: 100, refundEnabled: false }] },
+    defaultValues: { isOnline: false, isLocationPublic: true, passFeeTobuyer: false, hideTicketSalesProgress: false, tiers: [{ name: 'General', isFree: false, price: 0, capacity: 100, refundEnabled: false }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'tiers' });
@@ -561,6 +562,46 @@ export default function CreateEventPage() {
                   <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded text-xs text-blue-700 dark:text-blue-300">
                     <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span>
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hide Ticket Sales Progress Option */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Sales Visibility
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input 
+                        type="checkbox" 
+                        id="hideTicketSalesProgress"
+                        {...register('hideTicketSalesProgress')} 
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="hideTicketSalesProgress" className="flex items-center gap-2 cursor-pointer">
+                        <span className="font-medium text-sm">
+                          Hide ticket sales progress from users
+                        </span>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        When enabled, public visitors will not see how many tickets are left, percentage sold, or progress bars. This can help avoid discouraging purchases for events with slow early sales.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded text-xs text-amber-700 dark:text-amber-300">
+                    <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Hidden indicators include: "X left", "X% sold", progress bars, and "selling fast" badges.
                     </span>
                   </div>
                 </div>

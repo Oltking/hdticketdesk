@@ -413,8 +413,8 @@ export default async function EventsPage({ searchParams }: { searchParams?: Sear
                       </span>
                     </div>
 
-                    {/* Tickets sold indicator - shows "attended" for ended events */}
-                    {event.totalTicketsSold > 0 && (
+                    {/* Tickets sold indicator - shows "attended" for ended events, hidden when hideTicketSalesProgress is enabled */}
+                    {!event.hideTicketSalesProgress && event.totalTicketsSold > 0 && (
                       <div className={cn(
                         "flex items-center gap-1.5 text-xs mt-3 pt-3 border-t",
                         isEnded ? "text-muted-foreground/70" : "text-muted-foreground"

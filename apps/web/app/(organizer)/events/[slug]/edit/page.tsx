@@ -34,7 +34,8 @@ import {
   EyeOff,
   QrCode,
   BarChart3,
-  Ticket
+  Ticket,
+  EyeIcon
 } from 'lucide-react';
 import { MapPicker } from '@/components/ui/map-picker';
 
@@ -117,6 +118,7 @@ export default function EditEventPage() {
           isLocationPublic: event.isLocationPublic ?? true,
           onlineLink: event.onlineLink || '',
           passFeeTobuyer: event.passFeeTobuyer || false,
+          hideTicketSalesProgress: event.hideTicketSalesProgress || false,
           tiers: tiersWithFreeFlag,
         });
       } catch (err) {
@@ -610,6 +612,46 @@ export default function EditEventPage() {
                         If unchecked, buyers will pay the exact ticket price shown.
                       </p>
                     </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hide Ticket Sales Progress Option */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <EyeIcon className="h-5 w-5" />
+                  Sales Visibility
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-muted/50 rounded-lg border border-border space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center h-5 mt-0.5">
+                      <input 
+                        type="checkbox" 
+                        id="hideTicketSalesProgress"
+                        {...register('hideTicketSalesProgress')} 
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="hideTicketSalesProgress" className="flex items-center gap-2 cursor-pointer">
+                        <span className="font-medium text-sm">
+                          Hide ticket sales progress from users
+                        </span>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        When enabled, public visitors will not see how many tickets are left, percentage sold, or progress bars. This can help avoid discouraging purchases for events with slow early sales.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded text-xs text-amber-700 dark:text-amber-300">
+                    <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                      Hidden indicators include: "X left", "X% sold", progress bars, and "selling fast" badges.
+                    </span>
                   </div>
                 </div>
               </CardContent>

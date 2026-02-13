@@ -49,6 +49,7 @@ export interface Event {
   coverImage: string | null;
   gallery: string[];
   isFeatured: boolean;
+  hideTicketSalesProgress?: boolean; // If true, hides ticket sales indicators from public views
   organizerId: string;
   organizer?: OrganizerProfile & { user?: User };
   tiers?: TicketTier[];

@@ -619,6 +619,7 @@ export class EventsService {
           organizerId,
           status: 'DRAFT',
           passFeeTobuyer: dto.passFeeTobuyer || false,
+          hideTicketSalesProgress: dto.hideTicketSalesProgress || false,
           tiers: {
             create: tiersData,
           },
@@ -711,6 +712,7 @@ export class EventsService {
     if (dto.coverImage !== undefined) updateData.coverImage = dto.coverImage;
     if (dto.gallery !== undefined) updateData.gallery = dto.gallery;
     if (dto.passFeeTobuyer !== undefined) updateData.passFeeTobuyer = dto.passFeeTobuyer;
+    if (dto.hideTicketSalesProgress !== undefined) updateData.hideTicketSalesProgress = dto.hideTicketSalesProgress;
 
     // Handle tier updates
     if (dto.tiers !== undefined && dto.tiers.length > 0) {

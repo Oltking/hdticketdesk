@@ -174,8 +174,8 @@ function LiveEventCard({ event, index }: { event: Event; index: number }) {
           LIVE
         </div>
 
-        {/* Attendees count */}
-        {(event.totalTicketsSold || 0) > 0 && (
+        {/* Attendees count - hidden when hideTicketSalesProgress is enabled */}
+        {!event.hideTicketSalesProgress && (event.totalTicketsSold || 0) > 0 && (
           <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur text-white text-xs">
             <Users className="w-3.5 h-3.5" />
             {event.totalTicketsSold}

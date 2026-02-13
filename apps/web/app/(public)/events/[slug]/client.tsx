@@ -265,7 +265,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                         )}
                       </div>
                     )}
-                    {(event.totalTicketsSold || 0) > 0 && (
+                    {!event.hideTicketSalesProgress && (event.totalTicketsSold || 0) > 0 && (
                       <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
                         <span>{event.totalTicketsSold} attending</span>
@@ -318,6 +318,7 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                       const percentSold = (tier.sold / tier.capacity) * 100;
                       const salesEnded = tier.saleEndDate && new Date(tier.saleEndDate) < new Date();
                       const isUnavailable = soldOut || salesEnded;
+                      const hideProgress = event.hideTicketSalesProgress;
                       
                       return (
                         <div 
@@ -364,22 +365,24 @@ export function EventDetailClient({ slug, initialEvent }: Props) {
                             </div>
                           )}
                           
-                          {/* Capacity bar */}
-                          <div className="mb-3">
-                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                              <span>{tier.capacity - tier.sold} left</span>
-                              <span>{Math.round(percentSold)}% sold</span>
+                          {/* Capacity bar - hidden when hideTicketSalesProgress is enabled */}
+                          {!hideProgress && (
+                            <div className="mb-3">
+                              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                                <span>{tier.capacity - tier.sold} left</span>
+                                <span>{Math.round(percentSold)}% sold</span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
+                                  )}
+                                  style={{ width: `${percentSold}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className={cn(
-                                  "h-full rounded-full transition-all",
-                                  percentSold >= 80 ? "bg-red-500" : percentSold >= 50 ? "bg-orange-500" : "bg-green-500"
-                                )}
-                                style={{ width: `${percentSold}%` }}
-                              />
-                            </div>
-                          </div>
+                          )}
                           
                           <Button 
                             className={cn(
