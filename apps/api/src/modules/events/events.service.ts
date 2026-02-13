@@ -676,6 +676,7 @@ export class EventsService {
         'startDate',
         'endDate',
         'tiers',
+        'hideTicketSalesProgress', // Safe to change after sales - only affects display
       ]);
       const providedKeys = Object.keys(dto as any).filter((k) => (dto as any)[k] !== undefined);
       const restricted = providedKeys.filter((k) => !allowedKeys.has(k));

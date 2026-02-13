@@ -215,6 +215,8 @@ export default function EditEventPage() {
             description: data.description,
             // Convert startDate to ISO string
             startDate: toISOString(data.startDate) || data.startDate,
+            // hideTicketSalesProgress is safe to change after sales (display-only setting)
+            hideTicketSalesProgress: data.hideTicketSalesProgress,
           }
         : {
             ...data,
