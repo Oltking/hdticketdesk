@@ -19,9 +19,9 @@ export class CreateTicketTierDto {
   id?: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Tier name is required' })
+  @IsOptional() // Made optional for draft saving - validated on publish
   @MaxLength(100, { message: 'Tier name must be less than 100 characters' })
-  name: string;
+  name?: string;
 
   @IsString()
   @IsOptional()
@@ -30,11 +30,13 @@ export class CreateTicketTierDto {
 
   @IsNumber({}, { message: 'Price must be a valid number' })
   @Min(0, { message: 'Price cannot be negative' })
-  price: number;
+  @IsOptional() // Made optional for draft saving - defaults to 0
+  price?: number;
 
   @IsNumber({}, { message: 'Capacity must be a valid number' })
   @Min(1, { message: 'Capacity must be at least 1' })
-  capacity: number;
+  @IsOptional() // Made optional for draft saving - defaults to 1
+  capacity?: number;
 
   @IsBoolean()
   @IsOptional()
@@ -52,13 +54,13 @@ export class CreateEventDto {
   title: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Event description is required' })
+  @IsOptional() // Made optional for draft saving - validated on publish
   @MaxLength(5000, { message: 'Event description must be less than 5000 characters' })
-  description: string;
+  description?: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'Start date is required' })
-  startDate: string;
+  @IsOptional() // Made optional for draft saving - validated on publish
+  startDate?: string;
 
   @IsString()
   @IsOptional()
@@ -98,9 +100,10 @@ export class CreateEventDto {
   gallery?: string[];
 
   @IsArray()
+  @IsOptional() // Made optional for draft saving - validated on publish
   @ValidateNested({ each: true })
   @Type(() => CreateTicketTierDto)
-  tiers: CreateTicketTierDto[];
+  tiers?: CreateTicketTierDto[];
 
   @IsBoolean()
   @IsOptional()

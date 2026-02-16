@@ -19,17 +19,47 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Upload, X, ImageIcon, AlertCircle, CheckCircle2, MapPin, Lock, Globe, Info, Percent, Sparkles, Calendar, Ticket, ArrowLeft, Eye, Save } from 'lucide-react';
 import { MapPicker } from '@/components/ui/map-picker';
 
-const tierSchema = z.object({
+// Tier schema for draft (more lenient - allows partial data)
+const tierSchemaDraft = z.object({
+  name: z.string().default(''),
+  isFree: z.boolean().default(false),
+  price: z.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price cannot be negative').default(0),
+  capacity: z.number({ invalid_type_error: 'Capacity must be a number' }).min(1, 'Capacity must be at least 1').default(1),
+  description: z.string().optional(),
+  refundEnabled: z.boolean().default(false),
+  saleEndDate: z.string().optional(),
+});
+
+// Tier schema for publish (strict validation)
+const tierSchemaPublish = z.object({
   name: z.string().min(1, 'Tier name is required'),
   isFree: z.boolean().default(false),
   price: z.number({ invalid_type_error: 'Price must be a number' }).min(0, 'Price cannot be negative'),
   capacity: z.number({ invalid_type_error: 'Capacity must be a number' }).min(1, 'Capacity must be at least 1'),
   description: z.string().optional(),
   refundEnabled: z.boolean().default(false),
-  saleEndDate: z.string().optional(), // Date and time when ticket sales end
+  saleEndDate: z.string().optional(),
 });
 
-const schema = z.object({
+// Draft schema (lenient - allows saving incomplete events)
+const schemaDraft = z.object({
+  title: z.string().min(1, 'Event title is required'), // Title is always required
+  description: z.string().optional().default(''),
+  startDate: z.string().optional().default(''),
+  endDate: z.string().optional(),
+  isOnline: z.boolean().default(false),
+  location: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  isLocationPublic: z.boolean().default(true),
+  onlineLink: z.string().optional(),
+  tiers: z.array(tierSchemaDraft).default([]),
+  passFeeTobuyer: z.boolean().default(false),
+  hideTicketSalesProgress: z.boolean().default(false),
+});
+
+// Publish schema (strict - requires all necessary fields)
+const schemaPublish = z.object({
   title: z.string().min(1, 'Event title is required'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   startDate: z.string().min(1, 'Start date and time is required'),
@@ -40,7 +70,7 @@ const schema = z.object({
   longitude: z.number().optional(),
   isLocationPublic: z.boolean().default(true),
   onlineLink: z.string().optional(),
-  tiers: z.array(tierSchema).min(1, 'At least one ticket tier is required'),
+  tiers: z.array(tierSchemaPublish).min(1, 'At least one ticket tier is required'),
   passFeeTobuyer: z.boolean().default(false),
   hideTicketSalesProgress: z.boolean().default(false),
 }).refine((data) => {
@@ -61,6 +91,9 @@ const schema = z.object({
   message: 'Ticket sale end date must be before or on the event start date',
   path: ['tiers'],
 });
+
+// Use draft schema for form (more lenient), but validate with publish schema when publishing
+const schema = schemaDraft;
 
 type FormData = z.infer<typeof schema>;
 
@@ -168,7 +201,15 @@ export default function CreateEventPage() {
 
   const onSubmit = async (data: FormData, publish = false) => {
     try {
+      // If publishing, validate with stricter schema first
       if (publish) {
+        const publishValidation = schemaPublish.safeParse(data);
+        if (!publishValidation.success) {
+          // Show first validation error
+          const firstError = publishValidation.error.errors[0];
+          error(firstError.message || 'Please complete all required fields before publishing');
+          return;
+        }
         setPublishing(true);
       }
 

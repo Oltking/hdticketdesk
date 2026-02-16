@@ -534,8 +534,9 @@ class ApiClient {
     return this.request<{ events: any[]; total: number; page: number }>(`/events?${query}`);
   }
 
-  async getEventBySlug(slug: string) {
-    return this.request<any>(`/events/${slug}`);
+  async getEventBySlug(slug: string, includeUnpublished = false) {
+    const query = includeUnpublished ? '?includeUnpublished=true' : '';
+    return this.request<any>(`/events/${slug}${query}`);
   }
 
   async getEventById(id: string) {

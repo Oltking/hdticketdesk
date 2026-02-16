@@ -99,7 +99,7 @@ model Event {
   slug               String             @unique
   description        String?
   status             EventStatus        @default(DRAFT)
-  startDate          DateTime
+  startDate          DateTime?          // Nullable for draft events, required for publishing
   endDate            DateTime?
   location           String?
   latitude           Float?
@@ -130,10 +130,10 @@ model TicketTier {
   id            String    @id @default(cuid())
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  name          String
+  name          String    @default("") // Can be empty for drafts, validated on publish
   description   String?
-  price         Decimal   @db.Decimal(12, 2)
-  capacity      Int
+  price         Decimal   @default(0) @db.Decimal(12, 2)
+  capacity      Int       @default(1)
   sold          Int       @default(0)
   refundEnabled Boolean   @default(false)
   sortOrder     Int       @default(0)

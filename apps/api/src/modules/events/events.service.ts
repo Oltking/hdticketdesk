@@ -568,19 +568,25 @@ export class EventsService {
     const slug = this.generateSlug(dto.title);
 
     try {
-      // Parse and validate dates
-      const startDate = new Date(dto.startDate);
-      if (isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date format');
+      // Parse and validate dates (optional for drafts)
+      let startDate: Date | null = null;
+      if (dto.startDate && dto.startDate.trim() !== '') {
+        startDate = new Date(dto.startDate);
+        if (isNaN(startDate.getTime())) {
+          throw new Error('Invalid start date format');
+        }
       }
 
-      const endDate = dto.endDate ? new Date(dto.endDate) : null;
-      if (endDate && isNaN(endDate.getTime())) {
-        throw new Error('Invalid end date format');
+      let endDate: Date | null = null;
+      if (dto.endDate && dto.endDate.trim() !== '') {
+        endDate = new Date(dto.endDate);
+        if (isNaN(endDate.getTime())) {
+          throw new Error('Invalid end date format');
+        }
       }
 
-      // Prepare tiers data with proper date parsing
-      const tiersData = dto.tiers.map((tier) => {
+      // Prepare tiers data with proper date parsing (tiers are optional for drafts)
+      const tiersData = (dto.tiers || []).map((tier) => {
         let saleEndDate = null;
         if (tier.saleEndDate && tier.saleEndDate.trim() !== '') {
           saleEndDate = new Date(tier.saleEndDate);
@@ -591,39 +597,45 @@ export class EventsService {
         }
 
         return {
-          name: tier.name,
+          name: tier.name || '',
           description: tier.description || null,
-          price: tier.price,
-          capacity: tier.capacity,
+          price: tier.price || 0,
+          capacity: tier.capacity || 1,
           sold: 0,
           refundEnabled: tier.refundEnabled || false,
           saleEndDate,
         };
       });
 
+      // Build event data - startDate is optional for drafts (validated on publish)
+      // Type assertion needed until `prisma generate` is run with the updated schema
+      const eventData: any = {
+        title: dto.title,
+        description: dto.description || '',
+        startDate: startDate,
+        endDate: endDate,
+        location: dto.location || null,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+        isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
+        isOnline: dto.isOnline || false,
+        onlineLink: dto.onlineLink || null,
+        coverImage: dto.coverImage || null,
+        gallery: dto.gallery || [],
+        slug,
+        organizerId,
+        status: 'DRAFT',
+        passFeeTobuyer: dto.passFeeTobuyer || false,
+        hideTicketSalesProgress: dto.hideTicketSalesProgress || false,
+      };
+
+      // Only add tiers if there are any
+      if (tiersData.length > 0) {
+        eventData.tiers = { create: tiersData };
+      }
+
       const event = await this.prisma.event.create({
-        data: {
-          title: dto.title,
-          description: dto.description,
-          startDate,
-          endDate,
-          location: dto.location || null,
-          latitude: dto.latitude ?? null,
-          longitude: dto.longitude ?? null,
-          isLocationPublic: dto.isLocationPublic !== undefined ? dto.isLocationPublic : true,
-          isOnline: dto.isOnline || false,
-          onlineLink: dto.onlineLink || null,
-          coverImage: dto.coverImage || null,
-          gallery: dto.gallery || [],
-          slug,
-          organizerId,
-          status: 'DRAFT',
-          passFeeTobuyer: dto.passFeeTobuyer || false,
-          hideTicketSalesProgress: dto.hideTicketSalesProgress || false,
-          tiers: {
-            create: tiersData,
-          },
-        },
+        data: eventData,
         include: {
           tiers: true,
           organizer: { select: { id: true, title: true } },
@@ -880,8 +892,24 @@ export class EventsService {
       throw new ForbiddenException('You can only publish your own events');
     }
 
+    // Validate required fields for publishing
+    if (!event.description || event.description.trim().length < 10) {
+      throw new ForbiddenException('Event description must be at least 10 characters to publish');
+    }
+
+    if (!event.startDate) {
+      throw new ForbiddenException('Event must have a start date to publish');
+    }
+
     if (event.tiers.length === 0) {
-      throw new ForbiddenException('Event must have at least one ticket tier');
+      throw new ForbiddenException('Event must have at least one ticket tier to publish');
+    }
+
+    // Validate all tiers have required fields
+    for (const tier of event.tiers) {
+      if (!tier.name || tier.name.trim() === '') {
+        throw new ForbiddenException('All ticket tiers must have a name to publish');
+      }
     }
 
     const published = await this.prisma.event.update({

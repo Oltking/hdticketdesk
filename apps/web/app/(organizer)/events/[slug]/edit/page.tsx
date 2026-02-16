@@ -74,7 +74,8 @@ export default function EditEventPage() {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const response = await api.getEventBySlug(slug as string);
+        // Include unpublished events so organizers can edit their drafts
+        const response = await api.getEventBySlug(slug as string, true);
         // Handle wrapped response
         const event = response.data || response;
         setEventId(event.id);

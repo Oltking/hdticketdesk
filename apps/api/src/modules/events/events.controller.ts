@@ -122,10 +122,13 @@ export class EventsController {
    * GET /events/:slug
    * Returns a single event by slug or ID
    * NOTE: This route MUST come after all static routes (carousel, live, trending, upcoming, featured, my)
+   * Query param ?includeUnpublished=true allows fetching draft events (for organizer edit pages)
    */
   @Get(':slug')
-  async findOne(@Param('slug') slug: string) {
-    return this.eventsService.findBySlug(slug);
+  async findOne(@Param('slug') slug: string, @Query('includeUnpublished') includeUnpublished?: string) {
+    // Allow fetching unpublished events when explicitly requested (for organizer edit pages)
+    const includeUnpublishedBool = includeUnpublished === 'true';
+    return this.eventsService.findBySlug(slug, includeUnpublishedBool);
   }
 
   /**
