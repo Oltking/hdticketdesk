@@ -277,7 +277,8 @@ export class AgentsService {
 
     // Validate event timing BEFORE hitting the database for ticket
     const now = new Date();
-    const eventStart = new Date(agentCode.event.startDate);
+    // startDate can be null for draft events, but agents can only access published events with valid dates
+    const eventStart = new Date(agentCode.event.startDate!);
     const fiveHoursBefore = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
 
     if (now < fiveHoursBefore) {

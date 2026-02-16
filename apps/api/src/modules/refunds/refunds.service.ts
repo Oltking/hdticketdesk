@@ -50,7 +50,8 @@ export class RefundsService {
     }
 
     // Check if event has already started (no refunds after event starts)
-    if (new Date(ticket.event.startDate) <= new Date()) {
+    // startDate can be null for drafts, but tickets can only exist for published events with valid dates
+    if (ticket.event.startDate && new Date(ticket.event.startDate) <= new Date()) {
       throw new BadRequestException('Cannot request refund after event has started');
     }
 

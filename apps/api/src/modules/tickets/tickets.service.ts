@@ -90,10 +90,11 @@ export class TicketsService {
       typeof ticket.tier.price === 'number' ? ticket.tier.price : Number(ticket.tier.price);
 
     // Send ticket email with hosted QR code URL (works in all email clients)
+    // startDate is guaranteed to exist for published events (validated on publish)
     await this.emailService.sendTicketEmail(data.buyerEmail, {
       ticketNumber: ticket.ticketNumber,
       eventTitle: ticket.event.title,
-      eventDate: ticket.event.startDate,
+      eventDate: ticket.event.startDate!,
       eventLocation: ticket.event.location || 'TBA',
       eventLatitude: ticket.event.latitude,
       eventLongitude: ticket.event.longitude,
@@ -292,7 +293,8 @@ export class TicketsService {
 
     // Validate event timing - allow check-in starting 5 hours before event
     const now = new Date();
-    const eventStart = new Date(ticket.event.startDate);
+    // startDate is guaranteed to exist for published events with tickets
+    const eventStart = new Date(ticket.event.startDate!);
     const fiveHoursBefore = new Date(eventStart.getTime() - 5 * 60 * 60 * 1000);
 
     if (now < fiveHoursBefore) {
