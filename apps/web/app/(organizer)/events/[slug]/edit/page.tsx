@@ -703,7 +703,11 @@ export default function EditEventPage() {
               <CardContent className="space-y-4">
                 {fields.map((field, index) => {
                   const isFree = watch(`tiers.${index}.isFree`);
-                  const isExistingTier = Boolean((field as any).id);
+                  // Check if this tier exists in the database by looking at the tier's database ID
+                  // field.id is react-hook-form's internal ID, not the database ID
+                  // We need to check if the tier has a database ID stored in the form data
+                  const tierData = watch(`tiers.${index}`);
+                  const isExistingTier = Boolean(tierData?.id && typeof tierData.id === 'string' && tierData.id.length > 10);
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex justify-between">
