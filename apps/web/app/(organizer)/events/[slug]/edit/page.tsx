@@ -118,6 +118,7 @@ export default function EditEventPage() {
         // Map tiers to include isFree flag based on price
         const tiersWithFreeFlag = (event.tiers || []).map((tier: any) => ({
           ...tier,
+          __existing: true, // mark tiers loaded from backend as existing
           isFree: Number(tier.price) === 0,
           saleEndDate: formatDateForInput(tier.saleEndDate),
         }));
@@ -695,7 +696,7 @@ export default function EditEventPage() {
                   </CardTitle>
                   <CardDescription className="mt-1">Create different ticket types with varying prices (at least one required)</CardDescription>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false })} className="gap-1">
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', isFree: false, price: 0, capacity: 50, refundEnabled: false, __existing: false })} className="gap-1">
                   <Plus className="h-4 w-4" />
                   Add Tier
                 </Button>
@@ -707,7 +708,7 @@ export default function EditEventPage() {
                   // field.id is react-hook-form's internal ID, not the database ID
                   // We need to check if the tier has a database ID stored in the form data
                   const tierData = watch(`tiers.${index}`);
-                  const isExistingTier = Boolean(tierData?.id && typeof tierData.id === 'string' && tierData.id.length > 10);
+                  const isExistingTier = tierData?.__existing === true;
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex justify-between">
@@ -719,7 +720,7 @@ export default function EditEventPage() {
                         )}
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
-                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" disabled={hasSales && isExistingTier} /></div>
+                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" disabled={Boolean(hasSales && isExistingTier)} /></div>
                         <div className="space-y-2">
                           <Label>Price (₦) <span className="text-red-500">*</span></Label>
                           <div className="space-y-2">
