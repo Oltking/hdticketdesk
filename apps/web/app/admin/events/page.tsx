@@ -250,6 +250,7 @@ export default function AdminEventsPage() {
                     <th className="text-left p-4 font-medium">Fees</th>
                     <th className="text-left p-4 font-medium">Net</th>
                     <th className="text-left p-4 font-medium">Date</th>
+                    <th className="text-left p-4 font-medium">Overrides</th>
                     <th className="text-left p-4 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -313,6 +314,28 @@ export default function AdminEventsPage() {
                         <span className="font-medium text-purple-600">{formatCurrency(event.organizerEarnings || 0)}</span>
                       </td>
                       <td className="p-4 text-muted-foreground">{formatDate(event.startDate)}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground">Allow Edit After Sales</label>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const next = !event.allowEditAfterSales;
+                                const res = await api.adminToggleAllowEditAfterSales(event.id, next);
+                                success(res.message || 'Updated');
+                                // Update local state
+                                setEvents(prev => prev.map(e => e.id === event.id ? { ...e, allowEditAfterSales: next } : e));
+                              } catch (err: any) {
+                                error(err.message || 'Failed to update override');
+                              }
+                            }}
+                            className={`px-2 py-1 rounded text-xs border ${event.allowEditAfterSales ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground border-border'}`}
+                            title={event.allowEditAfterSales ? 'Disable override' : 'Enable override'}
+                          >
+                            {event.allowEditAfterSales ? 'Enabled' : 'Disabled'}
+                          </button>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <div className="flex gap-2">
                           <Link 

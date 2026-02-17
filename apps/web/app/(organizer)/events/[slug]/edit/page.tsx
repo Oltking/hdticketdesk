@@ -49,6 +49,7 @@ export default function EditEventPage() {
   const [eventStatus, setEventStatus] = useState<string | null>(null);
   const [ticketsSold, setTicketsSold] = useState<number>(0);
   const hasSales = ticketsSold > 0;
+  const [allowEditAfterSales, setAllowEditAfterSales] = useState<boolean>(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -81,6 +82,7 @@ export default function EditEventPage() {
         setEventId(event.id);
         setEventStatus(event.status);
         setTicketsSold(event.totalTicketsSold || 0);
+        setAllowEditAfterSales(Boolean(event.allowEditAfterSales));
         
         // Set cover image - ensure it's a valid URL
         if (event.coverImage && event.coverImage.startsWith('http')) {
@@ -709,18 +711,19 @@ export default function EditEventPage() {
                   // We need to check if the tier has a database ID stored in the form data
                   const tierData = watch(`tiers.${index}`);
                   const isExistingTier = tierData?.__existing === true;
+                  const lockedExistingTier = hasSales && isExistingTier && !allowEditAfterSales;
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex justify-between">
                         <h4 className="font-medium">Tier {index + 1}</h4>
                         {fields.length > 1 && (
-                          <Button type="button" variant="ghost" size="sm" disabled={hasSales && isExistingTier} onClick={() => remove(index)}>
+                          <Button type="button" variant="ghost" size="sm" disabled={lockedExistingTier} onClick={() => remove(index)}>
                             <Trash2 className="h-4 w-4 text-danger" />
                           </Button>
                         )}
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">
-                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" disabled={Boolean(hasSales && isExistingTier)} /></div>
+                        <div className="space-y-2"><Label>Tier Name <span className="text-red-500">*</span></Label><Input {...register(`tiers.${index}.name`, { required: 'Tier name is required' })} placeholder="e.g., VIP, General" disabled={lockedExistingTier} /></div>
                         <div className="space-y-2">
                           <Label>Price (₦) <span className="text-red-500">*</span></Label>
                           <div className="space-y-2">
@@ -729,7 +732,7 @@ export default function EditEventPage() {
                               {...register(`tiers.${index}.price`, { valueAsNumber: true, min: { value: 0, message: 'Price cannot be negative' } })} 
                               min={0}
                               className={isFree ? 'bg-muted text-muted-foreground' : ''}
-                              disabled={isFree || (hasSales && isExistingTier)}
+                              disabled={isFree || lockedExistingTier}
                             />
                             <div className="flex items-center gap-2">
                               <input 
@@ -737,7 +740,7 @@ export default function EditEventPage() {
                                 id={`free-${index}`} 
                                 {...register(`tiers.${index}.isFree`)}
                                 onChange={(e) => {
-                                  if (hasSales && isExistingTier) return; // Prevent change for existing tiers with sales
+                                  if (lockedExistingTier) return; // Prevent change for locked existing tiers (unless admin override)
                                   const isChecked = e.target.checked;
                                   setValue(`tiers.${index}.isFree`, isChecked);
                                   if (isChecked) {
@@ -765,7 +768,7 @@ export default function EditEventPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} disabled={hasSales && isExistingTier} className="rounded" />
+                        <input type="checkbox" id={`refund-${index}`} {...register(`tiers.${index}.refundEnabled`)} disabled={lockedExistingTier} className="rounded" />
                         <Label htmlFor={`refund-${index}`}>Allow refunds for this tier</Label>
                       </div>
                     </div>

@@ -72,6 +72,7 @@ export function Sidebar({ type }: SidebarProps) {
     { href: '/admin/organizers', label: 'Organizers', icon: DollarSign },
     { href: '/admin/refunds', label: 'Refunds', icon: RotateCcw },
     { href: '/admin/ledger', label: 'Ledger', icon: BookOpen },
+    { href: '/admin/settings', label: 'Overrides', icon: LayoutDashboard },
   ];
 
   const links = type === 'admin' ? adminLinks : organizerLinks;

@@ -73,6 +73,15 @@ export class AdminController {
     return this.adminService.adminUnpublishEvent(id);
   }
 
+  @Post('events/:id/allow-edit-after-sales')
+  @ApiOperation({ summary: 'Toggle admin override to allow full editing after sales' })
+  async toggleAllowEditAfterSales(
+    @Param('id') id: string,
+    @Body() body: { allow: boolean },
+  ) {
+    return this.adminService.setAllowEditAfterSales(id, !!body?.allow);
+  }
+
   @Post('events/:id/delete')
   @ApiOperation({
     summary: 'Admin force delete an event (use with caution - deletes all related records)',

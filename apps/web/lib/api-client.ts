@@ -954,6 +954,13 @@ class ApiClient {
     });
   }
 
+  async adminToggleAllowEditAfterSales(eventId: string, allow: boolean) {
+    return this.request<{ message: string; event: any }>(`/admin/events/${eventId}/allow-edit-after-sales`, {
+      method: 'POST',
+      body: JSON.stringify({ allow }),
+    });
+  }
+
   async getAllOrganizersEarnings(page = 1, limit = 20) {
     return this.request<{
       organizers: any[];

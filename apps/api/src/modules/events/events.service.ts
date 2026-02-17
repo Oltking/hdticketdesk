@@ -680,7 +680,9 @@ export class EventsService {
     // - Changing price of an existing tier
     // - Removing existing tiers
     // - Changing location/online/core logistics
-    if (hasTicketSales) {
+    // If there are sales and admin has NOT enabled override, restrict what can be edited
+    const adminOverride = (event as any).allowEditAfterSales === true;
+    if (hasTicketSales && !adminOverride) {
       const allowedKeys = new Set([
         'description',
         'coverImage',
@@ -729,8 +731,8 @@ export class EventsService {
 
     // Handle tier updates
     if (dto.tiers !== undefined && dto.tiers.length > 0) {
-      if (hasTicketSales) {
-        // After sales:
+      if (hasTicketSales && !adminOverride) {
+        // After sales without override:
         // - existing tiers: capacity can change, price must remain unchanged
         // - new tiers can be added
         // - existing tiers cannot be removed
@@ -756,20 +758,25 @@ export class EventsService {
                 throw new ForbiddenException('Invalid tier id provided.');
               }
 
-              // Disallow price changes for existing tiers
-              const existingPrice = existing.price instanceof Decimal ? existing.price.toNumber() : Number(existing.price);
-              if (tier.price !== undefined && Number(tier.price) !== Number(existingPrice)) {
-                throw new ForbiddenException('Cannot change tier price after sales begin.');
+              // If admin override is disabled, disallow price/name/refund changes
+              const updateTierData: any = {};
+
+              if (!adminOverride) {
+                const existingPrice = existing.price instanceof Decimal ? existing.price.toNumber() : Number(existing.price);
+                if (tier.price !== undefined && Number(tier.price) !== Number(existingPrice)) {
+                  throw new ForbiddenException('Cannot change tier price after sales begin.');
+                }
+              } else {
+                // Admin override: allow editing name, price, refund
+                if (tier.name !== undefined) updateTierData.name = tier.name;
+                if (tier.price !== undefined) updateTierData.price = Number(tier.price);
+                if (tier.refundEnabled !== undefined) updateTierData.refundEnabled = !!tier.refundEnabled;
               }
 
-              // Allow capacity change and saleEndDate change (both are safe after sales)
-              const updateTierData: any = {};
-              
+              // Capacity and saleEndDate are always allowed to change
               if (tier.capacity !== undefined && Number(tier.capacity) !== Number(existing.capacity)) {
                 updateTierData.capacity = Number(tier.capacity);
               }
-              
-              // Allow saleEndDate to be updated (organizers can extend or change sale deadlines)
               if (tier.saleEndDate !== undefined) {
                 updateTierData.saleEndDate = tier.saleEndDate ? new Date(tier.saleEndDate) : null;
               }
@@ -815,7 +822,7 @@ export class EventsService {
 
         return updated;
       } else { 
-        // No ticket sales - safe to update/replace tiers
+        // No ticket sales or admin override - safe to update/replace tiers
         // Prepare tiers data with proper date parsing
         const tiersData = dto.tiers.map((tier) => {
           let saleEndDate = null;

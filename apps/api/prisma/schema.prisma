@@ -113,6 +113,7 @@ model Event {
   maxTicketsPerOrder Int                @default(10)
   passFeeTobuyer     Boolean            @default(false) // If true, 5% service fee is added to buyer's payment
   hideTicketSalesProgress Boolean        @default(false) // If true, hides ticket sales indicators (quantity left, % sold, progress bars) from public views
+  allowEditAfterSales Boolean           @default(false) // Admin override: allow full editing even after sales
   organizerId        String
   organizer          OrganizerProfile   @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   agentAccessCodes   AgentAccessCode[]

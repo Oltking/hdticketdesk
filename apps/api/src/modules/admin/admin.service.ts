@@ -478,6 +478,14 @@ export class AdminService {
    * Admin force unpublish an event (even with sales)
    * This is for admin use when organizers contact support
    */
+  async setAllowEditAfterSales(eventId: string, allow: boolean) {
+    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+    const updated = await this.prisma.event.update({ where: { id: eventId }, data: { allowEditAfterSales: !!allow } as any });
+    this.logger.log(`Admin set allowEditAfterSales=${allow} for event ${eventId}`);
+    return { message: `Editing after sales ${allow ? 'enabled' : 'disabled'} for this event`, event: updated };
+  }
+
   async adminUnpublishEvent(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
