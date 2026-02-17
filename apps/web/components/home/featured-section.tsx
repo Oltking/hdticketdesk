@@ -146,7 +146,7 @@ function FeaturedEventCard({ event, index }: { event: Event; index: number }) {
       className="block group flex-shrink-0 w-80 snap-start"
     >
       <div className={cn(
-        "relative h-52 rounded-xl overflow-hidden",
+        "relative h-48 md:h-52 rounded-xl overflow-hidden",
         "bg-card border-2 border-yellow-500/20",
         "transition-all duration-300",
         "hover:border-yellow-500/50 hover:shadow-xl hover:shadow-yellow-500/10"
@@ -172,34 +172,34 @@ function FeaturedEventCard({ event, index }: { event: Event; index: number }) {
         </div>
         
         {/* Content */}
-        <div className="absolute inset-x-0 bottom-0 p-3 md:p-5">
-          <Badge className="mb-1.5 md:mb-2 bg-white/20 backdrop-blur text-white border-0 text-[10px] md:text-xs">
+        <div className="absolute inset-x-0 bottom-0 p-3 md:p-4 overflow-hidden">
+          <Badge className="mb-1 md:mb-1.5 bg-white/20 backdrop-blur text-white border-0 text-[9px] md:text-[10px]">
             {event.organizer?.title || 'Organizer'}
           </Badge>
           
-          <h3 className="font-display font-bold text-white text-base md:text-xl mb-1.5 md:mb-2 line-clamp-2 group-hover:text-yellow-100 transition-colors">
+          <h3 className="font-display font-bold text-white text-sm md:text-base mb-1 md:mb-1.5 line-clamp-1 group-hover:text-yellow-100 transition-colors">
             {event.title}
           </h3>
           
-          <p className="hidden md:block text-white/80 text-sm mb-3 line-clamp-2">
+          <p className="hidden md:block text-white/70 text-xs mb-2 line-clamp-1 overflow-hidden text-ellipsis">
             {event.description}
           </p>
           
           <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-0.5 md:gap-1 text-[11px] md:text-xs text-white/80">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            <div className="flex flex-col gap-0.5 text-[10px] md:text-[11px] text-white/70">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" />
                 {formatDate(event.startDate, 'short')}
               </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                <span className="truncate max-w-[150px]">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
+              <span className="flex items-center gap-1">
+                <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3 flex-shrink-0" />
+                <span className="truncate max-w-[120px]">{event.isLocationPublic === false ? 'Location after purchase' : (event.isOnline ? 'Online' : event.location?.split(',')[0] || 'TBA')}</span>
               </span>
             </div>
             
-            <div className="text-right">
-              <p className="text-[10px] md:text-xs text-white/60">From</p>
-              <p className="font-display font-bold text-white text-sm md:text-lg">
+            <div className="text-right flex-shrink-0">
+              <p className="text-[9px] md:text-[10px] text-white/60">From</p>
+              <p className="font-display font-bold text-white text-xs md:text-sm">
                 {lowestPrice === 0 ? 'Free' : formatCurrency(lowestPrice || 0)}
               </p>
             </div>
