@@ -745,15 +745,25 @@ export class EventsService {
         // Prevent removing tiers that already have sales; allow deleting tiers with zero sales
         const missing = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
         const missingWithSales = missing.filter((t: any) => Number(t.sold || 0) > 0);
-        const missingZeroSold = missing.filter((t: any) => Number(t.sold || 0) === 0);
         if (missingWithSales.length > 0) {
           throw new ForbiddenException('Cannot remove tiers that already have sales.');
         }
+        // Only delete tiers that truly have no ticket records to avoid FK issues
+        const candidateDeleteIds = missing
+          .filter((t: any) => Number(t.sold || 0) === 0)
+          .map((t: any) => t.id);
+        let safeDeleteIds: string[] = [];
+        if (candidateDeleteIds.length > 0) {
+          const counts = await Promise.all(
+            candidateDeleteIds.map(async (id: string) => ({ id, count: await this.prisma.ticket.count({ where: { tierId: id } }) }))
+          );
+          safeDeleteIds = counts.filter((c) => c.count === 0).map((c) => c.id);
+        }
 
         await this.prisma.$transaction(async (tx: any) => {
-          // Delete tiers with zero sales that were removed by organizer
-          if (missingZeroSold.length > 0) {
-            await tx.ticketTier.deleteMany({ where: { id: { in: missingZeroSold.map((t: any) => t.id) } } });
+          // Delete tiers that have zero sales and zero tickets
+          if (safeDeleteIds.length > 0) {
+            await tx.ticketTier.deleteMany({ where: { id: { in: safeDeleteIds } } });
           }
           for (const tier of dto.tiers as any[]) {
             if (tier.id) {
