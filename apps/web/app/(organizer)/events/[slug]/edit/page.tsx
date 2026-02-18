@@ -122,6 +122,7 @@ export default function EditEventPage() {
           ...tier,
           __existing: true, // mark tiers loaded from backend as existing
           isFree: Number(tier.price) === 0,
+          sold: Number(tier.sold || 0), // carry sold count to UI so we can allow edits/deletes when zero
           saleEndDate: formatDateForInput(tier.saleEndDate),
         }));
 
@@ -217,7 +218,7 @@ export default function EditEventPage() {
     try {
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
       const sanitizedTiers = data.tiers?.map((tier: any) => ({
-        id: tier.id, // include id so backend can enforce tier update rules
+        id: tier.id || undefined, // ensure empty string is not sent as an id
         name: tier.name,
         description: tier.description,
         price: tier.isFree ? 0 : tier.price,
@@ -711,7 +712,8 @@ export default function EditEventPage() {
                   // We need to check if the tier has a database ID stored in the form data
                   const tierData = watch(`tiers.${index}`);
                   const isExistingTier = tierData?.__existing === true;
-                  const lockedExistingTier = hasSales && isExistingTier && !allowEditAfterSales;
+                  const tierHasSales = Number(tierData?.sold || 0) > 0;
+                  const lockedExistingTier = hasSales && isExistingTier && tierHasSales && !allowEditAfterSales;
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4">
                       <div className="flex justify-between">
@@ -747,7 +749,7 @@ export default function EditEventPage() {
                                     setValue(`tiers.${index}.price`, 0);
                                   }
                                 }}
-                                disabled={hasSales && isExistingTier}
+                                disabled={lockedExistingTier}
                                 className="rounded border-green-500 text-green-600 focus:ring-green-500" 
                               />
                               <Label htmlFor={`free-${index}`} className="text-sm text-green-600 font-medium">Free Ticket</Label>

@@ -32,7 +32,7 @@ interface AuthenticatedRequest {
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  // ==================== HOMEPAGE ENDPOINTS ====================
+  // Homepage endpoints
 
   /**
    * GET /events/carousel
@@ -79,7 +79,7 @@ export class EventsController {
     return this.eventsService.getFeaturedEvents();
   }
 
-  // ==================== STANDARD CRUD ENDPOINTS ====================
+  // Standard CRUD endpoints
 
   /**
    * GET /events

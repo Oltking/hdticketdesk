@@ -14,7 +14,7 @@ export class EventsService {
     private monnifyService: MonnifyService,
   ) {}
 
-  // ==================== HOMEPAGE ENDPOINTS ====================
+  // Homepage endpoints
 
   /**
    * Get carousel events for homepage
@@ -277,7 +277,7 @@ export class EventsService {
     return this.addComputedFields(randomEvents);
   }
 
-  // ==================== STANDARD CRUD ====================
+  // Standard CRUD
 
   async findAll(options: {
     page: number;
@@ -490,9 +490,7 @@ export class EventsService {
         price: tier.price instanceof Decimal ? tier.price.toNumber() : Number(tier.price),
       }));
 
-      // =============================================================================
-      // ORGANIZER EARNINGS CALCULATION
-      // =============================================================================
+      // Organizer earnings calculation (ledger is source of truth)
       // The LEDGER is the source of truth for organizer earnings.
       // Each ledger entry (TICKET_SALE) already contains the correct organizer amount:
       //   - If passFeeTobuyer = true: organizer gets full tierPrice
@@ -744,13 +742,19 @@ export class EventsService {
           .filter((t) => t.id)
           .map((t) => t.id);
 
-        // Prevent removing existing tiers
+        // Prevent removing tiers that already have sales; allow deleting tiers with zero sales
         const missing = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
-        if (missing.length > 0) {
-          throw new ForbiddenException('Cannot remove existing tiers after sales begin.');
+        const missingWithSales = missing.filter((t: any) => Number(t.sold || 0) > 0);
+        const missingZeroSold = missing.filter((t: any) => Number(t.sold || 0) === 0);
+        if (missingWithSales.length > 0) {
+          throw new ForbiddenException('Cannot remove tiers that already have sales.');
         }
 
         await this.prisma.$transaction(async (tx: any) => {
+          // Delete tiers with zero sales that were removed by organizer
+          if (missingZeroSold.length > 0) {
+            await tx.ticketTier.deleteMany({ where: { id: { in: missingZeroSold.map((t: any) => t.id) } } });
+          }
           for (const tier of dto.tiers as any[]) {
             if (tier.id) {
               const existing = existingById.get(tier.id);
@@ -758,19 +762,20 @@ export class EventsService {
                 throw new ForbiddenException('Invalid tier id provided.');
               }
 
-              // If admin override is disabled, disallow price/name/refund changes
               const updateTierData: any = {};
+              const existingPrice = existing.price instanceof Decimal ? existing.price.toNumber() : Number(existing.price);
+              const existingSold = Number(existing.sold || 0);
 
-              if (!adminOverride) {
-                const existingPrice = existing.price instanceof Decimal ? existing.price.toNumber() : Number(existing.price);
-                if (tier.price !== undefined && Number(tier.price) !== Number(existingPrice)) {
-                  throw new ForbiddenException('Cannot change tier price after sales begin.');
-                }
-              } else {
-                // Admin override: allow editing name, price, refund
+              if (existingSold === 0) {
+                // No sales on this tier: allow full edits (name, price, refund)
                 if (tier.name !== undefined) updateTierData.name = tier.name;
                 if (tier.price !== undefined) updateTierData.price = Number(tier.price);
                 if (tier.refundEnabled !== undefined) updateTierData.refundEnabled = !!tier.refundEnabled;
+              } else {
+                // Has sales: disallow price/name/refund changes
+                if (tier.price !== undefined && Number(tier.price) !== Number(existingPrice)) {
+                  throw new ForbiddenException('Cannot change tier price after sales begin.');
+                }
               }
 
               // Capacity and saleEndDate are always allowed to change
@@ -821,8 +826,56 @@ export class EventsService {
         });
 
         return updated;
-      } else { 
-        // No ticket sales or admin override - safe to update/replace tiers
+      } else if (hasTicketSales && adminOverride) {
+        // Admin override ON with sales: allow full tier edits and deletions
+        const existingById = new Map(event.tiers.map((t: any) => [t.id, t]));
+        const providedExistingIds = (dto.tiers as any[]).filter((t) => t.id).map((t) => t.id);
+        const toDelete = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
+        const deletable = toDelete.filter((t: any) => Number(t.sold || 0) === 0);
+        const nonDeletable = toDelete.filter((t: any) => Number(t.sold || 0) > 0);
+
+        await this.prisma.$transaction(async (tx: any) => {
+          // Only delete tiers that have no sales; keep tiers with sales to preserve referential integrity
+          if (deletable.length > 0) {
+            await tx.ticketTier.deleteMany({ where: { id: { in: deletable.map((t: any) => t.id) } } });
+          }
+          // Note: nonDeletable tiers remain; organizer attempted to remove them but they have sales
+
+          // Upsert remaining/provided tiers
+          for (const tier of dto.tiers as any[]) {
+            const baseData: any = {
+              name: tier.name,
+              description: tier.description || null,
+              price: Number(tier.price || 0),
+              capacity: Number(tier.capacity || 0),
+              refundEnabled: !!tier.refundEnabled,
+              saleEndDate: tier.saleEndDate ? new Date(tier.saleEndDate) : null,
+            };
+
+            if (tier.id) {
+              // Update existing tier
+              const exists = existingById.get(tier.id);
+              if (!exists) {
+                throw new NotFoundException('Tier not found for this event');
+              }
+              await tx.ticketTier.update({ where: { id: tier.id }, data: baseData });
+            } else {
+              // Create new tier
+              await tx.ticketTier.create({ data: { ...baseData, eventId: id } });
+            }
+          }
+
+          // Update event core fields
+          await tx.event.update({ where: { id }, data: updateData });
+        });
+
+        const updated = await this.prisma.event.findUnique({
+          where: { id },
+          include: { tiers: true, organizer: { select: { id: true, title: true } } },
+        });
+        return updated;
+      } else if (!hasTicketSales) { 
+        // No ticket sales - safe to update/replace tiers entirely
         // Prepare tiers data with proper date parsing
         const tiersData = dto.tiers.map((tier) => {
           let saleEndDate = null;
@@ -1053,14 +1106,7 @@ export class EventsService {
       (t: { status: string }) => t.status === 'CHECKED_IN',
     ).length;
 
-    // =============================================================================
-    // ORGANIZER EARNINGS FROM LEDGER (SOURCE OF TRUTH)
-    // =============================================================================
-    // The ledger already contains the correct organizer amount for each sale:
-    //   - If passFeeTobuyer = true: organizer gets full tierPrice
-    //   - If passFeeTobuyer = false: organizer gets tierPrice - 5%
-    // We also calculate grossRevenue (what buyers paid) for display purposes.
-    // =============================================================================
+    // Analytics: compute gross revenue and organizer net using the ledger.
     const platformFeePercent = 5;
 
     // Get ledger entries for this event's tickets
@@ -1227,7 +1273,7 @@ export class EventsService {
     return { message: 'Event deleted successfully' };
   }
 
-  // ==================== HELPERS ====================
+  // Helpers
 
   private addComputedFields(events: any[]) {
     return events.map((event) => {
