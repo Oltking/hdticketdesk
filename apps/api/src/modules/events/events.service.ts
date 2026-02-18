@@ -841,15 +841,30 @@ export class EventsService {
         const existingById = new Map(event.tiers.map((t: any) => [t.id, t]));
         const providedExistingIds = (dto.tiers as any[]).filter((t) => t.id).map((t) => t.id);
         const toDelete = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
-        const deletable = toDelete.filter((t: any) => Number(t.sold || 0) === 0);
+        const zeroSold = toDelete.filter((t: any) => Number(t.sold || 0) === 0);
         const nonDeletable = toDelete.filter((t: any) => Number(t.sold || 0) > 0);
 
+        // Further restrict deletions to tiers with NO tickets and NO payments to avoid FK issues
+        let safeDeleteIds: string[] = [];
+        if (zeroSold.length > 0) {
+          const checks = await Promise.all(
+            zeroSold.map(async (t: any) => {
+              const [ticketCount, paymentCount] = await Promise.all([
+                this.prisma.ticket.count({ where: { tierId: t.id } }),
+                this.prisma.payment.count({ where: { tierId: t.id } }),
+              ]);
+              return { id: t.id, ticketCount, paymentCount };
+            })
+          );
+          safeDeleteIds = checks.filter(c => c.ticketCount === 0 && c.paymentCount === 0).map(c => c.id);
+        }
+
         await this.prisma.$transaction(async (tx: any) => {
-          // Only delete tiers that have no sales; keep tiers with sales to preserve referential integrity
-          if (deletable.length > 0) {
-            await tx.ticketTier.deleteMany({ where: { id: { in: deletable.map((t: any) => t.id) } } });
+          // Only delete tiers that have zero sales and zero related records
+          if (safeDeleteIds.length > 0) {
+            await tx.ticketTier.deleteMany({ where: { id: { in: safeDeleteIds } } });
           }
-          // Note: nonDeletable tiers remain; organizer attempted to remove them but they have sales
+          // Note: nonDeletable tiers and those with related records remain
 
           // Upsert remaining/provided tiers
           for (const tier of dto.tiers as any[]) {

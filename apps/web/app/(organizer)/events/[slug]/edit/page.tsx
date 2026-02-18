@@ -217,16 +217,16 @@ export default function EditEventPage() {
   const onSubmit = async (data: any, publish = false) => {
     try {
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
-      const sanitizedTiers = data.tiers?.map((tier: any) => ({
-        id: tier.id || undefined, // ensure empty string is not sent as an id
+      const sanitizedTiers = (data.tiers || []).map((tier: any) => ({
+        // Only send a valid database id (cuid-like), otherwise undefined for new tiers
+        id: typeof tier.id === 'string' && tier.id.length > 10 ? tier.id : undefined,
         name: tier.name,
-        description: tier.description,
-        price: tier.isFree ? 0 : tier.price,
-        capacity: tier.capacity,
-        refundEnabled: tier.refundEnabled,
-        // Convert tier sale end date to ISO string
+        description: tier.description || undefined,
+        price: tier.isFree ? 0 : Number(tier.price || 0),
+        capacity: Number(tier.capacity || 0),
+        refundEnabled: !!tier.refundEnabled,
         saleEndDate: toISOString(tier.saleEndDate),
-      })) || [];
+      }));
 
       // Build payload. If there are sales, only send allowed fields to avoid backend rejection.
       // Convert dates to ISO strings for consistent timezone handling
