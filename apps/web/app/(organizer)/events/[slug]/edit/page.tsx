@@ -218,8 +218,9 @@ export default function EditEventPage() {
     try {
       // Sanitize tiers - strip isFree field (frontend only) and ensure free tickets have price 0
       const sanitizedTiers = (data.tiers || []).map((tier: any) => ({
-        // Only send a valid database id (cuid-like), otherwise undefined for new tiers
-        id: typeof tier.id === 'string' && tier.id.length > 10 ? tier.id : undefined,
+        // Only send valid database IDs - check if it's a proper CUID (starts with 'c', 25 chars)
+        // or if it matches existing tier pattern. Otherwise undefined for new tiers.
+        id: (typeof tier.id === 'string' && tier.id.length >= 20 && !tier.id.startsWith('field-')) ? tier.id : undefined,
         name: tier.name,
         description: tier.description || undefined,
         price: tier.isFree ? 0 : Number(tier.price || 0),

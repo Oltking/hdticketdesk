@@ -739,7 +739,7 @@ export class EventsService {
         const existingById = new Map(event.tiers.map((t: any) => [t.id, t]));
 
         const providedExistingIds = (dto.tiers as any[])
-          .filter((t) => t.id)
+          .filter((t) => t.id && typeof t.id === 'string' && t.id.length > 15)
           .map((t) => t.id);
 
         // Prevent removing tiers that already have sales; allow deleting tiers with zero sales
@@ -839,7 +839,9 @@ export class EventsService {
       } else if (hasTicketSales && adminOverride) {
         // Admin override ON with sales: allow full tier edits and deletions
         const existingById = new Map(event.tiers.map((t: any) => [t.id, t]));
-        const providedExistingIds = (dto.tiers as any[]).filter((t) => t.id).map((t) => t.id);
+        const providedExistingIds = (dto.tiers as any[])
+          .filter((t) => t.id && typeof t.id === 'string' && t.id.length > 15)
+          .map((t) => t.id);
         const toDelete = event.tiers.filter((t: any) => !providedExistingIds.includes(t.id));
         const zeroSold = toDelete.filter((t: any) => Number(t.sold || 0) === 0);
         const nonDeletable = toDelete.filter((t: any) => Number(t.sold || 0) > 0);
