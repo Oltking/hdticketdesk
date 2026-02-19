@@ -245,9 +245,9 @@ export default function AnalyticsPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-base font-bold text-green-600">{formatCurrency(Number(tier.revenue) || 0)}</p>
+                          <p className="text-base font-bold text-green-600">{formatCurrency(Number(tier.organizerNet) || 0)}</p>
                           <p className="text-[10px] text-muted-foreground">
-                            {Number(tier.price) > 0 ? `${formatCurrency(Number(tier.price))} each` : 'Free'}
+                            {tier.sold > 0 ? `${formatCurrency(Number(tier.organizerNet) / tier.sold)} per ticket` : 'No sales'}
                           </p>
                         </div>
                       </div>
