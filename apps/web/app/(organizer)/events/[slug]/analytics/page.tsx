@@ -86,8 +86,8 @@ export default function AnalyticsPage() {
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Button>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
               Event Analytics
             </h1>
             {eventTitle && (
@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Tickets Sold</p>
-                  <p className="text-2xl font-bold">{analytics?.totalSold || 0}</p>
+                  <p className="text-xl font-bold">{analytics?.totalSold || 0}</p>
                 </div>
                 <div className="p-2 rounded-full bg-blue-500/10">
                   <Ticket className="h-4 w-4 text-blue-500" />
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Your Earnings</p>
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(analytics?.organizerNet || 0)}</p>
+                  <p className="text-xl font-bold text-green-600">{formatCurrency(analytics?.organizerNet || 0)}</p>
                   <p className="text-[10px] text-muted-foreground">After {analytics?.platformFeePercent ?? 5}% platform fee</p>
                 </div>
                 <div className="p-2 rounded-full bg-green-500/10">
@@ -152,7 +152,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Checked In</p>
-                  <p className="text-2xl font-bold">{analytics?.checkedIn || 0}</p>
+                  <p className="text-xl font-bold">{analytics?.checkedIn || 0}</p>
                 </div>
                 <div className="p-2 rounded-full bg-purple-500/10">
                   <UserCheck className="h-4 w-4 text-purple-500" />
@@ -169,7 +169,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">Check-in Rate</p>
-                  <p className="text-2xl font-bold">{analytics?.checkInRate || 0}%</p>
+                  <p className="text-xl font-bold">{analytics?.checkInRate || 0}%</p>
                 </div>
                 <div className="p-2 rounded-full bg-orange-500/10">
                   <Percent className="h-4 w-4 text-orange-500" />
@@ -188,12 +188,12 @@ export default function AnalyticsPage() {
 
         {/* Sales by Tier */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4 text-primary" />
               Sales by Tier
             </CardTitle>
-            <CardDescription>Breakdown of ticket sales across different tiers</CardDescription>
+            <CardDescription className="text-xs">Breakdown of ticket sales across tiers</CardDescription>
           </CardHeader>
           <CardContent>
             {!analytics?.tierBreakdown || analytics.tierBreakdown.length === 0 ? (
@@ -218,11 +218,11 @@ export default function AnalyticsPage() {
                   return (
                     <div 
                       key={tier.name} 
-                      className="p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+                      className="p-3 border rounded-lg hover:bg-muted/30 transition-colors"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                             isSoldOut 
                               ? 'bg-red-100 text-red-600 dark:bg-red-900/30' 
                               : 'bg-primary/10 text-primary'
@@ -230,30 +230,30 @@ export default function AnalyticsPage() {
                             {index + 1}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold">{tier.name}</h3>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-medium text-sm">{tier.name}</h3>
                               {isSoldOut && (
                                 <Badge variant="destructive" className="text-xs">Sold Out</Badge>
                               )}
-                              {tier.price === 0 && (
+                              {Number(tier.price) === 0 && (
                                 <Badge variant="secondary" className="text-xs">Free</Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {tier.sold} / {tier.capacity} tickets sold
+                            <p className="text-xs text-muted-foreground">
+                              {tier.sold} / {tier.capacity} sold
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xl font-bold text-green-600">{formatCurrency(tier.revenue)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {tier.price > 0 ? `${formatCurrency(tier.price)} each` : 'Free'}
+                          <p className="text-base font-bold text-green-600">{formatCurrency(Number(tier.revenue) || 0)}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {Number(tier.price) > 0 ? `${formatCurrency(Number(tier.price))} each` : 'Free'}
                           </p>
                         </div>
                       </div>
                       {/* Progress Bar */}
                       <div className="relative">
-                        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full transition-all duration-500 ${
                               isSoldOut 
@@ -278,36 +278,36 @@ export default function AnalyticsPage() {
         </Card>
 
         {/* Quick Actions */}
-        <div className="grid gap-4 md:grid-cols-2 mt-6">
+        <div className="grid gap-3 md:grid-cols-2 mt-5">
           <Link href={`/events/${slug}/scan`}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-purple-500/10">
-                    <QrCode className="h-6 w-6 text-purple-500" />
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-purple-500/10">
+                    <QrCode className="h-4 w-4 text-purple-500" />
                   </div>
                   <div>
-                    <p className="font-semibold">Scan Tickets</p>
-                    <p className="text-sm text-muted-foreground">Check in attendees at your event</p>
+                    <p className="font-medium text-sm">Scan Tickets</p>
+                    <p className="text-xs text-muted-foreground">Check in attendees</p>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </CardContent>
             </Card>
           </Link>
           <Link href={`/events/${slug}/edit`}>
             <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
-              <CardContent className="p-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-full bg-blue-500/10">
-                    <Calendar className="h-6 w-6 text-blue-500" />
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-blue-500/10">
+                    <Calendar className="h-4 w-4 text-blue-500" />
                   </div>
                   <div>
-                    <p className="font-semibold">Edit Event</p>
-                    <p className="text-sm text-muted-foreground">Update event details and settings</p>
+                    <p className="font-medium text-sm">Edit Event</p>
+                    <p className="text-xs text-muted-foreground">Update event details</p>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </CardContent>
             </Card>
           </Link>

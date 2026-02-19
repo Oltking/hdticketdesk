@@ -1226,12 +1226,13 @@ export class EventsService {
 
         return {
           name: tier.name,
-          price: tierPrice,
-          capacity: tier.capacity,
+          price: tierPrice || 0,
+          capacity: tier.capacity || 0,
           sold: tierTickets.length,
-          grossRevenue: tierGrossRevenue,
-          platformFees: tierPlatformFees,
-          organizerNet: tierOrganizerNet,
+          revenue: tierGrossRevenue || 0,
+          grossRevenue: tierGrossRevenue || 0,
+          platformFees: tierPlatformFees || 0,
+          organizerNet: tierOrganizerNet || 0,
         };
       },
     );
