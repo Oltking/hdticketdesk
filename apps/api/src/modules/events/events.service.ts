@@ -1168,13 +1168,21 @@ export class EventsService {
       if (seenPayments.has(paymentKey)) continue;
       seenPayments.add(paymentKey);
 
-      // Gross revenue from payment amount
-      const paymentAmount = t.payment?.amount instanceof Decimal
-        ? t.payment.amount.toNumber()
-        : Number(t.payment?.amount || 0);
+      // Gross revenue: use payment amount, fallback to tier price if payment amount is missing
+      let paymentAmount = 0;
+      if (t.payment?.amount !== undefined && t.payment?.amount !== null) {
+        paymentAmount = t.payment.amount instanceof Decimal
+          ? t.payment.amount.toNumber()
+          : Number(t.payment.amount);
+      } else if (t.tier?.price !== undefined && t.tier?.price !== null) {
+        // Fallback to tier price if payment amount not available
+        paymentAmount = t.tier.price instanceof Decimal
+          ? t.tier.price.toNumber()
+          : Number(t.tier.price);
+      }
       grossRevenue += paymentAmount;
 
-      // Organizer net from ledger (source of truth)
+      // Organizer net from ledger (source of truth), with fallback
       const ledgerEntry = ledgerByTicketId.get(t.id);
       if (ledgerEntry) {
         const leAmount = ledgerEntry.credit instanceof Decimal
@@ -1183,6 +1191,9 @@ export class EventsService {
               ? ledgerEntry.amount.toNumber() 
               : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
         organizerNet += Math.abs(leAmount);
+      } else {
+        // Fallback: if no ledger entry, estimate organizer net (tier price minus 5% fee)
+        organizerNet += paymentAmount * 0.95;
       }
     }
 
@@ -1204,13 +1215,21 @@ export class EventsService {
           if (seenTierPayments.has(paymentKey)) continue;
           seenTierPayments.add(paymentKey);
 
-          // Gross revenue from payment
-          const paymentAmount = t.payment?.amount instanceof Decimal
-            ? t.payment.amount.toNumber()
-            : Number(t.payment?.amount || 0);
+          // Gross revenue: use payment amount, fallback to tier price if payment amount is missing
+          let paymentAmount = 0;
+          if (t.payment?.amount !== undefined && t.payment?.amount !== null) {
+            paymentAmount = t.payment.amount instanceof Decimal
+              ? t.payment.amount.toNumber()
+              : Number(t.payment.amount);
+          } else if (t.tier?.price !== undefined && t.tier?.price !== null) {
+            // Fallback to tier price if payment amount not available
+            paymentAmount = t.tier.price instanceof Decimal
+              ? t.tier.price.toNumber()
+              : Number(t.tier.price);
+          }
           tierGrossRevenue += paymentAmount;
 
-          // Organizer net from ledger
+          // Organizer net from ledger, fallback to calculated value
           const ledgerEntry = ledgerByTicketId.get(t.id);
           if (ledgerEntry) {
             const leAmount = ledgerEntry.credit instanceof Decimal
@@ -1219,6 +1238,9 @@ export class EventsService {
                   ? ledgerEntry.amount.toNumber() 
                   : Number(ledgerEntry.credit || ledgerEntry.amount || 0));
             tierOrganizerNet += Math.abs(leAmount);
+          } else {
+            // Fallback: if no ledger entry, estimate organizer net (tier price minus 5% fee)
+            tierOrganizerNet += paymentAmount * 0.95;
           }
         }
 
