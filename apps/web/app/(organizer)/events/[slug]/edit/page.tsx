@@ -619,7 +619,7 @@ export default function EditEventPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Percent className="h-5 w-5" />
-                  Checkout Pricing
+                  Pass Fee to Buyer
                 </CardTitle>
               </CardHeader>
               <CardContent>
